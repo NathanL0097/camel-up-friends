@@ -80,3 +80,6 @@
 
 /* 好友邀请链接先确认昵称 */
 .entry-card.invite-mode{transform:none;border-top:5px solid var(--orange)}.entry-card.invite-mode:before{content:"收到好友邀请";display:block;margin-bottom:18px;color:var(--orange);font-size:12px;font-weight:900;letter-spacing:2px}.entry-card.invite-mode .join-row{margin-top:16px;display:grid;grid-template-columns:1fr}.entry-card.invite-mode #codeInput{background:#f1e6cc;color:#71583b;font-weight:900;letter-spacing:4px;text-align:center}.entry-card.invite-mode #joinButton{padding:14px 18px;background:var(--teal);color:#fff}.entry-card.invite-mode #joinButton:hover{background:#164844}
+
+/* 6人以上投注伙伴 */
+#track>.actions>.partnership{left:190px;top:405px;width:205px;border-color:#2d756a55;background:#f1fff8ed}.partnership-controls{display:flex;gap:5px}.partnership select{min-width:0;flex:1;padding:5px;border:1px solid #172b2b30;border-radius:5px;background:#fff}.partnership button{border:0;border-radius:5px;padding:6px 9px;background:var(--teal);color:#fff;font-weight:800;cursor:pointer}.partnership small{display:block;margin-top:6px;color:var(--muted);font-size:8px;line-height:1.4}.player-card.partnered{padding-left:8px;border-left:3px solid #2d756a}.player-card.partnered .player-status{color:#2d756a}

@@ -3,7 +3,7 @@ const crypto = require("node:crypto");
 const express = require("express");
 const { createServer } = require("node:http");
 const { Server } = require("socket.io");
-const { createGame, rollDie, takeLegBet, placeTile, predict, publicRoom } = require("./src/game");
+const { createGame, rollDie, takeLegBet, placeTile, enterPartnership, predict, publicRoom } = require("./src/game");
 
 const app = express();
 const server = createServer(app);
@@ -96,6 +96,7 @@ io.on("connection", (socket) => {
   socket.on("game:roll", action((room, id) => rollDie(room, id)));
   socket.on("game:bet", action((room, id, data) => takeLegBet(room, id, data.color)));
   socket.on("game:tile", action((room, id, data) => placeTile(room, id, data.space, data.type)));
+  socket.on("game:partner", action((room, id, data) => enterPartnership(room, id, data.partnerId)));
   socket.on("game:predict", action((room, id, data) => predict(room, id, data.color, data.type)));
 
   socket.on("disconnect", () => {

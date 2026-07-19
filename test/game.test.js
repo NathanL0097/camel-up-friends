@@ -1,9 +1,14 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createGame, getRanking, moveCamel, moveCamelInDirection, chooseCrazyCamel, rollDie, takeLegBet, placeTile, predict, publicRoom } = require("../src/game");
+const { createGame, getRanking, moveCamel, moveCamelInDirection, chooseCrazyCamel, rollDie, takeLegBet, placeTile, enterPartnership, settleLeg, predict, publicRoom } = require("../src/game");
 
 function room() {
   const players = [{ id: "a", name: "甲" }, { id: "b", name: "乙" }];
+  return { players, game: createGame(players, () => 0), hostId: "a" };
+}
+
+function largeRoom(count = 6) {
+  const players = Array.from({ length: count }, (_, index) => ({ id: String.fromCharCode(97 + index), name: `玩家${index + 1}` }));
   return { players, game: createGame(players, () => 0), hostId: "a" };
 }
 
@@ -43,6 +48,35 @@ test("赛道板块不能相邻", () => {
   const r = room(); r.game.stacks = {};
   placeTile(r, "a", 8, "oasis");
   assert.throws(() => placeTile(r, "b", 9, "mirage"), /不能相邻/);
+});
+
+test("结盟行动只在六人以上开放并消耗回合", () => {
+  const fivePlayerRoom = largeRoom(5);
+  assert.throws(() => enterPartnership(fivePlayerRoom, "a", "b"), /仅在 6 人或以上/);
+  const r = largeRoom();
+  enterPartnership(r, "a", "b");
+  assert.deepEqual(r.game.partnerships, [{ players: ["a", "b"] }]);
+  assert.equal(r.game.turn, 1);
+  assert.throws(() => enterPartnership(r, "b", "c"), /已经结盟/);
+});
+
+test("赛段结算时双方复制伙伴最佳正收益并自动解盟", () => {
+  const r = largeRoom();
+  r.players.find((player) => player.id === "a").coins = 4;
+  r.game.partnerships = [{ players: ["a", "b"] }];
+  r.game.legBets = [
+    { playerId: "a", color: "green", value: 5 },
+    { playerId: "b", color: "red", value: 5 },
+    { playerId: "b", color: "blue", value: 3 }
+  ];
+  r.game.pyramidTickets = [{ playerId: "a" }];
+  r.game.stacks = { 8: ["red"], 7: ["blue"], 6: ["green"], 5: ["yellow"], 4: ["purple"], 14: ["black"], 15: ["white"] };
+  Object.entries(r.game.stacks).forEach(([space, stack]) => stack.forEach((color) => { r.game.camels[color].space = Number(space); }));
+  settleLeg(r);
+  assert.equal(r.players.find((player) => player.id === "a").coins, 8);
+  assert.equal(r.players.find((player) => player.id === "b").coins, 10);
+  assert.deepEqual(r.game.partnerships, []);
+  assert.deepEqual(r.game.pyramidTickets, []);
 });
 
 test("公开房间状态不会泄露重连令牌", () => {

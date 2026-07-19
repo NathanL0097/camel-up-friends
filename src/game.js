@@ -39,6 +39,8 @@ function createGame(players, random = Math.random) {
     rollsRemaining: 5,
     bets: Object.fromEntries(COLORS.map((color) => [color, [...BET_VALUES]])),
     legBets: [],
+    pyramidTickets: [],
+    partnerships: [],
     predictions: [],
     tiles: [],
     log: ["比赛开始！第一赛段已经启程。"],
@@ -113,22 +115,45 @@ function advanceTurn(room) {
   room.game.turn = (room.game.turn + 1) % room.players.length;
 }
 
-function settleLeg(room) {
+function legBetReward(bet, first, second) {
+  return bet.color === first ? bet.value : bet.color === second ? 1 : -1;
+}
+
+function settleLeg(room, startNextLeg = true) {
   const game = room.game;
   const endedLeg = game.leg;
   const [first, second] = getRanking(game);
-  for (const bet of game.legBets) {
+  const scoredBets = game.legBets.map((bet) => ({ ...bet, reward: legBetReward(bet, first, second) }));
+  for (const bet of scoredBets) {
     const player = room.players.find((item) => item.id === bet.playerId);
     if (!player) continue;
-    const reward = bet.color === first ? bet.value : bet.color === second ? 1 : -1;
-    player.coins += reward;
+    player.coins += bet.reward;
+  }
+  for (const partnership of game.partnerships) {
+    const [firstPartnerId, secondPartnerId] = partnership.players;
+    for (const [playerId, partnerId] of [[firstPartnerId, secondPartnerId], [secondPartnerId, firstPartnerId]]) {
+      const copiedReward = Math.max(0,
+        ...scoredBets.filter((bet) => bet.playerId === partnerId).map((bet) => bet.reward),
+        ...(game.pyramidTickets || []).filter((ticket) => ticket.playerId === partnerId).map(() => 1)
+      );
+      const player = room.players.find((item) => item.id === playerId);
+      const partner = room.players.find((item) => item.id === partnerId);
+      if (player && copiedReward > 0) {
+        player.coins += copiedReward;
+        game.log.unshift(`${player.name} 通过与 ${partner?.name || "伙伴"} 结盟，复制一张收益牌并获得 ${copiedReward} 金币。`);
+      }
+    }
   }
   game.log.unshift(`第 ${game.leg} 赛段结束：${first} 领先，${second} 第二。`);
-  game.leg += 1;
-  game.dice = shuffle([...COLORS, "gray"], game.random);
-  game.rollsRemaining = 5;
+  if (startNextLeg) {
+    game.leg += 1;
+    game.dice = shuffle([...COLORS, "gray"], game.random);
+    game.rollsRemaining = 5;
+  }
   game.bets = Object.fromEntries(COLORS.map((color) => [color, [...BET_VALUES]]));
   game.legBets = [];
+  game.pyramidTickets = [];
+  game.partnerships = [];
   game.tiles = [];
   const wealth = room.players.map((player) => player.coins);
   return { leg: endedLeg, first, second, wealth: { highest: Math.max(...wealth), lowest: Math.min(...wealth) } };
@@ -168,6 +193,7 @@ function rollDie(room, playerId, random = Math.random) {
   game.rollsRemaining -= 1;
   const player = currentPlayer(room);
   player.coins += 1;
+  game.pyramidTickets.push({ playerId });
   const grayNote = die === "gray" ? `灰骰显示 ${rolledCrazyColor}，${color !== rolledCrazyColor ? `规则改为移动 ${color}` : `移动 ${color}`}` : color;
   game.log.unshift(`${player.name} 掷出 ${grayNote} ${amount} 点，${direction < 0 ? "反向" : "向前"}移动到第 ${result.destination} 格。`);
   if (result.tile) {
@@ -177,7 +203,10 @@ function rollDie(room, playerId, random = Math.random) {
   }
   let legEnd = null;
   const raceFinished = result.destination > FINISH || result.destination < 1;
-  if (raceFinished) finishRace(room);
+  if (raceFinished) {
+    legEnd = settleLeg(room, false);
+    finishRace(room);
+  }
   else {
     advanceTurn(room);
     if (!game.rollsRemaining) legEnd = settleLeg(room);
@@ -228,6 +257,21 @@ function placeTile(room, playerId, space, type) {
   advanceTurn(room);
 }
 
+function enterPartnership(room, playerId, partnerId) {
+  requireTurn(room, playerId);
+  if (room.players.length < 6) throw new Error("结盟行动仅在 6 人或以上游戏中开放");
+  if (playerId === partnerId) throw new Error("不能和自己结盟");
+  const partner = room.players.find((player) => player.id === partnerId);
+  if (!partner) throw new Error("找不到这位结盟伙伴");
+  const alreadyPartnered = room.game.partnerships.some((partnership) => partnership.players.includes(playerId));
+  const targetPartnered = room.game.partnerships.some((partnership) => partnership.players.includes(partnerId));
+  if (alreadyPartnered) throw new Error("你在本赛段已经结盟");
+  if (targetPartnered) throw new Error("这位玩家在本赛段已经结盟");
+  room.game.partnerships.push({ players: [playerId, partnerId] });
+  room.game.log.unshift(`${currentPlayer(room).name} 与 ${partner.name} 建立了本赛段投注伙伴关系。`);
+  advanceTurn(room);
+}
+
 function predict(room, playerId, color, type) {
   if (!room.game || room.game.status !== "playing") throw new Error("比赛尚未开始或已经结束");
   if (!COLORS.includes(color) || !["winner", "loser"].includes(type)) throw new Error("预测无效");
@@ -255,4 +299,4 @@ function publicRoom(room, viewerId = null) {
   return { code: room.code, hostId: room.hostId, players, game };
 }
 
-module.exports = { COLORS, CRAZY_COLORS, BET_VALUES, FINISH, createGame, getRanking, currentPlayer, rollDie, takeLegBet, placeTile, predict, publicRoom, moveCamel, moveCamelInDirection, chooseCrazyCamel };
+module.exports = { COLORS, CRAZY_COLORS, BET_VALUES, FINISH, createGame, getRanking, currentPlayer, rollDie, takeLegBet, placeTile, enterPartnership, settleLeg, predict, publicRoom, moveCamel, moveCamelInDirection, chooseCrazyCamel };

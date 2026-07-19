@@ -39,6 +39,7 @@ $("startButton").onclick = () => socket.emit("game:start");
 $("rollButton").onclick = () => socket.emit("game:roll");
 document.querySelectorAll("[data-tile]").forEach((button) => button.onclick = () => socket.emit("game:tile", { space: $("tileSpace").value, type: button.dataset.tile }));
 document.querySelectorAll("[data-predict]").forEach((button) => button.onclick = () => socket.emit("game:predict", { color: $("predictionColor").value, type: button.dataset.predict }));
+$("partnershipButton").onclick = () => socket.emit("game:partner", { partnerId: $("partnershipPlayer").value });
 $("rulesButton").onclick = () => $("rulesDialog").showModal();
 $("gameRulesButton").onclick = () => $("rulesDialog").showModal();
 $("closeRules").onclick = () => $("rulesDialog").close();
@@ -60,7 +61,7 @@ function renderGame(room) {
   const displayedPlayers = revealWealth ? room.players.slice().sort((a,b) => b.coins-a.coins) : room.players;
   $("gameCode").textContent = room.code; $("legTitle").textContent = game.status === "finished" ? "比赛结束" : `第 ${game.leg} 赛段`;
   $("turnBadge").textContent = game.status === "finished" ? "已完成" : myTurn ? "轮到你行动" : `等待 ${current.name}`;
-  $("playerList").innerHTML = displayedPlayers.map((player, index) => { const isMe = player.id === myId; return `<div class="player-card ${player.id === current?.id && game.status === "playing" ? "active" : ""} ${revealWealth ? "wealth-revealed" : ""}"><div class="player-line"><span>${revealWealth ? `<b class="wealth-rank">#${index + 1}</b>` : ""}${isMe ? "你 · " : ""}${escapeHtml(player.name)}</span><span>${revealWealth || isMe ? `${player.coins} 🪙` : "🔒 保密"}</span></div><div class="player-status">${player.connected ? "在线" : "暂时离线"}${player.id === room.hostId ? " · 房主" : ""}${revealWealth ? " · 最终财富" : isMe ? " · 仅你可见" : " · 财富未公开"}</div></div>`; }).join("");
+  $("playerList").innerHTML = displayedPlayers.map((player, index) => { const isMe = player.id === myId; const partnership = game.partnerships?.find((item) => item.players.includes(player.id)); const partnerId = partnership?.players.find((id) => id !== player.id); const partner = room.players.find((item) => item.id === partnerId); return `<div class="player-card ${player.id === current?.id && game.status === "playing" ? "active" : ""} ${revealWealth ? "wealth-revealed" : ""} ${partner ? "partnered" : ""}"><div class="player-line"><span>${revealWealth ? `<b class="wealth-rank">#${index + 1}</b>` : ""}${isMe ? "你 · " : ""}${escapeHtml(player.name)}</span><span>${revealWealth || isMe ? `${player.coins} 🪙` : "🔒 保密"}</span></div><div class="player-status">${player.connected ? "在线" : "暂时离线"}${player.id === room.hostId ? " · 房主" : ""}${revealWealth ? " · 最终财富" : isMe ? " · 仅你可见" : " · 财富未公开"}${partner ? ` · 🤝 ${escapeHtml(partner.name)}` : ""}</div></div>`; }).join("");
   renderTrack(game, room); $("diceLeft").innerHTML = game.dice.map((color) => `<i class="mini-die ${color}" title="${COLOR_NAMES[color]}">${color === "gray" ? "↶" : ""}</i>`).join("");
   $("gameLog").innerHTML = game.log.slice(0, 30).map((line) => `<div class="log-item">${translateLog(escapeHtml(line))}</div>`).join("");
   $("rollButton").disabled = !myTurn;
@@ -82,6 +83,19 @@ function renderGame(room) {
   $("predictionColor").disabled = !colorsLeft.length || game.status !== "playing";
   document.querySelectorAll("[data-predict]").forEach((button) => button.disabled = game.status !== "playing" || !colorsLeft.length);
   $("predictionCards").innerHTML = mine.length ? mine.map((item) => `<span class="prediction-card ${item.color}"><i class="dot ${item.color}"></i>${COLOR_NAMES[item.color]} · ${item.type === "winner" ? "冠军" : "末名"}</span>`).join("") : `<small>每种颜色卡只能使用一次；还可使用 ${colorsLeft.length} 张</small>`;
+  const partnershipEnabled = room.players.length >= 6 && game.status === "playing";
+  $("partnershipAction").classList.toggle("hidden", !partnershipEnabled);
+  if (partnershipEnabled) {
+    const myPartnership = game.partnerships?.find((item) => item.players.includes(myId));
+    const myPartnerId = myPartnership?.players.find((id) => id !== myId);
+    const myPartner = room.players.find((player) => player.id === myPartnerId);
+    const partneredIds = new Set((game.partnerships || []).flatMap((item) => item.players));
+    const availablePartners = room.players.filter((player) => player.id !== myId && !partneredIds.has(player.id));
+    $("partnershipPlayer").innerHTML = availablePartners.map((player) => `<option value="${player.id}">${escapeHtml(player.name)}</option>`).join("");
+    $("partnershipPlayer").disabled = !myTurn || Boolean(myPartner) || !availablePartners.length;
+    $("partnershipButton").disabled = !myTurn || Boolean(myPartner) || !availablePartners.length;
+    $("partnershipStatus").textContent = myPartner ? `本赛段伙伴：${myPartner.name}` : availablePartners.length ? "结盟消耗本回合行动；对方不能拒绝" : "当前没有可结盟的玩家";
+  }
   if (game.status === "finished") { const best = room.players.slice().sort((a,b) => b.coins-a.coins)[0]; $("finishBanner").classList.remove("hidden"); $("finishBanner").innerHTML = `${COLOR_NAMES[game.winner]}率先冲线 · <strong>${escapeHtml(best.name)}</strong> 以 ${best.coins} 金币赢得本局！${room.hostId === myId ? `<button id="restartButton" class="restart-button">再来一局 ↻</button>` : `<small>等待房主开启下一局</small>`}`; $("restartButton")?.addEventListener("click", () => socket.emit("game:restart")); }
   else $("finishBanner").classList.add("hidden");
 }
