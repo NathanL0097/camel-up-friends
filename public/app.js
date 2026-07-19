@@ -191,7 +191,7 @@ function showLegWinner(result) {
   feedback.querySelector(".roll-copy").innerHTML = `<strong>第 ${result.leg} 赛段结束 · ${COLOR_NAMES[result.first]} 领跑</strong><small class="wealth-announcement"><span>财富榜首 <b>${result.wealth.highest}</b> 金币</span><i></i><span>财富榜尾 <b>${result.wealth.lowest}</b> 金币</span></small><em class="anonymous-note">身份保密 · 只公布财富区间</em>`;
   feedback.className = "roll-feedback leg-result showing";
   winner?.classList.add("leg-winner");
-  feedbackTimer = setTimeout(() => { feedback.classList.remove("showing"); winner?.classList.remove("leg-winner"); }, 2800);
+  feedbackTimer = setTimeout(() => { feedback.classList.remove("showing"); winner?.classList.remove("leg-winner"); }, 4500);
 }
 
 socket.on("room:update", (room) => {
