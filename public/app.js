@@ -1,7 +1,9 @@
 const socket = io();
 const $ = (id) => document.getElementById(id);
 const COLORS = ["red", "blue", "green", "yellow", "purple"];
-const COLOR_NAMES = { red: "红驼", blue: "蓝驼", green: "绿驼", yellow: "黄驼", purple: "紫驼" };
+const ALL_CAMELS = [...COLORS, "black", "white"];
+const BET_VALUES = [5, 3, 3, 2, 1];
+const COLOR_NAMES = { red: "红驼", blue: "蓝驼", green: "绿驼", yellow: "黄驼", purple: "紫驼", black: "黑色疯狂骆驼", white: "白色疯狂骆驼", gray: "疯狂骆驼灰骰" };
 let identity = JSON.parse(localStorage.getItem("camelIdentity") || "null");
 let myId = null;
 let state = null;
@@ -40,10 +42,17 @@ function renderGame(room) {
   $("gameCode").textContent = room.code; $("legTitle").textContent = game.status === "finished" ? "比赛结束" : `第 ${game.leg} 赛段`;
   $("turnBadge").textContent = game.status === "finished" ? "已完成" : myTurn ? "轮到你行动" : `等待 ${current.name}`;
   $("playerList").innerHTML = room.players.slice().sort((a,b) => b.coins-a.coins).map((player) => `<div class="player-card ${player.id === current?.id && game.status === "playing" ? "active" : ""}"><div class="player-line"><span>${player.id === myId ? "你 · " : ""}${escapeHtml(player.name)}</span><span>${player.coins} 🪙</span></div><div class="player-status">${player.connected ? "在线" : "暂时离线"}${player.id === room.hostId ? " · 房主" : ""}</div></div>`).join("");
-  renderTrack(game, room); $("diceLeft").innerHTML = game.dice.map((color) => `<i class="mini-die ${color}" title="${COLOR_NAMES[color]}"></i>`).join("");
+  renderTrack(game, room); $("diceLeft").innerHTML = game.dice.map((color) => `<i class="mini-die ${color}" title="${COLOR_NAMES[color]}">${color === "gray" ? "↶" : ""}</i>`).join("");
   $("gameLog").innerHTML = game.log.slice(0, 30).map((line) => `<div class="log-item">${translateLog(escapeHtml(line))}</div>`).join("");
   $("rollButton").disabled = !myTurn;
-  $("betButtons").innerHTML = COLORS.map((color) => `<button class="color-button ${color}" data-color="${color}" title="投注${COLOR_NAMES[color]}，当前 ${game.bets[color]?.[0] || 0} 金币" ${!myTurn || !game.bets[color]?.length ? "disabled" : ""}><span>${COLOR_NAMES[color]}</span></button>`).join("");
+  $("betButtons").innerHTML = COLORS.map((color) => {
+    const remaining = game.bets[color]?.length || 0;
+    const taken = BET_VALUES.length - remaining;
+    return `<button class="bet-stack ${color}" data-color="${color}" aria-label="投注${COLOR_NAMES[color]}，下一张 ${game.bets[color]?.[0] || 0} 金币" ${!myTurn || !remaining ? "disabled" : ""}>
+      <span class="bet-camel"><i class="dot ${color}"></i>${COLOR_NAMES[color]}</span>
+      <span class="bet-values">${BET_VALUES.map((value, index) => `<b class="${index < taken ? "taken" : ""}">${index < taken ? "×" : value}</b>`).join("")}</span>
+    </button>`;
+  }).join("");
   document.querySelectorAll("[data-color]").forEach((button) => button.onclick = () => socket.emit("game:bet", { color: button.dataset.color }));
   document.querySelectorAll("[data-tile]").forEach((button) => button.disabled = !myTurn);
   const mine = game.predictions.filter((item) => item.playerId === myId).map((item) => item.type);
@@ -54,13 +63,16 @@ function renderGame(room) {
 }
 
 function renderTrack(game, room) {
-  const tiles = Object.fromEntries(game.tiles.map((tile) => [tile.space, tile])); let html = "";
+  const tiles = Object.fromEntries(game.tiles.map((tile) => [tile.space, tile]));
+  let html = `<div class="desert-center"><div class="pyramid">△</div><strong>撒哈拉竞速场</strong><small>疯狂骆驼会逆向奔跑</small></div><span class="palm palm-a">🌴</span><span class="palm palm-b">🌴</span><span class="tent">⛺</span><span class="cactus">🌵</span>`;
   for (let space = 1; space <= 16; space += 1) {
     const stack = game.stacks[space] || []; const tile = tiles[space]; const owner = room.players.find((player) => player.id === tile?.playerId);
-    html += `<div class="space ${space === 16 ? "finish" : ""}"><span class="space-number">${space}${space === 16 ? " · 终点" : ""}</span>${tile ? `<span class="track-tile" title="${owner?.name || ""}">${tile.type === "oasis" ? "🌴" : "🌀"}</span>` : ""}<div class="camel-stack">${stack.map((color) => `<div class="camel ${color}" title="${COLOR_NAMES[color]}"></div>`).join("")}</div></div>`;
+    const angle = (130 + (space - 1) * 22.5) * Math.PI / 180;
+    const left = 50 + 43 * Math.cos(angle); const top = 50 + 40 * Math.sin(angle);
+    html += `<div class="space ${space === 16 ? "finish" : ""}" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%"><span class="space-number">${space}${space === 16 ? " · 终点" : ""}</span>${tile ? `<span class="track-tile" title="${owner?.name || ""}">${tile.type === "oasis" ? "🌴" : "🌀"}</span>` : ""}<div class="camel-stack">${stack.map((color) => `<div class="camel ${color} ${["black","white"].includes(color) ? "crazy" : ""}" title="${COLOR_NAMES[color]}">${["black","white"].includes(color) ? "↶" : ""}</div>`).join("")}</div></div>`;
   } $("track").innerHTML = html;
 }
-function translateLog(line) { return COLORS.reduce((text, color) => text.replaceAll(color, COLOR_NAMES[color]), line); }
+function translateLog(line) { return ALL_CAMELS.reduce((text, color) => text.replaceAll(color, COLOR_NAMES[color]), line); }
 
 socket.on("room:update", (room) => { state = room; if (!myId && identity?.code === room.code) myId = room.players.find((p) => p.token === identity.playerToken)?.id; room.game ? renderGame(room) : renderLobby(room); });
 socket.on("game:error", (message) => toast(message));

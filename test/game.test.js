@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createGame, getRanking, moveCamel, rollDie, takeLegBet, placeTile, publicRoom } = require("../src/game");
+const { createGame, getRanking, moveCamel, moveCamelInDirection, chooseCrazyCamel, rollDie, takeLegBet, placeTile, publicRoom } = require("../src/game");
 
 function room() {
   const players = [{ id: "a", name: "甲" }, { id: "b", name: "乙" }];
@@ -33,7 +33,7 @@ test("行动严格按回合并发放掷骰奖励", () => {
 
 test("赛段投注会消耗最高价值牌", () => {
   const r = room(); takeLegBet(r, "a", "red");
-  assert.equal(r.game.legBets[0].value, 5); assert.deepEqual(r.game.bets.red, [3, 2]);
+  assert.equal(r.game.legBets[0].value, 5); assert.deepEqual(r.game.bets.red, [3, 3, 2, 1]);
 });
 
 test("赛道板块不能相邻", () => {
@@ -45,4 +45,28 @@ test("赛道板块不能相邻", () => {
 test("公开房间状态不会泄露重连令牌", () => {
   const r = room(); r.players[0].token = "secret";
   assert.equal(publicRoom(r).players[0].token, undefined);
+});
+
+test("疯狂骆驼逆向移动并驮走上方比赛骆驼", () => {
+  const game = createGame([], () => 0);
+  game.stacks = { 12: ["white", "red"] };
+  game.camels.white.space = game.camels.red.space = 12;
+  moveCamelInDirection(game, "white", 2, -1);
+  assert.deepEqual(game.stacks[10], ["white", "red"]);
+  assert.equal(game.camels.red.space, 10);
+});
+
+test("只有一匹疯狂骆驼背着比赛骆驼时必须移动它", () => {
+  const game = createGame([], () => 0);
+  game.stacks = { 12: ["white", "green"], 14: ["black"] };
+  game.camels.white.space = game.camels.green.space = 12;
+  game.camels.black.space = 14;
+  assert.equal(chooseCrazyCamel(game, "black"), "white");
+});
+
+test("黑白疯狂骆驼直接叠放时移动上面一匹", () => {
+  const game = createGame([], () => 0);
+  game.stacks = { 14: ["black", "white"] };
+  game.camels.black.space = game.camels.white.space = 14;
+  assert.equal(chooseCrazyCamel(game, "black"), "white");
 });

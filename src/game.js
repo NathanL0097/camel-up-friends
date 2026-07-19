@@ -1,5 +1,8 @@
 const COLORS = ["red", "blue", "green", "yellow", "purple"];
+const CRAZY_COLORS = ["black", "white"];
+const ALL_CAMELS = [...COLORS, ...CRAZY_COLORS];
 const FINISH = 16;
+const BET_VALUES = [5, 3, 3, 2, 1];
 
 function shuffle(items, random = Math.random) {
   const result = [...items];
@@ -11,10 +14,16 @@ function shuffle(items, random = Math.random) {
 }
 
 function createGame(players, random = Math.random) {
-  const camels = Object.fromEntries(COLORS.map((color) => [color, { space: 0 }]));
+  const camels = Object.fromEntries(ALL_CAMELS.map((color) => [color, { space: 0, crazy: CRAZY_COLORS.includes(color) }]));
   const stacks = {};
   for (const color of shuffle(COLORS, random)) {
     const space = 1 + Math.floor(random() * 3);
+    camels[color].space = space;
+    stacks[space] ||= [];
+    stacks[space].push(color);
+  }
+  for (const color of shuffle(CRAZY_COLORS, random)) {
+    const space = FINISH - Math.floor(random() * 3);
     camels[color].space = space;
     stacks[space] ||= [];
     stacks[space].push(color);
@@ -26,8 +35,9 @@ function createGame(players, random = Math.random) {
     finish: FINISH,
     camels,
     stacks,
-    dice: shuffle(COLORS, random),
-    bets: Object.fromEntries(COLORS.map((color) => [color, [5, 3, 2]])),
+    dice: shuffle([...COLORS, "gray"], random),
+    rollsRemaining: 5,
+    bets: Object.fromEntries(COLORS.map((color) => [color, [...BET_VALUES]])),
     legBets: [],
     predictions: [],
     tiles: [],
@@ -61,20 +71,40 @@ function requireTurn(room, playerId) {
 }
 
 function moveCamel(game, color, amount) {
+  return moveCamelInDirection(game, color, amount, 1);
+}
+
+function moveCamelInDirection(game, color, amount, direction) {
   const from = game.camels[color].space;
   const source = game.stacks[from];
   const index = source.indexOf(color);
   let moving = source.splice(index);
   if (!source.length) delete game.stacks[from];
 
-  let destination = from + amount;
+  let destination = from + amount * direction;
   const tile = game.tiles.find((item) => item.space === destination);
-  if (tile) destination += tile.type === "oasis" ? 1 : -1;
+  if (tile) destination += (tile.type === "oasis" ? 1 : -1) * direction;
   game.stacks[destination] ||= [];
   if (tile?.type === "mirage") game.stacks[destination] = [...moving, ...game.stacks[destination]];
   else game.stacks[destination].push(...moving);
   moving.forEach((camel) => { game.camels[camel].space = destination; });
   return { from, destination, moving, tile };
+}
+
+function chooseCrazyCamel(game, rolledColor) {
+  const carrying = CRAZY_COLORS.filter((color) => {
+    const stack = game.stacks[game.camels[color].space] || [];
+    return stack.slice(stack.indexOf(color) + 1).some((camel) => COLORS.includes(camel));
+  });
+  if (carrying.length === 1) return carrying[0];
+
+  if (game.camels.black.space === game.camels.white.space) {
+    const stack = game.stacks[game.camels.black.space] || [];
+    const blackIndex = stack.indexOf("black");
+    const whiteIndex = stack.indexOf("white");
+    if (Math.abs(blackIndex - whiteIndex) === 1) return blackIndex > whiteIndex ? "black" : "white";
+  }
+  return rolledColor;
 }
 
 function advanceTurn(room) {
@@ -92,8 +122,9 @@ function settleLeg(room) {
   }
   game.log.unshift(`第 ${game.leg} 赛段结束：${first} 领先，${second} 第二。`);
   game.leg += 1;
-  game.dice = shuffle(COLORS, game.random);
-  game.bets = Object.fromEntries(COLORS.map((color) => [color, [5, 3, 2]]));
+  game.dice = shuffle([...COLORS, "gray"], game.random);
+  game.rollsRemaining = 5;
+  game.bets = Object.fromEntries(COLORS.map((color) => [color, [...BET_VALUES]]));
   game.legBets = [];
   game.tiles = [];
 }
@@ -116,24 +147,29 @@ function finishRace(room) {
 function rollDie(room, playerId, random = Math.random) {
   requireTurn(room, playerId);
   const game = room.game;
-  if (!game.dice.length) throw new Error("本赛段骰子已经用完");
-  const color = game.dice.pop();
+  if (!game.rollsRemaining) throw new Error("本赛段骰子已经用完");
+  const die = game.dice.pop();
   const amount = 1 + Math.floor(random() * 3);
-  const result = moveCamel(game, color, amount);
+  const rolledCrazyColor = die === "gray" ? (random() < 0.5 ? "white" : "black") : null;
+  const color = die === "gray" ? chooseCrazyCamel(game, rolledCrazyColor) : die;
+  const direction = die === "gray" ? -1 : 1;
+  const result = moveCamelInDirection(game, color, amount, direction);
+  game.rollsRemaining -= 1;
   const player = currentPlayer(room);
   player.coins += 1;
-  game.log.unshift(`${player.name} 掷出 ${color} ${amount} 点，移动到第 ${result.destination} 格。`);
+  const grayNote = die === "gray" ? `灰骰显示 ${rolledCrazyColor}，${color !== rolledCrazyColor ? `规则改为移动 ${color}` : `移动 ${color}`}` : color;
+  game.log.unshift(`${player.name} 掷出 ${grayNote} ${amount} 点，${direction < 0 ? "反向" : "向前"}移动到第 ${result.destination} 格。`);
   if (result.tile) {
     const owner = room.players.find((item) => item.id === result.tile.playerId);
     if (owner) owner.coins += 1;
     game.log.unshift(`触发${result.tile.type === "oasis" ? "绿洲 +1" : "海市蜃楼 -1"}，${owner?.name || "玩家"} 获得 1 金币。`);
   }
-  if (result.destination > FINISH) finishRace(room);
+  if (result.destination > FINISH || result.destination < 1) finishRace(room);
   else {
     advanceTurn(room);
-    if (!game.dice.length) settleLeg(room);
+    if (!game.rollsRemaining) settleLeg(room);
   }
-  return { color, amount };
+  return { die, color, rolledCrazyColor, amount };
 }
 
 function takeLegBet(room, playerId, color) {
@@ -175,4 +211,4 @@ function publicRoom(room) {
   return { code: room.code, hostId: room.hostId, players, game };
 }
 
-module.exports = { COLORS, FINISH, createGame, getRanking, currentPlayer, rollDie, takeLegBet, placeTile, predict, publicRoom, moveCamel };
+module.exports = { COLORS, CRAZY_COLORS, BET_VALUES, FINISH, createGame, getRanking, currentPlayer, rollDie, takeLegBet, placeTile, predict, publicRoom, moveCamel, moveCamelInDirection, chooseCrazyCamel };
