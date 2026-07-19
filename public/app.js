@@ -52,7 +52,7 @@ async function loadGameCatalog() {
     const response = await fetch("/api/games");
     const { games } = await response.json();
     games.forEach((game) => gameCatalog.set(game.id, game));
-    $("gameCatalog").innerHTML = games.map((game) => `<button class="game-choice ${game.id === selectedGameId ? "selected" : ""}" data-game-id="${game.id}"><span>${game.id === "camel-race" ? "🐪" : "🎲"}</span><b>${escapeHtml(game.title)}</b><small>${game.minPlayers}–${game.maxPlayers}人 · ${game.status === "prototype" ? "技术演示" : "已开放"}</small></button>`).join("");
+    $("gameCatalog").innerHTML = games.map((game) => `<button class="game-choice ${game.id === selectedGameId ? "selected" : ""}" data-game-id="${game.id}"><span>${escapeHtml(game.icon || (game.id === "camel-race" ? "🐪" : "🎲"))}</span><b>${escapeHtml(game.title)}</b><small>${game.minPlayers}–${game.maxPlayers}人 · ${game.status === "prototype" ? "技术演示" : "已开放"}</small></button>`).join("");
     document.querySelectorAll("[data-game-id]").forEach((button) => button.onclick = () => {
       selectedGameId = button.dataset.gameId;
       document.querySelectorAll("[data-game-id]").forEach((choice) => choice.classList.toggle("selected", choice === button));

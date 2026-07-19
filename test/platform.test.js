@@ -23,6 +23,8 @@ test("平台游戏注册表公开元数据但不公开服务端处理器", () =>
   assert.equal(catalog[0].title, "沙漠驼队竞速");
   assert.equal(catalog[0].clientScript, "/games/camel-race.js");
   assert.equal(catalog[0].actions, undefined);
+  assert.equal(catalog[1].title, "开盘！");
+  assert.equal(catalog[1].clientScript, "/games/market-opening.js");
   assert.throws(() => getGame("unknown-game"), /暂未开放/);
 });
 
