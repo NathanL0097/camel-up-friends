@@ -7,7 +7,6 @@
     let predictionChoice = "up";
     let tradeChoice = "hold";
     let latestRoom = null;
-    let feedbackTimer = null;
     const emitAction = (action, payload = {}) => socket.emit("game:action", { action, payload });
 
     $("gameMount").innerHTML = `
@@ -25,7 +24,7 @@
             <section class="market-chart-card">
               <div class="ticker-heading"><div><span>FRIENDS MARKET</span><small>好友综合指数</small></div><div id="marketQuote" class="market-quote"></div></div>
               <div class="market-chart-wrap"><svg id="marketChart" viewBox="0 0 800 320" preserveAspectRatio="none"></svg><div id="marketOpeningFeedback" class="market-opening-feedback"></div></div>
-              <div class="market-stats"><span>主牌已公开 <b id="revealedCount">0</b> 张</span><span>开局秘密移除 <b>6</b> 张</span><span>本局共 <b>8</b> 轮</span></div>
+              <div class="market-stats"><span>主牌已公开 <b id="revealedCount">0</b> 张</span><span>开局秘密移除 <b>6</b> 张</span><span>本局共 <b>15</b> 轮</span></div>
             </section>
             <section id="marketDecision" class="market-decision-card paper">
               <div id="skillPanel" class="skill-panel"></div>
@@ -42,7 +41,7 @@
         </div>
       </div>`;
 
-    $("rulesContent").innerHTML = `<div class="eyebrow">原创好友房原型 · 第三版</div><h2>《开盘！》规则速查</h2><ol><li><strong>选角：</strong>开局自动掷骰，按点数从高到低依次选择10位商业奇才。主动技能整局只能使用一次，而且必须在本轮买卖与预测锁定前发动。</li><li><strong>目标：</strong>8轮后以“现金＋最终股价×持股＋预测金币×50＋角色加成”计算最终财富。长线投资家终局每持有1股额外获得8资金。</li><li><strong>预测：</strong>可选择不预测，也可投入1–5金币猜上涨、下跌或不变。猜中涨跌净赚等额金币；猜中不变净赚2倍；猜错损失下注，实际横盘而猜涨跌只扣1枚。</li><li><strong>交易：</strong>按开盘前价格秘密买卖，不限制持股总数，但不能透支或做空。所有人完成后才统一公开买卖量与最新持股。</li><li><strong>趣味事件：</strong>每轮都有一条突发新闻，与主牌同时揭示并提供−10、0或+10影响。预言家可整局一次提前私下查看当轮新闻及数值。</li><li><strong>玩家效果牌：</strong>每轮抽2选1盖下，下一轮匿名公开。数值效果合计最多影响±20；稀有“交易所停摆”会取消本轮交易，价格不动，所有已下注预测都亏损。</li><li><strong>上市事件：</strong>角色选择完成后公开，只在第一轮额外提供−10、0或+10影响。</li><li><strong>结算：</strong>每轮中央会显示约5秒的全员持仓与本轮变动；右侧记录保留趣味事件、玩家效果牌和主牌。</li></ol><p class="rules-note">停牌时选择“不预测”的玩家不会损失金币；被取消的股票交易不会扣除资金或改变持股。</p>`;
+    $("rulesContent").innerHTML = `<div class="eyebrow">原创好友房原型 · 第四版</div><h2>《开盘！》规则速查</h2><ol><li><strong>选角：</strong>开局自动掷骰，按点数从高到低依次选择10位商业奇才。主动技能整局只能使用一次，而且必须在本轮买卖与预测锁定前发动。</li><li><strong>目标：</strong>15轮后以“现金＋最终股价×持股＋预测金币×50＋角色加成”计算最终财富。长线投资家终局每持有1股额外获得8资金。</li><li><strong>预测：</strong>可选择不预测，也可投入1–5金币猜上涨、下跌或不变。猜中涨跌净赚等额金币；猜中不变净赚2倍；猜错损失下注，实际横盘而猜涨跌只扣1枚。</li><li><strong>交易：</strong>按开盘前价格秘密买卖，不限制持股总数，但不能透支或做空。所有人完成后才统一公开买卖量与最新持股。</li><li><strong>趣味事件：</strong>每轮都有一条突发新闻，与主牌同时揭示并提供−10、0或+10影响。预言家可整局一次提前私下查看当轮主牌和趣味事件，但看不到效果牌或最终结果。</li><li><strong>玩家效果牌：</strong>每轮抽2选1盖下，下一轮匿名公开。数值效果合计最多影响±20；极稀有“交易所停摆”会取消本轮交易，价格不动，所有已下注预测都亏损。</li><li><strong>上市事件：</strong>角色选择完成后公开，只在第一轮额外提供−10、0或+10影响。</li><li><strong>结算：</strong>每轮中央显示全员持仓与本轮变动，报告会一直保留，由每位玩家在自己的页面上手动收起；右侧记录保留趣味事件、玩家效果牌和主牌。</li></ol><p class="rules-note">停牌时选择“不预测”的玩家不会损失金币；被取消的股票交易不会扣除资金或改变持股。</p>`;
 
     $("marketRulesButton").onclick = () => $("rulesDialog").showModal();
     $("marketCopyButton").onclick = copyInvite;
@@ -74,7 +73,7 @@
 
     function formatSigned(value) { return `${value > 0 ? "+" : ""}${value}`; }
 
-    function chartMarkup(prices) {
+    function chartMarkup(prices, totalRounds) {
       const width = 800, height = 320, padX = 34, padY = 34;
       const low = Math.min(...prices, 20);
       const high = Math.max(...prices, 80);
@@ -82,7 +81,7 @@
       const minY = Math.max(0, low - range * 0.18);
       const maxY = high + range * 0.18;
       const points = prices.map((price, index) => ({
-        x: prices.length === 1 ? padX : padX + index * (width - padX * 2) / 8,
+        x: prices.length === 1 ? padX : padX + index * (width - padX * 2) / Math.max(totalRounds, prices.length - 1),
         y: height - padY - (price - minY) / (maxY - minY) * (height - padY * 2),
         price
       }));
@@ -107,18 +106,17 @@
     function showOpening(event, players) {
       const feedback = $("marketOpeningFeedback");
       if (!feedback || !event) return;
-      clearTimeout(feedbackTimer);
       const direction = event.halted ? "halt" : event.change > 0 ? "up" : event.change < 0 ? "down" : "flat";
       const playerById = Object.fromEntries(players.map((player) => [player.id, player]));
       const rows = event.orders.map((order) => {
         const change = order.cancelled || order.trade === "hold" ? 0 : order.trade === "buy" ? order.shares : -order.shares;
         return `<tr><td>${escapeHtml(playerById[order.playerId]?.name || "玩家")}</td><td><b>${order.holding}</b> 股</td><td class="${change > 0 ? "up" : change < 0 ? "down" : "flat"}">${order.cancelled ? "交易取消" : change ? `${change > 0 ? "+" : ""}${change} 股` : "0 股"}</td></tr>`;
       }).join("");
-      feedback.innerHTML = `<div class="opening-summary"><span class="opening-kicker">ROUND ${event.round} · ${event.halted ? "MARKET HALT" : "OPEN"}</span><strong>${event.priceBefore} <i>→</i> ${event.priceAfter}</strong><b>${event.halted ? "⏸ 交易所停摆" : `${direction === "up" ? "▲" : direction === "down" ? "▼" : "●"} ${formatSigned(event.change)}`}</b><small>主牌 ${formatSigned(event.main)} · 玩家效果 ${formatSigned(event.playerEffect)}${event.openingImpact ? ` · 上市事件 ${formatSigned(event.openingImpact)}` : ""}</small></div><div class="round-event-reveal"><span>${event.roundEvent.icon}</span><div><small>本轮趣味事件 · ${formatSigned(event.roundEvent.impact)}</small><strong>${escapeHtml(event.roundEvent.title)}</strong></div></div><div class="holdings-settlement"><div><strong>全员持仓结算</strong><small>持股总数与本轮实际变动</small></div><table><thead><tr><th>玩家</th><th>结算后持仓</th><th>本轮变动</th></tr></thead><tbody>${rows}</tbody></table></div>${event.halted ? `<em>本轮交易取消 · 所有已下注预测亏损</em>` : ""}`;
+      feedback.innerHTML = `<button class="settlement-close" type="button" aria-label="收起结算报告">收起报告 ×</button><div class="opening-summary"><span class="opening-kicker">ROUND ${event.round} · ${event.halted ? "MARKET HALT" : "OPEN"}</span><strong>${event.priceBefore} <i>→</i> ${event.priceAfter}</strong><b>${event.halted ? "⏸ 交易所停摆" : `${direction === "up" ? "▲" : direction === "down" ? "▼" : "●"} ${formatSigned(event.change)}`}</b><small>主牌 ${formatSigned(event.main)} · 玩家效果 ${formatSigned(event.playerEffect)}${event.openingImpact ? ` · 上市事件 ${formatSigned(event.openingImpact)}` : ""}</small></div><div class="round-event-reveal"><span>${event.roundEvent.icon}</span><div><small>本轮趣味事件 · ${formatSigned(event.roundEvent.impact)}</small><strong>${escapeHtml(event.roundEvent.title)}</strong></div></div><div class="holdings-settlement"><div><strong>全员持仓结算</strong><small>持股总数与本轮实际变动</small></div><table><thead><tr><th>玩家</th><th>结算后持仓</th><th>本轮变动</th></tr></thead><tbody>${rows}</tbody></table></div>${event.halted ? `<em>本轮交易取消 · 所有已下注预测亏损</em>` : ""}`;
       feedback.className = `market-opening-feedback ${direction}`;
       void feedback.offsetWidth;
       feedback.classList.add("showing");
-      feedbackTimer = setTimeout(() => feedback.classList.remove("showing"), 5200);
+      feedback.querySelector(".settlement-close").onclick = () => feedback.classList.remove("showing");
     }
 
     function renderDraft(room) {
@@ -160,7 +158,7 @@
       const others = room.players.filter((player) => player.id !== getMyId());
       let controls = `<button id="activateSkill" ${locked ? "disabled" : ""}>发动一次性技能</button>`;
       if (character.id === "cleaner") controls = `<select id="skillTarget">${others.map((player) => `<option value="${player.id}">${escapeHtml(player.name)}</option>`).join("")}</select><button id="activateSkill" ${locked || game.round === 1 ? "disabled" : ""}>使其盖牌失效</button>`;
-      if (character.id === "prophet") controls = `<button id="activateSkill" ${locked ? "disabled" : ""}>查看本轮趣味事件</button>`;
+      if (character.id === "prophet") controls = `<button id="activateSkill" ${locked ? "disabled" : ""}>查看主牌与趣味事件</button>`;
       panel.innerHTML = `<div class="skill-avatar">${character.avatar}</div><div class="skill-copy"><small>你的角色 · 整局限一次</small><strong>${escapeHtml(character.name)}</strong><p>${escapeHtml(character.description)}</p>${character.id === "card-master" && me.secretRoleCard ? `<span class="secret-role-card">私藏：${me.secretRoleCard.icon} ${escapeHtml(me.secretRoleCard.title)}（${formatSigned(me.secretRoleCard.impact)}）</span>` : ""}</div><div class="skill-controls">${controls}${character.id === "cleaner" && game.round === 1 ? `<small>第二轮起可发动</small>` : ""}</div>`;
       $("activateSkill")?.addEventListener("click", () => emitAction("skill", { targetId: $("skillTarget")?.value, direction: $("skillDirection")?.value }));
     }
@@ -171,7 +169,7 @@
       $("marketPlayers").innerHTML = players.map((player) => {
         const mine = player.id === getMyId();
         const waiting = room.game.waitingFor.includes(player.id);
-        return `<div class="market-player ${mine ? "mine" : ""} ${player.ready && !waiting ? "ready" : ""}"><div class="market-player-name"><span>${finished ? `<b>#${player.rank}</b>` : player.connected ? "●" : "○"} ${mine ? "你 · " : ""}${escapeHtml(player.name)}</span><em>${player.shares} 股</em></div>${player.character ? `<div class="player-character"><i>${player.character.avatar}</i><span>${escapeHtml(player.character.name)}</span><small>${player.character.type === "passive" ? "被动" : player.character.skillUsed ? "技能已用" : "技能可用"}</small></div>` : `<div class="player-character pending">等待选角</div>`}${mine || finished ? `<div class="private-wallet"><span>${player.cash} 资金</span><span>${player.predictionCoins} 🪙</span></div>` : `<div class="private-wallet"><span>${player.ready ? player.effectReady || room.game.round === 8 ? "决定已锁定" : "正在选择消息" : "思考中…"}</span><span>资金 🔒</span></div>`}${finished ? `<div class="final-player-wealth">最终财富 <strong>${player.finalWealth}</strong>${player.characterBonus ? `<small>含角色加成 +${player.characterBonus}</small>` : ""}</div>` : ""}</div>`;
+        return `<div class="market-player ${mine ? "mine" : ""} ${player.ready && !waiting ? "ready" : ""}"><div class="market-player-name"><span>${finished ? `<b>#${player.rank}</b>` : player.connected ? "●" : "○"} ${mine ? "你 · " : ""}${escapeHtml(player.name)}</span><em>${player.shares} 股</em></div>${player.character ? `<div class="player-character"><i>${player.character.avatar}</i><span>${escapeHtml(player.character.name)}</span><small>${player.character.type === "passive" ? "被动" : player.character.skillUsed ? "技能已用" : "技能可用"}</small></div>` : `<div class="player-character pending">等待选角</div>`}${mine || finished ? `<div class="private-wallet private-wallet-values"><span><small>股票资金</small><strong>${player.cash}</strong></span><span><small>预测金币</small><strong>${player.predictionCoins} 🪙</strong></span></div>` : `<div class="private-wallet"><span>${player.ready ? player.effectReady || room.game.round === room.game.totalRounds ? "决定已锁定" : "正在选择消息" : "思考中…"}</span><span>资金 🔒</span></div>`}${finished ? `<div class="final-player-wealth">最终财富 <strong>${player.finalWealth}</strong>${player.characterBonus ? `<small>含角色加成 +${player.characterBonus}</small>` : ""}</div>` : ""}</div>`;
       }).join("");
     }
 
@@ -229,13 +227,13 @@
       $("marketCode").textContent = room.code;
       $("marketRound").textContent = game.phase === "character-draft" ? "商业奇才选拔" : game.status === "finished" ? "最终收盘" : `第 ${game.round} / ${game.totalRounds} 轮`;
       const waiting = game.waitingFor.length;
-      $("marketPhase").textContent = game.phase === "character-draft" ? game.draftCurrentPlayerId === getMyId() ? "轮到你选角色" : "角色选择中" : game.status === "finished" ? "比赛结束" : game.mySubmission ? game.myEffect || game.round === 8 ? `等待其他玩家 · ${waiting}人` : "请选择下轮消息" : "秘密决策中";
+      $("marketPhase").textContent = game.phase === "character-draft" ? game.draftCurrentPlayerId === getMyId() ? "轮到你选角色" : "角色选择中" : game.status === "finished" ? "比赛结束" : game.mySubmission ? game.myEffect || game.round === game.totalRounds ? `等待其他玩家 · ${waiting}人` : "请选择下轮消息" : "秘密决策中";
       const lastPrice = game.priceHistory.at(-2) ?? game.price;
       const delta = game.price - lastPrice;
       $("marketQuote").className = `market-quote ${delta > 0 ? "up" : delta < 0 ? "down" : "flat"}`;
       $("marketQuote").innerHTML = `<strong>${game.price}</strong><span>${delta > 0 ? "▲" : delta < 0 ? "▼" : "●"} ${formatSigned(delta)}</span>`;
       $("revealedCount").textContent = game.revealedMain.length;
-      $("marketChart").innerHTML = chartMarkup(game.priceHistory);
+      $("marketChart").innerHTML = chartMarkup(game.priceHistory, game.totalRounds);
       renderDraft(room);
       renderPlayers(room);
       renderListingEvent(game);

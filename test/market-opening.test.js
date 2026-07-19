@@ -17,7 +17,7 @@ function draft(testRoom, first = "card-master", second = "cleaner") {
 function submitRound(testRoom, first = {}, second = {}) {
   rules.submitDecision(testRoom, "p1", { prediction: "up", wager: 2, trade: "buy", shares: 5, ...first });
   rules.submitDecision(testRoom, "p2", { prediction: "down", wager: 3, trade: "hold", shares: 0, ...second });
-  if (testRoom.game.round < 8) {
+  if (testRoom.game.round < rules.ROUNDS) {
     rules.chooseEffect(testRoom, "p1", testRoom.game.effectOffers.p1[0].key);
     rules.chooseEffect(testRoom, "p2", testRoom.game.effectOffers.p2[0].key);
   }
@@ -145,14 +145,15 @@ test("清道夫可以让指定玩家本轮盖牌失效", () => {
   assert.equal(testRoom.game.lastEvent.playerEffect, 0);
 });
 
-test("预言家提前私下查看本轮趣味事件且不会额外罚金币", () => {
+test("预言家只提前私下查看本轮主牌和趣味事件", () => {
   const testRoom = room();
   draft(testRoom, "prophet", "operator");
+  testRoom.game.marketDeck[0] = -20;
   testRoom.game.roundEvents[0] = { title: "CEO直播说漏嘴", icon: "🎥", impact: -10 };
   rules.useSkill(testRoom, "p1");
   const mine = rules.publicRoom(testRoom, "p1");
   const opponent = rules.publicRoom(testRoom, "p2");
-  assert.equal(mine.players[0].skillInfo, "🎥 CEO直播说漏嘴（-10）");
+  assert.equal(mine.players[0].skillInfo, "主牌 -20 · 趣味事件 🎥 CEO直播说漏嘴（-10）");
   assert.equal(opponent.players[0].skillInfo, undefined);
   assert.equal(testRoom.game.finances.p1.coins, 20);
 });
@@ -215,16 +216,23 @@ test("持股不设上限但仍不能透支或做空", () => {
   assert.equal(testRoom.game.finances.p1.shares, 21);
 });
 
-test("八轮结束后公布完整排名和角色终局加成", () => {
+test("十五轮结束后公布完整排名和角色终局加成", () => {
   const testRoom = room();
   draft(testRoom, "long-investor", "operator");
   testRoom.game.finances.p1.shares = 15;
   testRoom.game.openingEvent.impact = 0;
-  for (let round = 1; round <= 8; round += 1) submitRound(testRoom, { prediction: "none", wager: 0, trade: "hold", shares: 0 }, { prediction: "none", wager: 0 });
+  for (let round = 1; round <= rules.ROUNDS; round += 1) submitRound(testRoom, { prediction: "none", wager: 0, trade: "hold", shares: 0 }, { prediction: "none", wager: 0 });
   assert.equal(testRoom.game.status, "finished");
-  assert.equal(testRoom.game.history.length, 8);
+  assert.equal(testRoom.game.history.length, 15);
   const state = rules.publicRoom(testRoom, "p1");
   assert.equal(state.players[0].characterBonus, 120);
   assert.equal(typeof state.players[1].cash, "number");
   assert.equal(typeof state.players[1].finalWealth, "number");
+});
+
+test("股市停摆保持为极低概率效果牌", () => {
+  assert.equal(rules.HALT_DRAW_RATE, 0.005);
+  const testRoom = room(() => 0.006);
+  draft(testRoom, "card-master", "operator");
+  assert.equal(Boolean(testRoom.game.characters.p1.secretCard.halt), false);
 });

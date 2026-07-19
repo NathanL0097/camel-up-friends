@@ -1,4 +1,5 @@
-const ROUNDS = 8;
+const ROUNDS = 15;
+const HALT_DRAW_RATE = 0.005;
 const STARTING_PRICE = 50;
 const STARTING_CASH = 1000;
 const STARTING_COINS = 20;
@@ -49,7 +50,7 @@ const ROUND_EVENTS = [
 const CHARACTERS = [
   { id: "card-master", name: "卡牌大师", avatar: "🧙‍♂️", gender: "男", type: "active", description: "开局私藏1张随机效果牌，可在任意轮开始前额外打出一次。" },
   { id: "cleaner", name: "清道夫", avatar: "👩‍💼", gender: "女", type: "active", description: "一次性指定一名玩家，使其本轮盖下的效果牌失效。" },
-  { id: "prophet", name: "预言家", avatar: "🧙‍♀️", gender: "女", type: "active", description: "一次性提前私下查看本轮趣味事件的名称和具体数值，主牌仍然未知。" },
+  { id: "prophet", name: "预言家", avatar: "🧙‍♀️", gender: "女", type: "active", description: "一次性提前私下查看本轮主牌和趣味事件；不会看到玩家效果牌或最终涨跌。" },
   { id: "operator", name: "操盘手", avatar: "👨‍💼", gender: "男", type: "passive", description: "游戏开始时额外获得3股股票。" },
   { id: "heir", name: "富二代", avatar: "👸", gender: "女", type: "passive", description: "游戏开始时额外获得100资金和1枚预测金币。" },
   { id: "risk-manager", name: "风控师", avatar: "👨‍✈️", gender: "男", type: "active", description: "一次性保护本轮预测，猜错时最多少损失2金币。" },
@@ -75,7 +76,7 @@ function sample(items, random) {
 function drawEffectCard(game) {
   const roll = game.random();
   let pool;
-  if (roll < 0.04) pool = EFFECT_CARDS.filter((card) => card.halt);
+  if (roll < HALT_DRAW_RATE) pool = EFFECT_CARDS.filter((card) => card.halt);
   else if (roll < 0.22) pool = EFFECT_CARDS.filter((card) => Math.abs(card.impact) === 20);
   else pool = EFFECT_CARDS.filter((card) => Math.abs(card.impact) === 10);
   return { ...sample(pool, game.random) };
@@ -215,7 +216,8 @@ function useSkill(room, playerId, payload = {}) {
     skill.targetId = payload.targetId;
   } else if (state.id === "prophet") {
     const event = game.roundEvents[game.round - 1];
-    skill.info = `${event.icon} ${event.title}（${event.impact > 0 ? "+" : ""}${event.impact}）`;
+    const main = game.marketDeck[0];
+    skill.info = `主牌 ${main > 0 ? "+" : ""}${main} · 趣味事件 ${event.icon} ${event.title}（${event.impact > 0 ? "+" : ""}${event.impact}）`;
     state.skillInfo = skill.info;
   } else if (state.id === "card-master") {
     if (!state.secretCard) throw new Error("没有可打出的私藏卡");
@@ -375,7 +377,7 @@ function publicRoom(room, viewerId = null) {
 }
 
 module.exports = {
-  ROUNDS, STARTING_PRICE, STARTING_CASH, STARTING_COINS, COIN_VALUE,
+  ROUNDS, HALT_DRAW_RATE, STARTING_PRICE, STARTING_CASH, STARTING_COINS, COIN_VALUE,
   MAIN_CARDS, EFFECT_CARDS, OPENING_EVENTS, ROUND_EVENTS, CHARACTERS,
   createGame, chooseCharacter, submitDecision, chooseEffect, useSkill, publicRoom, finalWealth
 };
