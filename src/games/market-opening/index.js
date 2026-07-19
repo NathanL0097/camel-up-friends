@@ -17,6 +17,8 @@ const definition = {
     return rules.publicRoom(room, viewerId);
   },
   actions: {
+    character: (room, playerId, payload) => rules.chooseCharacter(room, playerId, payload.characterId),
+    skill: (room, playerId, payload) => rules.useSkill(room, playerId, payload),
     submit: (room, playerId, payload) => rules.submitDecision(room, playerId, payload),
     effect: (room, playerId, payload) => rules.chooseEffect(room, playerId, payload.effect)
   }
