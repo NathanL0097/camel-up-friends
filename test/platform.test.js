@@ -22,6 +22,8 @@ test("平台游戏注册表公开元数据但不公开服务端处理器", () =>
   assert.equal(DEFAULT_GAME_ID, "camel-race");
   assert.equal(catalog[0].title, "沙漠驼队竞速");
   assert.equal(catalog[0].clientScript, "/games/camel-race.js");
+  assert.equal(catalog[1].title, "拉斯维加斯豪华版");
+  assert.equal(catalog[1].clientScript, "/games/las-vegas-royale.js");
   assert.equal(catalog[0].actions, undefined);
   assert.throws(() => getGame("unknown-game"), /暂未开放/);
 });
