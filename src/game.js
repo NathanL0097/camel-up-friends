@@ -130,7 +130,8 @@ function settleLeg(room) {
   game.bets = Object.fromEntries(COLORS.map((color) => [color, [...BET_VALUES]]));
   game.legBets = [];
   game.tiles = [];
-  return { leg: endedLeg, first, second };
+  const wealth = room.players.map((player) => player.coins);
+  return { leg: endedLeg, first, second, wealth: { highest: Math.max(...wealth), lowest: Math.min(...wealth) } };
 }
 
 function finishRace(room) {
@@ -245,7 +246,12 @@ function publicRoom(room, viewerId = null) {
       secret: true
     })
   } : null;
-  const players = room.players.map(({ token: _token, ...player }) => player);
+  const revealWealth = !room.game || room.game.status === "finished";
+  const players = room.players.map(({ token: _token, ...player }) => {
+    if (revealWealth || player.id === viewerId) return player;
+    const { coins: _coins, ...privatePlayer } = player;
+    return privatePlayer;
+  });
   return { code: room.code, hostId: room.hostId, players, game };
 }
 

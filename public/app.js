@@ -56,9 +56,11 @@ function renderLobby(room) {
 function escapeHtml(text) { const div = document.createElement("div"); div.textContent = text; return div.innerHTML; }
 function renderGame(room) {
   show("game"); const game = room.game; const current = room.players[game.turn % room.players.length]; const myTurn = current?.id === myId && game.status === "playing";
+  const revealWealth = game.status === "finished";
+  const displayedPlayers = revealWealth ? room.players.slice().sort((a,b) => b.coins-a.coins) : room.players;
   $("gameCode").textContent = room.code; $("legTitle").textContent = game.status === "finished" ? "比赛结束" : `第 ${game.leg} 赛段`;
   $("turnBadge").textContent = game.status === "finished" ? "已完成" : myTurn ? "轮到你行动" : `等待 ${current.name}`;
-  $("playerList").innerHTML = room.players.slice().sort((a,b) => b.coins-a.coins).map((player) => `<div class="player-card ${player.id === current?.id && game.status === "playing" ? "active" : ""}"><div class="player-line"><span>${player.id === myId ? "你 · " : ""}${escapeHtml(player.name)}</span><span>${player.coins} 🪙</span></div><div class="player-status">${player.connected ? "在线" : "暂时离线"}${player.id === room.hostId ? " · 房主" : ""}</div></div>`).join("");
+  $("playerList").innerHTML = displayedPlayers.map((player, index) => { const isMe = player.id === myId; return `<div class="player-card ${player.id === current?.id && game.status === "playing" ? "active" : ""} ${revealWealth ? "wealth-revealed" : ""}"><div class="player-line"><span>${revealWealth ? `<b class="wealth-rank">#${index + 1}</b>` : ""}${isMe ? "你 · " : ""}${escapeHtml(player.name)}</span><span>${revealWealth || isMe ? `${player.coins} 🪙` : "🔒 保密"}</span></div><div class="player-status">${player.connected ? "在线" : "暂时离线"}${player.id === room.hostId ? " · 房主" : ""}${revealWealth ? " · 最终财富" : isMe ? " · 仅你可见" : " · 财富未公开"}</div></div>`; }).join("");
   renderTrack(game, room); $("diceLeft").innerHTML = game.dice.map((color) => `<i class="mini-die ${color}" title="${COLOR_NAMES[color]}">${color === "gray" ? "↶" : ""}</i>`).join("");
   $("gameLog").innerHTML = game.log.slice(0, 30).map((line) => `<div class="log-item">${translateLog(escapeHtml(line))}</div>`).join("");
   $("rollButton").disabled = !myTurn;
@@ -186,7 +188,7 @@ function showLegWinner(result) {
   if (!feedback) return;
   feedback.querySelector(".roll-die").className = `roll-die winner-medal ${result.first}`;
   feedback.querySelector(".roll-die span").textContent = "★";
-  feedback.querySelector(".roll-copy").innerHTML = `<strong>第 ${result.leg} 赛段冠军</strong><small>${COLOR_NAMES[result.first]} 暂列第一</small>`;
+  feedback.querySelector(".roll-copy").innerHTML = `<strong>第 ${result.leg} 赛段结束 · ${COLOR_NAMES[result.first]} 领跑</strong><small class="wealth-announcement"><span>财富榜首 <b>${result.wealth.highest}</b> 金币</span><i></i><span>财富榜尾 <b>${result.wealth.lowest}</b> 金币</span></small><em class="anonymous-note">身份保密 · 只公布财富区间</em>`;
   feedback.className = "roll-feedback leg-result showing";
   winner?.classList.add("leg-winner");
   feedbackTimer = setTimeout(() => { feedback.classList.remove("showing"); winner?.classList.remove("leg-winner"); }, 2800);

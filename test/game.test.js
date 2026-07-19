@@ -48,6 +48,14 @@ test("赛道板块不能相邻", () => {
 test("公开房间状态不会泄露重连令牌", () => {
   const r = room(); r.players[0].token = "secret";
   assert.equal(publicRoom(r).players[0].token, undefined);
+  assert.equal(publicRoom(r).players[0].coins, undefined);
+});
+
+test("比赛中只向玩家本人公开金币", () => {
+  const r = room();
+  const viewForA = publicRoom(r, "a");
+  assert.equal(viewForA.players.find((player) => player.id === "a").coins, 3);
+  assert.equal(viewForA.players.find((player) => player.id === "b").coins, undefined);
 });
 
 test("同一玩家的每张颜色终局卡只能使用一次", () => {
@@ -79,6 +87,7 @@ test("正确终局预测按先后获得 8 和 5，错误预测扣 1", () => {
   assert.equal(r.players.find((player) => player.id === "a").coins, 12);
   assert.equal(r.players.find((player) => player.id === "b").coins, 2);
   assert.equal(r.players.find((player) => player.id === "c").coins, 8);
+  assert.equal(publicRoom(r).players.find((player) => player.id === "a").coins, 12);
 });
 
 test("疯狂骆驼逆向移动并驮走上方比赛骆驼", () => {
@@ -113,6 +122,6 @@ test("第五次掷骰事件包含赛段冠军供所有客户端高亮", () => {
   r.game.stacks = { 8: ["blue"], 7: ["green"], 6: ["yellow"], 5: ["purple"], 4: ["red"], 14: ["black"], 15: ["white"] };
   Object.entries(r.game.stacks).forEach(([space, stack]) => stack.forEach((color) => { r.game.camels[color].space = Number(space); }));
   rollDie(r, "a", () => 0);
-  assert.deepEqual(r.game.lastEvent.legEnd, { leg: 1, first: "blue", second: "green" });
+  assert.deepEqual(r.game.lastEvent.legEnd, { leg: 1, first: "blue", second: "green", wealth: { highest: 4, lowest: 4 } });
   assert.equal(r.game.leg, 2);
 });
