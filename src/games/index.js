@@ -1,7 +1,6 @@
 const { definition: camelRace } = require("./camel-race");
-const { definition: lasVegasRoyale } = require("./las-vegas-royale");
 
-const games = new Map([[camelRace.id, camelRace], [lasVegasRoyale.id, lasVegasRoyale]]);
+const games = new Map([[camelRace.id, camelRace]]);
 
 function getGame(gameId) {
   const game = games.get(gameId);
