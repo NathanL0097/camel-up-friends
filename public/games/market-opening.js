@@ -29,8 +29,9 @@
             </section>
             <section id="marketDecision" class="market-decision-card paper">
               <div id="skillPanel" class="skill-panel"></div>
+              <div id="pendingEffectNotice" class="pending-effect-notice hidden"></div>
               <div class="decision-section"><label>① 预测本轮走势</label><div id="predictionChoices" class="segmented prediction-segments"><button data-prediction="up">↗ 上涨</button><button data-prediction="down">↘ 下跌</button><button data-prediction="flat">→ 不变</button><button data-prediction="none">跳过</button></div><div id="wagerRow" class="wager-row"><span>下注</span><input id="marketWager" type="range" min="1" max="5" value="1"><b><span id="wagerValue">1</span> 🪙</b></div></div>
-              <div class="decision-section"><label>② 按当前价格交易</label><div id="tradeChoices" class="segmented trade-segments"><button data-trade="buy">买入</button><button data-trade="sell">卖出</button><button data-trade="hold">不操作</button></div><div id="shareRow" class="share-row hidden"><button id="shareMinus">−</button><input id="marketShares" type="number" min="1" max="20" value="1"><button id="sharePlus">＋</button><span>股</span></div><small id="tradeCapacity"></small></div>
+              <div class="decision-section"><label>② 按当前价格交易</label><div id="tradeChoices" class="segmented trade-segments"><button data-trade="buy">买入</button><button data-trade="sell">卖出</button><button data-trade="hold">不操作</button></div><div id="shareRow" class="share-row hidden"><button id="shareMinus">−</button><input id="marketShares" type="number" min="1" value="1"><button id="sharePlus">＋</button><span>股</span></div><small id="tradeCapacity"></small></div>
               <button id="lockDecision" class="market-lock-button">锁定预测与交易 <span>→</span></button>
               <div id="lockedDecision" class="locked-decision hidden"></div>
               <div id="effectChoice" class="effect-choice hidden"><div><label>③ 选择一张盖下，影响下一轮</label><small>另一张将直接弃掉</small></div><div id="effectCards" class="effect-cards"></div></div>
@@ -41,7 +42,7 @@
         </div>
       </div>`;
 
-    $("rulesContent").innerHTML = `<div class="eyebrow">原创好友房原型 · 第二版</div><h2>《开盘！》规则速查</h2><ol><li><strong>选角：</strong>开局自动掷骰，按点数从高到低依次选择10位商业奇才。主动技能整局只能使用一次，而且必须在本轮买卖与预测锁定前发动。</li><li><strong>目标：</strong>8轮后以“现金＋最终股价×持股＋预测金币×50＋角色加成”计算最终财富。</li><li><strong>预测：</strong>可选择不预测，也可投入1–5金币猜上涨、下跌或不变。猜中涨跌净赚等额金币；猜中不变净赚2倍；猜错损失下注，实际横盘而猜涨跌只扣1枚。</li><li><strong>交易：</strong>按开盘前价格秘密买卖，每人最多20股、不能做空。所有人完成后才统一公开买卖量与最新持股。</li><li><strong>事件牌：</strong>每轮抽2选1盖下，下一轮匿名公开。所有数值效果相加后最多影响±20；稀有“交易所停摆”会取消本轮交易，价格不动，所有已下注预测都亏损。</li><li><strong>上市事件：</strong>角色选择完成后公开，只在第一轮提供−10、0或+10市场影响，仍需与主牌共同结算。</li><li><strong>主牌：</strong>26张中秘密移除6张，比赛只翻8张。每轮结束会匿名展示所有效果牌和本轮主牌。</li></ol><p class="rules-note">停牌时选择“不预测”的玩家不会损失金币；被取消的股票交易不会扣除资金或改变持股。</p>`;
+    $("rulesContent").innerHTML = `<div class="eyebrow">原创好友房原型 · 第三版</div><h2>《开盘！》规则速查</h2><ol><li><strong>选角：</strong>开局自动掷骰，按点数从高到低依次选择10位商业奇才。主动技能整局只能使用一次，而且必须在本轮买卖与预测锁定前发动。</li><li><strong>目标：</strong>8轮后以“现金＋最终股价×持股＋预测金币×50＋角色加成”计算最终财富。长线投资家终局每持有1股额外获得8资金。</li><li><strong>预测：</strong>可选择不预测，也可投入1–5金币猜上涨、下跌或不变。猜中涨跌净赚等额金币；猜中不变净赚2倍；猜错损失下注，实际横盘而猜涨跌只扣1枚。</li><li><strong>交易：</strong>按开盘前价格秘密买卖，不限制持股总数，但不能透支或做空。所有人完成后才统一公开买卖量与最新持股。</li><li><strong>趣味事件：</strong>每轮都有一条突发新闻，与主牌同时揭示并提供−10、0或+10影响。预言家可整局一次提前私下查看当轮新闻及数值。</li><li><strong>玩家效果牌：</strong>每轮抽2选1盖下，下一轮匿名公开。数值效果合计最多影响±20；稀有“交易所停摆”会取消本轮交易，价格不动，所有已下注预测都亏损。</li><li><strong>上市事件：</strong>角色选择完成后公开，只在第一轮额外提供−10、0或+10影响。</li><li><strong>结算：</strong>每轮中央会显示约5秒的全员持仓与本轮变动；右侧记录保留趣味事件、玩家效果牌和主牌。</li></ol><p class="rules-note">停牌时选择“不预测”的玩家不会损失金币；被取消的股票交易不会扣除资金或改变持股。</p>`;
 
     $("marketRulesButton").onclick = () => $("rulesDialog").showModal();
     $("marketCopyButton").onclick = copyInvite;
@@ -49,7 +50,7 @@
     document.querySelectorAll("[data-prediction]").forEach((button) => button.onclick = () => { predictionChoice = button.dataset.prediction; paintChoices(); });
     document.querySelectorAll("[data-trade]").forEach((button) => button.onclick = () => { tradeChoice = button.dataset.trade; paintChoices(); });
     $("shareMinus").onclick = () => { $("marketShares").value = Math.max(1, Number($("marketShares").value) - 1); };
-    $("sharePlus").onclick = () => { $("marketShares").value = Math.min(20, Number($("marketShares").value) + 1); };
+    $("sharePlus").onclick = () => { $("marketShares").value = Number($("marketShares").value) + 1; };
     $("lockDecision").onclick = () => emitAction("submit", { prediction: predictionChoice, wager: predictionChoice === "none" ? 0 : Number($("marketWager").value), trade: tradeChoice, shares: Number($("marketShares").value) });
 
     function paintChoices() {
@@ -66,7 +67,7 @@
       const game = latestRoom?.game;
       const me = latestRoom?.players?.find((player) => player.id === getMyId());
       if (!game || !me || game.status === "finished") return;
-      const capacity = tradeChoice === "buy" ? Math.min(20 - me.shares, Math.floor(me.cash / game.price)) : tradeChoice === "sell" ? me.shares : 0;
+      const capacity = tradeChoice === "buy" ? Math.floor(me.cash / game.price) : tradeChoice === "sell" ? me.shares : 0;
       $("tradeCapacity").textContent = tradeChoice === "buy" ? `最多可买 ${capacity} 股` : tradeChoice === "sell" ? `最多可卖 ${capacity} 股` : "本轮保持现有仓位";
       $("marketShares").max = Math.max(1, capacity);
     }
@@ -108,11 +109,16 @@
       if (!feedback || !event) return;
       clearTimeout(feedbackTimer);
       const direction = event.halted ? "halt" : event.change > 0 ? "up" : event.change < 0 ? "down" : "flat";
-      feedback.innerHTML = `<span class="opening-kicker">ROUND ${event.round} · ${event.halted ? "MARKET HALT" : "OPEN"}</span><strong>${event.priceBefore} <i>→</i> ${event.priceAfter}</strong><b>${event.halted ? "⏸ 交易所停摆" : `${direction === "up" ? "▲" : direction === "down" ? "▼" : "●"} ${formatSigned(event.change)}`}</b><small>主牌 ${formatSigned(event.main)} · 匿名事件 ${formatSigned(event.playerEffect)}${event.openingImpact ? ` · 上市事件 ${formatSigned(event.openingImpact)}` : ""}</small>${event.halted ? `<em>本轮交易取消 · 所有已下注预测亏损</em>` : ""}`;
+      const playerById = Object.fromEntries(players.map((player) => [player.id, player]));
+      const rows = event.orders.map((order) => {
+        const change = order.cancelled || order.trade === "hold" ? 0 : order.trade === "buy" ? order.shares : -order.shares;
+        return `<tr><td>${escapeHtml(playerById[order.playerId]?.name || "玩家")}</td><td><b>${order.holding}</b> 股</td><td class="${change > 0 ? "up" : change < 0 ? "down" : "flat"}">${order.cancelled ? "交易取消" : change ? `${change > 0 ? "+" : ""}${change} 股` : "0 股"}</td></tr>`;
+      }).join("");
+      feedback.innerHTML = `<div class="opening-summary"><span class="opening-kicker">ROUND ${event.round} · ${event.halted ? "MARKET HALT" : "OPEN"}</span><strong>${event.priceBefore} <i>→</i> ${event.priceAfter}</strong><b>${event.halted ? "⏸ 交易所停摆" : `${direction === "up" ? "▲" : direction === "down" ? "▼" : "●"} ${formatSigned(event.change)}`}</b><small>主牌 ${formatSigned(event.main)} · 玩家效果 ${formatSigned(event.playerEffect)}${event.openingImpact ? ` · 上市事件 ${formatSigned(event.openingImpact)}` : ""}</small></div><div class="round-event-reveal"><span>${event.roundEvent.icon}</span><div><small>本轮趣味事件 · ${formatSigned(event.roundEvent.impact)}</small><strong>${escapeHtml(event.roundEvent.title)}</strong></div></div><div class="holdings-settlement"><div><strong>全员持仓结算</strong><small>持股总数与本轮实际变动</small></div><table><thead><tr><th>玩家</th><th>结算后持仓</th><th>本轮变动</th></tr></thead><tbody>${rows}</tbody></table></div>${event.halted ? `<em>本轮交易取消 · 所有已下注预测亏损</em>` : ""}`;
       feedback.className = `market-opening-feedback ${direction}`;
       void feedback.offsetWidth;
       feedback.classList.add("showing");
-      feedbackTimer = setTimeout(() => feedback.classList.remove("showing"), 3900);
+      feedbackTimer = setTimeout(() => feedback.classList.remove("showing"), 5200);
     }
 
     function renderDraft(room) {
@@ -154,7 +160,7 @@
       const others = room.players.filter((player) => player.id !== getMyId());
       let controls = `<button id="activateSkill" ${locked ? "disabled" : ""}>发动一次性技能</button>`;
       if (character.id === "cleaner") controls = `<select id="skillTarget">${others.map((player) => `<option value="${player.id}">${escapeHtml(player.name)}</option>`).join("")}</select><button id="activateSkill" ${locked || game.round === 1 ? "disabled" : ""}>使其盖牌失效</button>`;
-      if (character.id === "prophet") controls = `<select id="skillDirection"><option value="up">主牌上涨</option><option value="down">主牌下跌</option><option value="flat">主牌为0</option></select><button id="activateSkill" ${locked ? "disabled" : ""}>提交主牌预言</button>`;
+      if (character.id === "prophet") controls = `<button id="activateSkill" ${locked ? "disabled" : ""}>查看本轮趣味事件</button>`;
       panel.innerHTML = `<div class="skill-avatar">${character.avatar}</div><div class="skill-copy"><small>你的角色 · 整局限一次</small><strong>${escapeHtml(character.name)}</strong><p>${escapeHtml(character.description)}</p>${character.id === "card-master" && me.secretRoleCard ? `<span class="secret-role-card">私藏：${me.secretRoleCard.icon} ${escapeHtml(me.secretRoleCard.title)}（${formatSigned(me.secretRoleCard.impact)}）</span>` : ""}</div><div class="skill-controls">${controls}${character.id === "cleaner" && game.round === 1 ? `<small>第二轮起可发动</small>` : ""}</div>`;
       $("activateSkill")?.addEventListener("click", () => emitAction("skill", { targetId: $("skillTarget")?.value, direction: $("skillDirection")?.value }));
     }
@@ -178,6 +184,9 @@
       }
       $("marketDecision").classList.remove("hidden");
       renderSkill(room);
+      const pending = game.myPendingEffect;
+      $("pendingEffectNotice").classList.toggle("hidden", !pending);
+      if (pending) $("pendingEffectNotice").innerHTML = `<span>${pending.icon}</span><div><small>你上一轮盖下 · 本轮开盘时揭示</small><strong>${escapeHtml(pending.title)}</strong><p>${escapeHtml(pending.description)}</p></div><b class="${pending.tone}">${pending.halt ? "停牌" : formatSigned(pending.impact)}</b>`;
       const submitted = game.mySubmission;
       $("lockedDecision").classList.toggle("hidden", !submitted);
       [...$("marketDecision").querySelectorAll(".decision-section"), $("lockDecision")].forEach((element) => element.classList.toggle("hidden", Boolean(submitted)));
@@ -200,7 +209,7 @@
 
     function renderHistory(room) {
       const playerById = Object.fromEntries(room.players.map((player) => [player.id, player]));
-      $("marketHistory").innerHTML = room.game.history.length ? room.game.history.map((event) => `<article class="market-round-log ${event.halted ? "halted" : ""}"><header><b>第 ${event.round} 轮${event.halted ? " · 停牌" : ""}</b><strong class="${event.change > 0 ? "up" : event.change < 0 ? "down" : "flat"}">${event.priceBefore} → ${event.priceAfter}</strong></header><div class="main-card-reveal"><span>主市场牌</span><b>${formatSigned(event.main)}</b></div><div class="anonymous-effects"><small>匿名效果牌</small>${event.effects.length ? `<div>${event.effects.map((item) => `<span class="revealed-effect ${item.card.tone} ${item.cancelled ? "cancelled" : ""}" title="${escapeHtml(item.card.description)}">${item.card.icon} ${escapeHtml(item.card.title)} <b>${item.card.halt ? "停牌" : formatSigned(item.card.impact)}</b>${item.cancelled ? " · 已失效" : ""}</span>`).join("")}</div>` : `<em>本轮没有上一轮效果牌</em>`}</div><div class="market-card-result"><span>事件合计 ${formatSigned(event.playerEffect)}</span>${event.openingImpact ? `<span>上市事件 ${formatSigned(event.openingImpact)}</span>` : ""}</div><details><summary>查看公开交易与预测</summary>${event.orders.map((order) => { const prediction = event.predictions.find((item) => item.playerId === order.playerId); return `<p><b>${escapeHtml(playerById[order.playerId]?.name || "玩家")}</b><span>${order.cancelled ? "交易取消" : `${TRADE_NAMES[order.trade]}${order.trade === "hold" ? "" : ` ${order.shares}股`} · 持股 ${order.holding}`}<br>${PREDICTION_NAMES[prediction?.prediction] || ""}${prediction?.prediction === "none" ? "" : ` ${prediction?.wager}🪙 · ${formatSigned(prediction?.reward || 0)}🪙`}</span></p>`; }).join("")}</details></article>`).join("") : `<div class="empty-market-log">尚未开盘<br><small>第一轮结果将在这里公布</small></div>`;
+      $("marketHistory").innerHTML = room.game.history.length ? room.game.history.map((event) => `<article class="market-round-log ${event.halted ? "halted" : ""}"><header><b>第 ${event.round} 轮${event.halted ? " · 停牌" : ""}</b><strong class="${event.change > 0 ? "up" : event.change < 0 ? "down" : "flat"}">${event.priceBefore} → ${event.priceAfter}</strong></header><div class="fun-event-log"><span>${event.roundEvent.icon}</span><div><small>趣味事件 ${formatSigned(event.roundEvent.impact)}</small><strong>${escapeHtml(event.roundEvent.title)}</strong></div></div><div class="main-card-reveal"><span>主市场牌</span><b>${formatSigned(event.main)}</b></div><div class="anonymous-effects"><small>匿名效果牌</small>${event.effects.length ? `<div>${event.effects.map((item) => `<span class="revealed-effect ${item.card.tone} ${item.cancelled ? "cancelled" : ""}" title="${escapeHtml(item.card.description)}">${item.card.icon} ${escapeHtml(item.card.title)} <b>${item.card.halt ? "停牌" : formatSigned(item.card.impact)}</b>${item.cancelled ? " · 已失效" : ""}</span>`).join("")}</div>` : `<em>本轮没有上一轮效果牌</em>`}</div><div class="market-card-result"><span>玩家效果合计 ${formatSigned(event.playerEffect)}</span>${event.openingImpact ? `<span>上市事件 ${formatSigned(event.openingImpact)}</span>` : ""}</div><details><summary>查看公开交易与预测</summary>${event.orders.map((order) => { const prediction = event.predictions.find((item) => item.playerId === order.playerId); return `<p><b>${escapeHtml(playerById[order.playerId]?.name || "玩家")}</b><span>${order.cancelled ? "交易取消" : `${TRADE_NAMES[order.trade]}${order.trade === "hold" ? "" : ` ${order.shares}股`} · 持股 ${order.holding}`}<br>${PREDICTION_NAMES[prediction?.prediction] || ""}${prediction?.prediction === "none" ? "" : ` ${prediction?.wager}🪙 · ${formatSigned(prediction?.reward || 0)}🪙`}</span></p>`; }).join("")}</details></article>`).join("") : `<div class="empty-market-log">尚未开盘<br><small>第一轮结果将在这里公布</small></div>`;
     }
 
     function renderFinish(room) {

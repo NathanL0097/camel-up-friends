@@ -2,7 +2,6 @@ const ROUNDS = 8;
 const STARTING_PRICE = 50;
 const STARTING_CASH = 1000;
 const STARTING_COINS = 20;
-const MAX_SHARES = 20;
 const COIN_VALUE = 50;
 const MAIN_CARDS = [
   ...Array(4).fill(20), ...Array(7).fill(10), ...Array(4).fill(0),
@@ -32,16 +31,31 @@ const OPENING_EVENTS = [
   { key: "analyst-split", title: "分析师观点严重分裂", icon: "🌓", impact: 0, description: "多空针锋相对，没有明确的首日加成。" }
 ];
 
+const ROUND_EVENTS = [
+  { key: "ceo-livestream", title: "CEO直播说漏嘴", icon: "🎥", impact: -10, description: "一句未经准备的回答引发市场担忧。" },
+  { key: "product-award", title: "年度产品大奖", icon: "🏆", impact: 10, description: "产品口碑突然得到权威背书。" },
+  { key: "data-leak", title: "客户数据泄露", icon: "🔓", impact: -10, description: "公司紧急调查潜在的数据安全事故。" },
+  { key: "patent-win", title: "专利诉讼胜诉", icon: "⚖️", impact: 10, description: "长期法律风险突然解除。" },
+  { key: "executive-wedding", title: "高管世纪婚礼", icon: "💐", impact: 0, description: "全网热议，但与公司盈利似乎毫无关系。" },
+  { key: "warehouse-cat", title: "仓库橘猫走红", icon: "🐈", impact: 0, description: "品牌获得流量，分析师却不知道该怎么估值。" },
+  { key: "supplier-sale", title: "供应商突然降价", icon: "🏷️", impact: 10, description: "原材料成本有望下降。" },
+  { key: "storm-delay", title: "暴风雨延误运输", icon: "⛈️", impact: -10, description: "部分产品交付被迫延后。" },
+  { key: "celebrity-review", title: "顶流自发推荐产品", icon: "📣", impact: 10, description: "意外曝光带来巨大访问量。" },
+  { key: "office-rumour", title: "办公室裁员传闻", icon: "🗞️", impact: -10, description: "未经证实的消息扰动市场情绪。" },
+  { key: "analyst-day", title: "投资者开放日", icon: "🏢", impact: 0, description: "公司回答了很多问题，但没有给出新数字。" },
+  { key: "green-cert", title: "获得绿色认证", icon: "🌿", impact: 10, description: "可持续经营获得外界认可。" }
+];
+
 const CHARACTERS = [
   { id: "card-master", name: "卡牌大师", avatar: "🧙‍♂️", gender: "男", type: "active", description: "开局私藏1张随机效果牌，可在任意轮开始前额外打出一次。" },
   { id: "cleaner", name: "清道夫", avatar: "👩‍💼", gender: "女", type: "active", description: "一次性指定一名玩家，使其本轮盖下的效果牌失效。" },
-  { id: "prophet", name: "预言家", avatar: "🧙‍♀️", gender: "女", type: "active", description: "一次性猜本轮主牌方向；猜中得3金币，猜错扣1金币。" },
+  { id: "prophet", name: "预言家", avatar: "🧙‍♀️", gender: "女", type: "active", description: "一次性提前私下查看本轮趣味事件的名称和具体数值，主牌仍然未知。" },
   { id: "operator", name: "操盘手", avatar: "👨‍💼", gender: "男", type: "passive", description: "游戏开始时额外获得3股股票。" },
   { id: "heir", name: "富二代", avatar: "👸", gender: "女", type: "passive", description: "游戏开始时额外获得100资金和1枚预测金币。" },
   { id: "risk-manager", name: "风控师", avatar: "👨‍✈️", gender: "男", type: "active", description: "一次性保护本轮预测，猜错时最多少损失2金币。" },
   { id: "volatility-scout", name: "波动侦探", avatar: "🕵️‍♀️", gender: "女", type: "active", description: "一次性得知本轮主牌是强波动、普通波动还是零波动，但不知道方向。" },
   { id: "negotiator", name: "谈判专家", avatar: "🤵‍♂️", gender: "男", type: "active", description: "一次性让本轮交易的前5股每股获得10资金价格优势。" },
-  { id: "long-investor", name: "长线投资家", avatar: "👩‍🌾", gender: "女", type: "passive", description: "终局时每股额外计入5点长期价值，最多额外100。" },
+  { id: "long-investor", name: "长线投资家", avatar: "👩‍🌾", gender: "女", type: "passive", description: "终局结算时，每持有1股额外获得8资金收益，不设上限。" },
   { id: "contrarian", name: "逆风猎手", avatar: "🧔‍♂️", gender: "男", type: "passive", description: "市场实际下跌时获得1金币，整局最多触发3次。" }
 ];
 
@@ -83,6 +97,7 @@ function createGame(players, random = Math.random) {
     removedCount: 6,
     revealedMain: [],
     openingEvent: { ...sample(OPENING_EVENTS, random) },
+    roundEvents: Array.from({ length: ROUNDS }, () => ({ ...sample(ROUND_EVENTS, random) })),
     currentEffects: [],
     roleEffects: [],
     submissions: {},
@@ -158,7 +173,6 @@ function normaliseDecision(game, playerId, payload) {
   const shares = trade === "hold" ? 0 : Number(payload.shares);
   if (!Number.isInteger(shares) || shares < 0) throw new Error("股票数量必须是整数");
   if (trade !== "hold" && shares < 1) throw new Error("请填写要交易的股票数量");
-  if (trade === "buy" && finance.shares + shares > MAX_SHARES) throw new Error(`每人最多持有 ${MAX_SHARES} 股`);
   if (trade === "buy" && finance.cash < tradeCost(game, playerId, trade, shares)) throw new Error("股票资金不足");
   if (trade === "sell" && finance.shares < shares) throw new Error("持股数量不足");
   return { prediction, wager, trade, shares };
@@ -200,8 +214,9 @@ function useSkill(room, playerId, payload = {}) {
     if (!room.players.some((player) => player.id === payload.targetId && player.id !== playerId)) throw new Error("请选择另一名玩家");
     skill.targetId = payload.targetId;
   } else if (state.id === "prophet") {
-    if (!["up", "down", "flat"].includes(payload.direction)) throw new Error("请选择主牌上涨、下跌或不变");
-    skill.direction = payload.direction;
+    const event = game.roundEvents[game.round - 1];
+    skill.info = `${event.icon} ${event.title}（${event.impact > 0 ? "+" : ""}${event.impact}）`;
+    state.skillInfo = skill.info;
   } else if (state.id === "card-master") {
     if (!state.secretCard) throw new Error("没有可打出的私藏卡");
     game.roleEffects.push({ playerId, card: { ...state.secretCard, fromRole: true } });
@@ -242,7 +257,7 @@ function settlePrediction(finance, decision, direction, { halted = false, protec
 }
 
 function characterBonus(game, playerId, finance) {
-  return game.characters[playerId]?.id === "long-investor" ? finance.shares * 5 : 0;
+  return game.characters[playerId]?.id === "long-investor" ? finance.shares * 8 : 0;
 }
 
 function finalWealth(finance, price, bonus = 0) { return finance.cash + finance.shares * price + finance.coins * COIN_VALUE + bonus; }
@@ -252,6 +267,7 @@ function maybeResolve(room) {
   const game = room.game;
   const priceBefore = game.price;
   const main = game.marketDeck.shift();
+  const roundEvent = game.roundEvents[game.round - 1];
   const cleanerSkill = Object.values(game.roundSkills).find((skill) => skill.type === "cleaner");
   const effects = [...game.currentEffects, ...game.roleEffects].map((item) => ({
     ...item,
@@ -261,7 +277,8 @@ function maybeResolve(room) {
   const rawEffect = effects.filter((item) => !item.cancelled && !item.card.halt).reduce((sum, item) => sum + item.card.impact, 0);
   const playerEffect = Math.max(-20, Math.min(20, rawEffect));
   const openingImpact = game.round === 1 ? game.openingEvent.impact : 0;
-  const calculatedChange = halted ? 0 : main + playerEffect + openingImpact;
+  const rawChange = main + playerEffect + openingImpact + roundEvent.impact;
+  const calculatedChange = halted ? 0 : Math.max(-30, Math.min(30, rawChange));
   const priceAfter = halted ? priceBefore : Math.max(10, priceBefore + calculatedChange);
   const actualChange = priceAfter - priceBefore;
   const direction = actualChange > 0 ? "up" : actualChange < 0 ? "down" : "flat";
@@ -280,15 +297,6 @@ function maybeResolve(room) {
     const reward = settlePrediction(game.finances[player.id], decision, direction, { halted, protection: protectedRound });
     return { playerId: player.id, prediction: decision.prediction, wager: decision.wager, reward };
   });
-  const prophetResults = [];
-  for (const [playerId, skill] of Object.entries(game.roundSkills)) {
-    if (skill.type !== "prophet") continue;
-    const mainDirection = main > 0 ? "up" : main < 0 ? "down" : "flat";
-    const correct = skill.direction === mainDirection;
-    const reward = correct ? 3 : -1;
-    game.finances[playerId].coins = Math.max(0, game.finances[playerId].coins + reward);
-    prophetResults.push({ playerId, prediction: skill.direction, correct, reward });
-  }
   if (actualChange < 0) {
     for (const [playerId, state] of Object.entries(game.characters)) {
       if (state.id === "contrarian" && state.triggers < 3) { game.finances[playerId].coins += 1; state.triggers += 1; }
@@ -299,7 +307,7 @@ function maybeResolve(room) {
   game.revealedMain.push(main);
   const event = {
     id: ++game.eventSeq, type: "opening", round: game.round, priceBefore, priceAfter, change: actualChange,
-    calculatedChange, main, playerEffect, openingImpact, halted, effects, orders, predictions, prophetResults
+    calculatedChange, rawChange, main, roundEvent, playerEffect, openingImpact, halted, effects, orders, predictions
   };
   game.lastEvent = event;
   game.history.unshift(event);
@@ -359,6 +367,7 @@ function publicRoom(room, viewerId = null) {
       mySubmission: game.submissions[viewerId] || null,
       myOffer: game.effectOffers[viewerId] || null,
       myEffect: game.nextEffects[viewerId] || null,
+      myPendingEffect: game.currentEffects.find((item) => item.playerId === viewerId)?.card || null,
       myRoundSkill: game.roundSkills[viewerId] || null,
       waitingFor: game.phase === "character-draft" ? [] : room.players.filter((player) => !game.submissions[player.id] || (game.round < game.totalRounds && !game.nextEffects[player.id])).map((player) => player.id)
     }
@@ -366,7 +375,7 @@ function publicRoom(room, viewerId = null) {
 }
 
 module.exports = {
-  ROUNDS, STARTING_PRICE, STARTING_CASH, STARTING_COINS, MAX_SHARES, COIN_VALUE,
-  MAIN_CARDS, EFFECT_CARDS, OPENING_EVENTS, CHARACTERS,
+  ROUNDS, STARTING_PRICE, STARTING_CASH, STARTING_COINS, COIN_VALUE,
+  MAIN_CARDS, EFFECT_CARDS, OPENING_EVENTS, ROUND_EVENTS, CHARACTERS,
   createGame, chooseCharacter, submitDecision, chooseEffect, useSkill, publicRoom, finalWealth
 };
