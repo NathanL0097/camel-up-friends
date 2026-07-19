@@ -68,3 +68,7 @@
 #track>.dice-zone>div{gap:7px}.dice-zone .mini-die{width:25px;height:25px;border-radius:5px;box-shadow:0 3px 7px #4b2d1742;border:1px solid #fff8}.dice-zone .mini-die.gray{width:27px;height:27px;line-height:25px;font-size:13px}
 @media(max-width:1100px){#track>.actions{width:100%;display:block}#track>.actions>.action-block:nth-of-type(1){left:170px}#track>.actions>.action-block:nth-of-type(2){right:150px}#track>.actions>.prediction{right:180px}#track>.dice-zone{top:105px}}
 @media(max-width:720px){#track>.actions{width:100%;display:block;grid-template-columns:none}#track>.actions>.action-block:nth-of-type(1){left:170px}#track>.actions>.action-block:nth-of-type(2){right:150px}#track>.actions>.prediction{right:180px}}
+
+/* 比赛中常驻规则入口 */
+.game-head-actions{justify-self:end;display:flex;align-items:center;gap:8px}.game-head-actions .ghost-button{white-space:nowrap}.rules-shortcut{border-color:#d29238;background:#fff3cc;color:#6d4619;font-weight:800}.rules-shortcut:hover{background:#ffe8a8}#rulesDialog{max-height:86vh;overflow:auto}
+@media(max-width:720px){.game-head-actions #gameCopyButton{display:none}.game-head-actions .rules-shortcut{padding:8px 11px;font-size:11px}.game-head{grid-template-columns:1fr auto auto}}

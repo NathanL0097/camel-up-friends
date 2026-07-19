@@ -26,6 +26,7 @@ $("rollButton").onclick = () => socket.emit("game:roll");
 document.querySelectorAll("[data-tile]").forEach((button) => button.onclick = () => socket.emit("game:tile", { space: $("tileSpace").value, type: button.dataset.tile }));
 document.querySelectorAll("[data-predict]").forEach((button) => button.onclick = () => socket.emit("game:predict", { color: $("predictionColor").value, type: button.dataset.predict }));
 $("rulesButton").onclick = () => $("rulesDialog").showModal();
+$("gameRulesButton").onclick = () => $("rulesDialog").showModal();
 $("closeRules").onclick = () => $("rulesDialog").close();
 
 async function copyInvite() { if (!state) return; try { await navigator.clipboard.writeText(roomUrl(state.code)); toast("邀请链接已复制"); } catch { toast("请从地址栏复制链接"); } }
