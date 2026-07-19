@@ -10,6 +10,9 @@ let state = null;
 let feedbackTimer = null;
 let resultTimer = null;
 
+const savedName = localStorage.getItem("camelName");
+if (savedName) $("nameInput").value = savedName;
+
 function show(id) { ["landing", "lobby", "game"].forEach((key) => $(key).classList.toggle("hidden", key !== id)); }
 function toast(message) { const el = $("toast"); el.textContent = message; el.classList.add("show"); clearTimeout(el.timer); el.timer = setTimeout(() => el.classList.remove("show"), 2600); }
 function roomFromUrl() { return location.pathname.match(/^\/room\/([A-Z0-9]+)/i)?.[1]?.toUpperCase(); }
@@ -17,6 +20,17 @@ function name() { return $("nameInput").value.trim() || localStorage.getItem("ca
 function saveIdentity(result) { identity = { code: result.code, playerToken: result.playerToken }; myId = result.playerId; localStorage.setItem("camelIdentity", JSON.stringify(identity)); localStorage.setItem("camelName", name()); }
 function roomUrl(code) { return `${location.origin}/room/${code}`; }
 function join(code) { socket.emit("room:join", { code, name: name(), playerToken: identity?.code === code ? identity.playerToken : null }, (result) => { if (result?.ok) { saveIdentity(result); history.replaceState({}, "", `/room/${result.code}`); } }); }
+function prepareInviteJoin(code) {
+  show("landing");
+  $("codeInput").value = code;
+  $("codeInput").readOnly = true;
+  $("createButton").classList.add("hidden");
+  document.querySelector(".divider").classList.add("hidden");
+  document.querySelector(".entry-card").classList.add("invite-mode");
+  $("joinButton").textContent = "确认昵称并加入";
+  $("entryHint").textContent = `你将加入好友房 ${code}，请先确认或修改昵称。`;
+  $("nameInput").focus();
+}
 
 $("createButton").onclick = () => socket.emit("room:create", { name: name(), playerToken: crypto.randomUUID() }, (result) => { if (result?.ok) { saveIdentity(result); history.replaceState({}, "", `/room/${result.code}`); } });
 $("joinButton").onclick = () => { const code = $("codeInput").value.trim().toUpperCase(); if (code.length !== 6) return toast("请输入 6 位房间码"); join(code); };
@@ -194,5 +208,12 @@ socket.on("room:update", (room) => {
   if (wasLobby && room.game) requestAnimationFrame(animateStartingPositions);
 });
 socket.on("game:error", (message) => toast(message));
-socket.on("connect", () => { const code = roomFromUrl(); if (code) { $("entryHint").textContent = `正在加入房间 ${code}…`; join(code); } else show("landing"); });
+socket.on("connect", () => {
+  const code = roomFromUrl();
+  if (!code) return show("landing");
+  if (identity?.code === code) {
+    $("entryHint").textContent = `正在重新连接房间 ${code}…`;
+    join(code);
+  } else prepareInviteJoin(code);
+});
 socket.on("disconnect", () => toast("连接中断，正在尝试重连…"));
