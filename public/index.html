@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#172b2b" />
-  <title>骆驼快跑 · 好友房</title>
+  <title>好友桌游馆 · 在线开桌</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600;800;900&display=swap" rel="stylesheet">
@@ -13,19 +13,21 @@
 <body>
   <div class="sun"></div>
   <header class="topbar">
-    <a class="brand" href="/"><span class="brand-mark">🐪</span><span>骆驼快跑<small>好友房</small></span></a>
+    <a class="brand" href="/"><span class="brand-mark">🎲</span><span>好友桌游馆<small>在线开桌</small></span></a>
     <button id="rulesButton" class="ghost-button">玩法说明</button>
   </header>
 
   <main>
     <section id="landing" class="landing">
       <div class="hero-copy">
-        <div class="eyebrow">2–8 人 · 实时联机 · 免注册</div>
-        <h1>沙漠里没有永远的第一名。</h1>
-        <p>押注、叠行、抄近道。创建一个好友房，把链接发给朋友，打开浏览器就能一起玩。</p>
+        <div class="eyebrow">多款桌游 · 实时联机 · 免注册加入</div>
+        <h1>今晚，开一桌。</h1>
+        <p>选择游戏、创建好友房，把链接发给朋友。平台统一处理房间与重连，每款游戏保留自己的规则和体验。</p>
         <div class="feature-row"><span>⚡ 实时同步</span><span>🔗 链接即进房</span><span>📱 手机可玩</span></div>
       </div>
       <div class="entry-card paper">
+        <label>选择游戏</label>
+        <div id="gameCatalog" class="game-catalog"><button class="game-choice selected" data-game-id="camel-race"><span>🐪</span><b>沙漠驼队竞速</b><small>2–8人 · 技术演示</small></button></div>
         <label for="nameInput">你的昵称</label>
         <input id="nameInput" maxlength="16" placeholder="例如：沙漠赌神" autocomplete="nickname" />
         <button id="createButton" class="primary-button">创建好友房 <span>→</span></button>
@@ -37,7 +39,7 @@
 
     <section id="lobby" class="lobby hidden">
       <div class="lobby-card paper">
-        <div class="eyebrow">你的好友房</div>
+        <div class="eyebrow"><span id="lobbyGameTitle">好友桌游</span> · 你的好友房</div>
         <h2>等待探险队集合</h2>
         <p>复制链接发给朋友，他们不需要注册账号。</p>
         <div class="share-box"><span id="shareUrl"></span><button id="copyButton">复制链接</button></div>
@@ -48,46 +50,12 @@
       </div>
     </section>
 
-    <section id="game" class="game hidden">
-      <div class="game-head">
-        <div><div class="eyebrow">房间 <span id="gameCode"></span></div><h2 id="legTitle">第 1 赛段</h2></div>
-        <div id="turnBadge" class="turn-badge"></div>
-        <div class="game-head-actions"><button id="gameRulesButton" class="ghost-button rules-shortcut">📖 规则速查</button><button id="gameCopyButton" class="ghost-button">邀请好友</button></div>
-      </div>
-      <div class="game-layout">
-        <aside class="panel players-panel"><h3>探险队</h3><div id="playerList"></div></aside>
-        <section class="board-wrap">
-          <div id="finishBanner" class="finish-banner hidden"></div>
-          <div id="track" class="track"></div>
-          <div id="diceZone" class="dice-zone"><span>剩余骰子</span><div id="diceLeft"></div></div>
-          <div id="actions" class="actions paper">
-            <button id="rollButton" class="roll-button"><span class="die">◆</span><span><strong>掷金字塔骰子</strong><small>获得 1 金币并结束回合</small></span></button>
-            <div class="action-block"><strong>拿赛段投注牌</strong><div id="betButtons" class="color-buttons"></div></div>
-            <div class="action-block"><strong>放置赛道板块</strong><div class="tile-controls"><input id="tileSpace" type="number" min="2" max="15" value="8"><button data-tile="oasis">🌴 绿洲 +1</button><button data-tile="mirage">🌀 幻境 −1</button></div></div>
-            <div class="action-block prediction"><strong>秘密终局预测</strong><div><select id="predictionColor"></select><button data-predict="winner">猜冠军</button><button data-predict="loser">猜末名</button></div><div id="predictionCards" class="prediction-cards"></div></div>
-            <div id="partnershipAction" class="action-block partnership hidden"><strong>🤝 建立结盟</strong><div class="partnership-controls"><select id="partnershipPlayer"></select><button id="partnershipButton">结盟</button></div><small id="partnershipStatus">仅限6人以上游戏</small></div>
-          </div>
-        </section>
-        <aside class="panel log-panel"><h3>赛况播报</h3><div id="gameLog"></div></aside>
-      </div>
-    </section>
+    <section id="game" class="game hidden"><div id="gameMount"></div></section>
   </main>
 
   <dialog id="rulesDialog">
     <button id="closeRules" class="dialog-close">×</button>
-    <div class="eyebrow">比赛中随时查看</div><h2>骆驼快跑 · 规则速查</h2>
-    <ol>
-      <li><strong>轮到你时选一个行动：</strong>掷骰子、拿一张赛段投注牌、放置自己的赛道板块；6人以上还可选择结盟。秘密终局预测可在比赛结束前提交。</li>
-      <li><strong>骆驼会叠在一起：</strong>下方骆驼移动时，会带走它上面的所有骆驼；同格最上面的骆驼领先。</li>
-      <li><strong>骰子与疯狂骆驼：</strong>每赛段从 5 颗彩色骰和 1 颗灰骰中抽 5 颗。灰骰让黑/白骆驼逆向移动，它们可能驮着彩色骆驼后退，但不参与名次。</li>
-      <li><strong>赛段投注：</strong>每匹骆驼有 5、3、3、2、1 金币牌，越早拿收益越高。赛段结束时猜中第一获得牌面金币，猜中第二获得 1 金币，其余扣 1。</li>
-      <li><strong>财富保密：</strong>你可以看到自己的金币，但其他玩家的金币不公开。每赛段结束只匿名公布当前最高和最低财富；比赛结束后才公开所有人的金币与排名。</li>
-      <li><strong>赛道板块：</strong>放在第 2–15 格的空位，不能与其他板块相邻。绿洲使驼队前进 1 格，幻境使其后退 1 格；触发时板块主人获得 1 金币。</li>
-      <li><strong>秘密终局预测：</strong>每位玩家的每种颜色卡只能使用一次，可放入冠军或末名。正确预测按提交先后奖励 8、5、3、2、1 金币，错误扣 1。</li>
-      <li><strong>结盟（6–8人）：</strong>结盟会消耗一次行动，双方本赛段内不能再与别人结盟且对方不能拒绝。赛段结算时，双方各自复制伙伴一张收益最高的赛段投注牌或金字塔牌；没有正收益可以不复制，结算后自动解除。</li>
-      <li><strong>比赛结束：</strong>任一骆驼越过第 16 格立刻结算，总金币最多的玩家获胜。</li>
-    </ol>
-    <p class="rules-note">这是采用原创界面与简化好友房规则的非官方网页版本，不包含官方美术资产。</p>
+    <div id="rulesContent"></div>
   </dialog>
   <div id="toast" class="toast"></div>
   <script src="/socket.io/socket.io.js"></script>

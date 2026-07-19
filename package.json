@@ -1,8 +1,8 @@
 {
-  "name": "camel-race-friends",
+  "name": "friends-tabletop-platform",
   "version": "1.0.0",
   "private": true,
-  "description": "原创美术的骆驼竞速好友房网页游戏",
+  "description": "支持独立游戏模块、好友房和邀请链接的在线桌游平台",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
