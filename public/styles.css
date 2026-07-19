@@ -54,3 +54,17 @@
 #track>.desert-center{top:73%;opacity:.32;transform:translate(-50%,-50%) scale(.68)}
 @media(max-width:1100px){#track>.actions{width:560px}#track>.dice-zone{top:158px}}
 @media(max-width:720px){#track>.actions{width:560px;display:grid;grid-template-columns:112px 250px 154px}#track>.desert-center{display:block}}
+
+/* 分散式桌面操作区：仅保留掷骰在中央 */
+#track>.actions{inset:0;left:0;top:0;transform:none;width:100%;height:100%;max-width:none;margin:0;padding:0;display:block;background:transparent;border:0;border-radius:0;box-shadow:none;backdrop-filter:none;pointer-events:none}
+#track>.actions>*{pointer-events:auto}
+#track>.actions .roll-button{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:136px;height:124px;min-height:0;padding:16px 14px;display:flex;align-items:center;justify-content:center;text-align:center;border:4px solid #fff7;box-shadow:0 12px 26px #6f351f55,0 0 0 6px #dc6f352e;border-radius:22px}
+#track>.actions .roll-button .die{font-size:33px}#track>.actions .roll-button strong{font-size:14px}#track>.actions .roll-button small{font-size:9px}
+#track>.actions .action-block{position:absolute;margin:0;padding:10px;border:1px solid #76542f2d;border-radius:12px;background:#fffaf0ed;box-shadow:0 10px 25px #5e3b1d35;backdrop-filter:blur(8px)}
+#track>.actions>.action-block:nth-of-type(1){left:170px;top:185px;width:195px}#track>.actions>.action-block:nth-of-type(2){right:150px;top:177px;width:174px}#track>.actions>.prediction{right:180px;top:288px;width:192px}
+#track>.actions .color-buttons{grid-template-columns:repeat(2,minmax(80px,1fr))}#track>.actions>.action-block:nth-of-type(1) .bet-values{gap:2px}#track>.actions>.action-block:nth-of-type(1) .bet-values b{width:14px;font-size:8px}#track>.actions .tile-controls{display:grid;grid-template-columns:42px 1fr}#track>.actions .prediction>div:first-of-type{display:grid;grid-template-columns:1fr 1fr}
+#track>.actions .prediction-cards{max-height:18px;overflow:auto}#track>.actions .prediction-cards>small{display:none}
+#track>.dice-zone{left:calc(50% + 20px);top:105px;padding:9px 16px;gap:13px;background:#fff0c8ed;box-shadow:0 8px 20px #65401f2c}
+#track>.dice-zone>div{gap:7px}.dice-zone .mini-die{width:25px;height:25px;border-radius:5px;box-shadow:0 3px 7px #4b2d1742;border:1px solid #fff8}.dice-zone .mini-die.gray{width:27px;height:27px;line-height:25px;font-size:13px}
+@media(max-width:1100px){#track>.actions{width:100%;display:block}#track>.actions>.action-block:nth-of-type(1){left:170px}#track>.actions>.action-block:nth-of-type(2){right:150px}#track>.actions>.prediction{right:180px}#track>.dice-zone{top:105px}}
+@media(max-width:720px){#track>.actions{width:100%;display:block;grid-template-columns:none}#track>.actions>.action-block:nth-of-type(1){left:170px}#track>.actions>.action-block:nth-of-type(2){right:150px}#track>.actions>.prediction{right:180px}}
