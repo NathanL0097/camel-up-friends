@@ -57,10 +57,15 @@ function renderGame(room) {
   }).join("");
   document.querySelectorAll("[data-color]").forEach((button) => button.onclick = () => socket.emit("game:bet", { color: button.dataset.color }));
   document.querySelectorAll("[data-tile]").forEach((button) => button.disabled = !myTurn);
-  const mine = game.predictions.filter((item) => item.playerId === myId).map((item) => item.type);
-  document.querySelectorAll("[data-predict]").forEach((button) => button.disabled = game.status !== "playing" || mine.includes(button.dataset.predict));
-  $("predictionColor").innerHTML = COLORS.map((color) => `<option value="${color}">${COLOR_NAMES[color]}</option>`).join("");
-  if (game.status === "finished") { const best = room.players.slice().sort((a,b) => b.coins-a.coins)[0]; $("finishBanner").classList.remove("hidden"); $("finishBanner").innerHTML = `${COLOR_NAMES[game.winner]}率先冲线 · <strong>${escapeHtml(best.name)}</strong> 以 ${best.coins} 金币赢得本局！`; }
+  const mine = game.predictions.filter((item) => item.playerId === myId && !item.secret);
+  const usedColors = mine.map((item) => item.color);
+  const colorsLeft = COLORS.filter((color) => !usedColors.includes(color));
+  $("predictionColor").innerHTML = COLORS.map((color) => `<option value="${color}" ${usedColors.includes(color) ? "disabled" : ""}>${COLOR_NAMES[color]}${usedColors.includes(color) ? " · 已使用" : ""}</option>`).join("");
+  if (colorsLeft.length) $("predictionColor").value = colorsLeft[0];
+  $("predictionColor").disabled = !colorsLeft.length || game.status !== "playing";
+  document.querySelectorAll("[data-predict]").forEach((button) => button.disabled = game.status !== "playing" || !colorsLeft.length);
+  $("predictionCards").innerHTML = mine.length ? mine.map((item) => `<span class="prediction-card ${item.color}"><i class="dot ${item.color}"></i>${COLOR_NAMES[item.color]} · ${item.type === "winner" ? "冠军" : "末名"}</span>`).join("") : `<small>每种颜色卡只能使用一次；还可使用 ${colorsLeft.length} 张</small>`;
+  if (game.status === "finished") { const best = room.players.slice().sort((a,b) => b.coins-a.coins)[0]; $("finishBanner").classList.remove("hidden"); $("finishBanner").innerHTML = `${COLOR_NAMES[game.winner]}率先冲线 · <strong>${escapeHtml(best.name)}</strong> 以 ${best.coins} 金币赢得本局！${room.hostId === myId ? `<button id="restartButton" class="restart-button">再来一局 ↻</button>` : `<small>等待房主开启下一局</small>`}`; $("restartButton")?.addEventListener("click", () => socket.emit("game:restart")); }
   else $("finishBanner").classList.add("hidden");
 }
 
@@ -68,37 +73,55 @@ function renderTrack(game, room) {
   const tiles = Object.fromEntries(game.tiles.map((tile) => [tile.space, tile]));
   let html = `<div class="desert-center"><div class="pyramid">△</div><strong>撒哈拉竞速场</strong><small>疯狂骆驼会逆向奔跑</small></div>
     <div id="rollFeedback" class="roll-feedback"><div class="roll-die"><span></span></div><div class="roll-copy"></div></div>
+    <div id="startAnnouncement" class="start-announcement"><strong>起跑位置抽签</strong><small>骆驼正在进入随机起跑位…</small></div>
     <div class="palm-real palm-a"><i class="trunk"></i><span class="fronds"><b></b><b></b><b></b><b></b><b></b><b></b></span></div>
     <div class="palm-real palm-b"><i class="trunk"></i><span class="fronds"><b></b><b></b><b></b><b></b><b></b><b></b></span></div>
     <div class="desert-tent"><i></i><b></b></div><div class="cactus-real"><i></i><b></b><em></em></div>
     <div class="desert-rocks rocks-a"><i></i><b></b><em></em></div><div class="desert-rocks rocks-b"><i></i><b></b></div>
     <div class="desert-shrub shrub-a"></div><div class="desert-shrub shrub-b"></div>`;
   for (let space = 1; space <= 16; space += 1) {
-    const stack = game.stacks[space] || []; const tile = tiles[space]; const owner = room.players.find((player) => player.id === tile?.playerId);
+    const stack = game.stacks[space] || []; const tile = tiles[space]; const owner = room.players.find((player) => player.id === tile?.playerId); const ownerIndex = room.players.findIndex((player) => player.id === tile?.playerId);
     const angle = (130 + (space - 1) * 22.5) * Math.PI / 180;
     const left = 50 + 43 * Math.cos(angle); const top = 50 + 40 * Math.sin(angle);
-    html += `<div class="space ${space === 16 ? "finish" : ""}" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%"><span class="space-number">${space}${space === 16 ? " · 终点" : ""}</span>${tile ? `<span class="track-tile" title="${owner?.name || ""}">${tile.type === "oasis" ? "🌴" : "🌀"}</span>` : ""}<div class="camel-stack">${stack.map((color) => `<div class="camel ${color} ${["black","white"].includes(color) ? "crazy" : ""}" data-camel="${color}" title="${COLOR_NAMES[color]}">${["black","white"].includes(color) ? "↶" : ""}</div>`).join("")}</div></div>`;
+    html += `<div class="space ${space === 16 ? "finish" : ""}" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%"><span class="space-number">${space}${space === 16 ? " · 终点" : ""}</span>${tile ? `<span class="track-tile ${tile.type}" style="--owner-color:${playerMarkerColor(ownerIndex)}" title="${escapeHtml(owner?.name || "玩家")}的${tile.type === "oasis" ? "绿洲" : "幻境"}"><b>${tile.type === "oasis" ? "+1" : "−1"}</b><em>${escapeHtml((owner?.name || "玩").slice(0, 1))}</em></span>` : ""}<div class="camel-stack">${stack.map((color) => `<div class="camel ${color} ${["black","white"].includes(color) ? "crazy" : ""}" data-camel="${color}" title="${COLOR_NAMES[color]}">${["black","white"].includes(color) ? "↶" : ""}</div>`).join("")}</div></div>`;
   } $("track").innerHTML = html;
 }
 function translateLog(line) { return ALL_CAMELS.reduce((text, color) => text.replaceAll(color, COLOR_NAMES[color]), line); }
+function playerMarkerColor(index) { return ["#e4573f", "#3186ad", "#7c57a5", "#378a5b", "#d08b25", "#b84578", "#49616f", "#73542f"][Math.max(0, index) % 8]; }
 
 function captureCamelRects() {
-  return Object.fromEntries([...document.querySelectorAll("[data-camel]")].map((camel) => [camel.dataset.camel, camel.getBoundingClientRect()]));
+  const trackRect = $("track")?.getBoundingClientRect();
+  if (!trackRect) return {};
+  return Object.fromEntries([...document.querySelectorAll("[data-camel]")].map((camel) => {
+    const rect = camel.getBoundingClientRect();
+    return [camel.dataset.camel, { left: rect.left - trackRect.left, top: rect.top - trackRect.top }];
+  }));
 }
 
 function animateCamelMove(previousRects, event) {
-  event.moving.forEach((color, index) => {
+  const trackRect = $("track")?.getBoundingClientRect();
+  if (!trackRect) return;
+  Object.keys(previousRects).forEach((color) => {
     const camel = document.querySelector(`[data-camel="${color}"]`);
     const before = previousRects[color];
     if (!camel || !before) return;
     const after = camel.getBoundingClientRect();
-    const dx = before.left - after.left;
-    const dy = before.top - after.top;
-    camel.animate([
-      { transform: `translate(${dx}px, ${dy}px) rotate(0deg)`, zIndex: 20 },
-      { transform: `translate(${dx * .5}px, ${dy * .5 - 25}px) rotate(${event.direction > 0 ? 4 : -4}deg)`, zIndex: 20, offset: .52 },
+    const dx = before.left - (after.left - trackRect.left);
+    const dy = before.top - (after.top - trackRect.top);
+    if (Math.hypot(dx, dy) < 1) return;
+    const visualScale = after.width / camel.offsetWidth || 1;
+    const tx = dx / visualScale; const ty = dy / visualScale;
+    const movingIndex = event.moving.indexOf(color);
+    const isMoving = movingIndex >= 0;
+    const keyframes = isMoving ? [
+      { transform: `translate(${tx}px, ${ty}px) rotate(0deg)`, zIndex: 20 },
+      { transform: `translate(${tx * .5}px, ${ty * .5 - 28}px) rotate(${event.direction > 0 ? 4 : -4}deg)`, zIndex: 20, offset: .52 },
       { transform: "translate(0, 0) rotate(0deg)", zIndex: 20 }
-    ], { duration: 1050, delay: index * 35, easing: "cubic-bezier(.22,.72,.25,1)", fill: "both" });
+    ] : [
+      { transform: `translate(${tx}px, ${ty}px)` },
+      { transform: "translate(0, 0)" }
+    ];
+    camel.animate(keyframes, { duration: isMoving ? 1050 : 620, delay: 900 + Math.max(0, movingIndex) * 35, easing: "cubic-bezier(.22,.72,.25,1)", fill: "both" });
   });
 }
 
@@ -114,8 +137,28 @@ function showRollFeedback(event) {
   feedback.className = "roll-feedback";
   void feedback.offsetWidth;
   feedback.classList.add("showing");
-  feedbackTimer = setTimeout(() => feedback.classList.remove("showing"), event.legEnd ? 1350 : 1900);
-  if (event.legEnd) resultTimer = setTimeout(() => showLegWinner(event.legEnd), 1450);
+  feedbackTimer = setTimeout(() => feedback.classList.remove("showing"), event.legEnd ? 2050 : 2200);
+  if (event.legEnd) resultTimer = setTimeout(() => showLegWinner(event.legEnd), 2150);
+}
+
+function animateStartingPositions() {
+  const track = $("track"); const announcement = $("startAnnouncement");
+  if (!track || !announcement) return;
+  announcement.classList.add("showing");
+  const trackRect = track.getBoundingClientRect();
+  const centerX = trackRect.left + trackRect.width / 2;
+  const centerY = trackRect.top + trackRect.height / 2;
+  [...document.querySelectorAll("[data-camel]")].forEach((camel, index) => {
+    const target = camel.getBoundingClientRect();
+    const dx = centerX - (target.left + target.width / 2);
+    const dy = centerY - (target.top + target.height / 2);
+    camel.animate([
+      { transform: `translate(${dx}px, ${dy}px) scale(.35) rotate(-12deg)`, opacity: 0 },
+      { transform: `translate(${dx * .25}px, ${dy * .25 - 25}px) scale(1.08) rotate(4deg)`, opacity: 1, offset: .72 },
+      { transform: "translate(0, 0) scale(1) rotate(0deg)", opacity: 1 }
+    ], { duration: 1050, delay: 500 + index * 240, easing: "cubic-bezier(.2,.75,.25,1)", fill: "both" });
+  });
+  setTimeout(() => announcement.classList.remove("showing"), 2900);
 }
 
 function showLegWinner(result) {
@@ -132,6 +175,7 @@ function showLegWinner(result) {
 
 socket.on("room:update", (room) => {
   const hadGame = Boolean(state?.game);
+  const wasLobby = Boolean(state && !state.game);
   const previousEventId = state?.game?.lastEvent?.id ?? null;
   const previousRects = hadGame ? captureCamelRects() : {};
   state = room;
@@ -142,6 +186,7 @@ socket.on("room:update", (room) => {
     animateCamelMove(previousRects, event);
     showRollFeedback(event);
   });
+  if (wasLobby && room.game) requestAnimationFrame(animateStartingPositions);
 });
 socket.on("game:error", (message) => toast(message));
 socket.on("connect", () => { const code = roomFromUrl(); if (code) { $("entryHint").textContent = `正在加入房间 ${code}…`; join(code); } else show("landing"); });

@@ -21,7 +21,9 @@ function code() {
 }
 
 function sendRoom(room) {
-  io.to(room.code).emit("room:update", publicRoom(room));
+  for (const client of io.sockets.sockets.values()) {
+    if (client.data.roomCode === room.code) client.emit("room:update", publicRoom(room, client.data.playerId));
+  }
 }
 
 function replyError(socket, error) {
@@ -68,6 +70,16 @@ io.on("connection", (socket) => {
       const room = rooms.get(socket.data.roomCode);
       if (!room || room.hostId !== socket.data.playerId) throw new Error("只有房主可以开始比赛");
       if (room.game) throw new Error("比赛已经开始");
+      room.game = createGame(room.players);
+      sendRoom(room);
+    } catch (error) { replyError(socket, error); }
+  });
+
+  socket.on("game:restart", () => {
+    try {
+      const room = rooms.get(socket.data.roomCode);
+      if (!room || room.hostId !== socket.data.playerId) throw new Error("只有房主可以再开一局");
+      if (!room.game || room.game.status !== "finished") throw new Error("当前比赛还没有结束");
       room.game = createGame(room.players);
       sendRoom(room);
     } catch (error) { replyError(socket, error); }

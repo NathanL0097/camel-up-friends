@@ -139,11 +139,17 @@ function finishRace(room) {
   game.ranking = getRanking(game);
   game.winner = game.ranking[0];
   const last = game.ranking.at(-1);
-  for (const prediction of game.predictions) {
-    const player = room.players.find((item) => item.id === prediction.playerId);
-    if (!player) continue;
-    const correct = prediction.type === "winner" ? prediction.color === game.winner : prediction.color === last;
-    player.coins += correct ? 8 : -1;
+  const rewards = [8, 5, 3, 2, 1];
+  for (const type of ["winner", "loser"]) {
+    let correctIndex = 0;
+    for (const prediction of game.predictions.filter((item) => item.type === type)) {
+      const player = room.players.find((item) => item.id === prediction.playerId);
+      if (!player) continue;
+      const correctColor = type === "winner" ? game.winner : last;
+      const correct = prediction.color === correctColor;
+      player.coins += correct ? (rewards[correctIndex] || 1) : -1;
+      if (correct) correctIndex += 1;
+    }
   }
   game.log.unshift(`比赛结束！${game.winner} 赢得冠军。`);
 }
@@ -224,13 +230,21 @@ function placeTile(room, playerId, space, type) {
 function predict(room, playerId, color, type) {
   if (!room.game || room.game.status !== "playing") throw new Error("比赛尚未开始或已经结束");
   if (!COLORS.includes(color) || !["winner", "loser"].includes(type)) throw new Error("预测无效");
-  if (room.game.predictions.some((item) => item.playerId === playerId && item.type === type)) throw new Error("每种终局预测只能提交一次");
+  if (room.game.predictions.some((item) => item.playerId === playerId && item.color === color)) throw new Error("这张颜色卡已经用于终局预测");
   room.game.predictions.push({ playerId, color, type });
   room.game.log.unshift(`${room.players.find((item) => item.id === playerId)?.name} 已提交一个秘密终局预测。`);
 }
 
-function publicRoom(room) {
-  const game = room.game ? { ...room.game, random: undefined } : null;
+function publicRoom(room, viewerId = null) {
+  const game = room.game ? {
+    ...room.game,
+    random: undefined,
+    predictions: room.game.predictions.map((prediction) => prediction.playerId === viewerId ? prediction : {
+      playerId: prediction.playerId,
+      type: prediction.type,
+      secret: true
+    })
+  } : null;
   const players = room.players.map(({ token: _token, ...player }) => player);
   return { code: room.code, hostId: room.hostId, players, game };
 }
