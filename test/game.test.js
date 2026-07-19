@@ -28,6 +28,9 @@ test("行动严格按回合并发放掷骰奖励", () => {
   const r = room(); const before = r.players[0].coins;
   rollDie(r, "a", () => 0);
   assert.equal(r.players[0].coins, before + 1); assert.equal(r.game.turn, 1);
+  assert.equal(r.game.lastEvent.type, "roll");
+  assert.equal(r.game.lastEvent.amount, 1);
+  assert.ok(r.game.lastEvent.moving.length >= 1);
   assert.throws(() => rollDie(r, "a", () => 0), /还没轮到你/);
 });
 
@@ -69,4 +72,16 @@ test("黑白疯狂骆驼直接叠放时移动上面一匹", () => {
   game.stacks = { 14: ["black", "white"] };
   game.camels.black.space = game.camels.white.space = 14;
   assert.equal(chooseCrazyCamel(game, "black"), "white");
+});
+
+test("第五次掷骰事件包含赛段冠军供所有客户端高亮", () => {
+  const r = room();
+  r.players = [r.players[0]];
+  r.game.dice = ["red"];
+  r.game.rollsRemaining = 1;
+  r.game.stacks = { 8: ["blue"], 7: ["green"], 6: ["yellow"], 5: ["purple"], 4: ["red"], 14: ["black"], 15: ["white"] };
+  Object.entries(r.game.stacks).forEach(([space, stack]) => stack.forEach((color) => { r.game.camels[color].space = Number(space); }));
+  rollDie(r, "a", () => 0);
+  assert.deepEqual(r.game.lastEvent.legEnd, { leg: 1, first: "blue", second: "green" });
+  assert.equal(r.game.leg, 2);
 });

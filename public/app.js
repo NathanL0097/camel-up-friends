@@ -7,6 +7,8 @@ const COLOR_NAMES = { red: "红驼", blue: "蓝驼", green: "绿驼", yellow: "�
 let identity = JSON.parse(localStorage.getItem("camelIdentity") || "null");
 let myId = null;
 let state = null;
+let feedbackTimer = null;
+let resultTimer = null;
 
 function show(id) { ["landing", "lobby", "game"].forEach((key) => $(key).classList.toggle("hidden", key !== id)); }
 function toast(message) { const el = $("toast"); el.textContent = message; el.classList.add("show"); clearTimeout(el.timer); el.timer = setTimeout(() => el.classList.remove("show"), 2600); }
@@ -64,17 +66,83 @@ function renderGame(room) {
 
 function renderTrack(game, room) {
   const tiles = Object.fromEntries(game.tiles.map((tile) => [tile.space, tile]));
-  let html = `<div class="desert-center"><div class="pyramid">△</div><strong>撒哈拉竞速场</strong><small>疯狂骆驼会逆向奔跑</small></div><span class="palm palm-a">🌴</span><span class="palm palm-b">🌴</span><span class="tent">⛺</span><span class="cactus">🌵</span>`;
+  let html = `<div class="desert-center"><div class="pyramid">△</div><strong>撒哈拉竞速场</strong><small>疯狂骆驼会逆向奔跑</small></div>
+    <div id="rollFeedback" class="roll-feedback"><div class="roll-die"><span></span></div><div class="roll-copy"></div></div>
+    <div class="palm-real palm-a"><i class="trunk"></i><span class="fronds"><b></b><b></b><b></b><b></b><b></b><b></b></span></div>
+    <div class="palm-real palm-b"><i class="trunk"></i><span class="fronds"><b></b><b></b><b></b><b></b><b></b><b></b></span></div>
+    <div class="desert-tent"><i></i><b></b></div><div class="cactus-real"><i></i><b></b><em></em></div>
+    <div class="desert-rocks rocks-a"><i></i><b></b><em></em></div><div class="desert-rocks rocks-b"><i></i><b></b></div>
+    <div class="desert-shrub shrub-a"></div><div class="desert-shrub shrub-b"></div>`;
   for (let space = 1; space <= 16; space += 1) {
     const stack = game.stacks[space] || []; const tile = tiles[space]; const owner = room.players.find((player) => player.id === tile?.playerId);
     const angle = (130 + (space - 1) * 22.5) * Math.PI / 180;
     const left = 50 + 43 * Math.cos(angle); const top = 50 + 40 * Math.sin(angle);
-    html += `<div class="space ${space === 16 ? "finish" : ""}" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%"><span class="space-number">${space}${space === 16 ? " · 终点" : ""}</span>${tile ? `<span class="track-tile" title="${owner?.name || ""}">${tile.type === "oasis" ? "🌴" : "🌀"}</span>` : ""}<div class="camel-stack">${stack.map((color) => `<div class="camel ${color} ${["black","white"].includes(color) ? "crazy" : ""}" title="${COLOR_NAMES[color]}">${["black","white"].includes(color) ? "↶" : ""}</div>`).join("")}</div></div>`;
+    html += `<div class="space ${space === 16 ? "finish" : ""}" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%"><span class="space-number">${space}${space === 16 ? " · 终点" : ""}</span>${tile ? `<span class="track-tile" title="${owner?.name || ""}">${tile.type === "oasis" ? "🌴" : "🌀"}</span>` : ""}<div class="camel-stack">${stack.map((color) => `<div class="camel ${color} ${["black","white"].includes(color) ? "crazy" : ""}" data-camel="${color}" title="${COLOR_NAMES[color]}">${["black","white"].includes(color) ? "↶" : ""}</div>`).join("")}</div></div>`;
   } $("track").innerHTML = html;
 }
 function translateLog(line) { return ALL_CAMELS.reduce((text, color) => text.replaceAll(color, COLOR_NAMES[color]), line); }
 
-socket.on("room:update", (room) => { state = room; if (!myId && identity?.code === room.code) myId = room.players.find((p) => p.token === identity.playerToken)?.id; room.game ? renderGame(room) : renderLobby(room); });
+function captureCamelRects() {
+  return Object.fromEntries([...document.querySelectorAll("[data-camel]")].map((camel) => [camel.dataset.camel, camel.getBoundingClientRect()]));
+}
+
+function animateCamelMove(previousRects, event) {
+  event.moving.forEach((color, index) => {
+    const camel = document.querySelector(`[data-camel="${color}"]`);
+    const before = previousRects[color];
+    if (!camel || !before) return;
+    const after = camel.getBoundingClientRect();
+    const dx = before.left - after.left;
+    const dy = before.top - after.top;
+    camel.animate([
+      { transform: `translate(${dx}px, ${dy}px) rotate(0deg)`, zIndex: 20 },
+      { transform: `translate(${dx * .5}px, ${dy * .5 - 25}px) rotate(${event.direction > 0 ? 4 : -4}deg)`, zIndex: 20, offset: .52 },
+      { transform: "translate(0, 0) rotate(0deg)", zIndex: 20 }
+    ], { duration: 1050, delay: index * 35, easing: "cubic-bezier(.22,.72,.25,1)", fill: "both" });
+  });
+}
+
+function showRollFeedback(event) {
+  const feedback = $("rollFeedback");
+  if (!feedback) return;
+  clearTimeout(feedbackTimer); clearTimeout(resultTimer);
+  const die = feedback.querySelector(".roll-die");
+  die.className = `roll-die ${event.die}`;
+  die.querySelector("span").textContent = event.amount;
+  const rolledName = event.die === "gray" ? `${COLOR_NAMES[event.color]}（灰骰）` : COLOR_NAMES[event.color];
+  feedback.querySelector(".roll-copy").innerHTML = `<strong>${escapeHtml(event.playerName)} 掷出了 ${event.amount} 点</strong><small>${rolledName}${event.direction < 0 ? " · 逆向移动" : " · 向前移动"}</small>`;
+  feedback.className = "roll-feedback";
+  void feedback.offsetWidth;
+  feedback.classList.add("showing");
+  feedbackTimer = setTimeout(() => feedback.classList.remove("showing"), event.legEnd ? 1350 : 1900);
+  if (event.legEnd) resultTimer = setTimeout(() => showLegWinner(event.legEnd), 1450);
+}
+
+function showLegWinner(result) {
+  const feedback = $("rollFeedback");
+  const winner = document.querySelector(`[data-camel="${result.first}"]`);
+  if (!feedback) return;
+  feedback.querySelector(".roll-die").className = `roll-die winner-medal ${result.first}`;
+  feedback.querySelector(".roll-die span").textContent = "★";
+  feedback.querySelector(".roll-copy").innerHTML = `<strong>第 ${result.leg} 赛段冠军</strong><small>${COLOR_NAMES[result.first]} 暂列第一</small>`;
+  feedback.className = "roll-feedback leg-result showing";
+  winner?.classList.add("leg-winner");
+  feedbackTimer = setTimeout(() => { feedback.classList.remove("showing"); winner?.classList.remove("leg-winner"); }, 2800);
+}
+
+socket.on("room:update", (room) => {
+  const hadGame = Boolean(state?.game);
+  const previousEventId = state?.game?.lastEvent?.id ?? null;
+  const previousRects = hadGame ? captureCamelRects() : {};
+  state = room;
+  if (!myId && identity?.code === room.code) myId = room.players.find((p) => p.token === identity.playerToken)?.id;
+  room.game ? renderGame(room) : renderLobby(room);
+  const event = room.game?.lastEvent;
+  if (hadGame && event?.type === "roll" && event.id !== previousEventId) requestAnimationFrame(() => {
+    animateCamelMove(previousRects, event);
+    showRollFeedback(event);
+  });
+});
 socket.on("game:error", (message) => toast(message));
 socket.on("connect", () => { const code = roomFromUrl(); if (code) { $("entryHint").textContent = `正在加入房间 ${code}…`; join(code); } else show("landing"); });
 socket.on("disconnect", () => toast("连接中断，正在尝试重连…"));

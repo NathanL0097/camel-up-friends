@@ -42,6 +42,8 @@ function createGame(players, random = Math.random) {
     predictions: [],
     tiles: [],
     log: ["比赛开始！第一赛段已经启程。"],
+    eventSeq: 0,
+    lastEvent: null,
     winner: null,
     ranking: [],
     random
@@ -113,6 +115,7 @@ function advanceTurn(room) {
 
 function settleLeg(room) {
   const game = room.game;
+  const endedLeg = game.leg;
   const [first, second] = getRanking(game);
   for (const bet of game.legBets) {
     const player = room.players.find((item) => item.id === bet.playerId);
@@ -127,6 +130,7 @@ function settleLeg(room) {
   game.bets = Object.fromEntries(COLORS.map((color) => [color, [...BET_VALUES]]));
   game.legBets = [];
   game.tiles = [];
+  return { leg: endedLeg, first, second };
 }
 
 function finishRace(room) {
@@ -164,11 +168,31 @@ function rollDie(room, playerId, random = Math.random) {
     if (owner) owner.coins += 1;
     game.log.unshift(`触发${result.tile.type === "oasis" ? "绿洲 +1" : "海市蜃楼 -1"}，${owner?.name || "玩家"} 获得 1 金币。`);
   }
-  if (result.destination > FINISH || result.destination < 1) finishRace(room);
+  let legEnd = null;
+  const raceFinished = result.destination > FINISH || result.destination < 1;
+  if (raceFinished) finishRace(room);
   else {
     advanceTurn(room);
-    if (!game.rollsRemaining) settleLeg(room);
+    if (!game.rollsRemaining) legEnd = settleLeg(room);
   }
+  game.eventSeq += 1;
+  game.lastEvent = {
+    id: game.eventSeq,
+    type: "roll",
+    playerId,
+    playerName: player.name,
+    die,
+    color,
+    rolledCrazyColor,
+    amount,
+    direction,
+    from: result.from,
+    destination: result.destination,
+    moving: result.moving,
+    tile: result.tile ? { type: result.tile.type, space: result.tile.space } : null,
+    legEnd,
+    raceFinished
+  };
   return { die, color, rolledCrazyColor, amount };
 }
 
