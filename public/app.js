@@ -70,6 +70,8 @@ function renderGame(room) {
 }
 
 function renderTrack(game, room) {
+  const track = $("track");
+  const floatingControls = [$("diceZone"), $("actions")].filter(Boolean);
   const tiles = Object.fromEntries(game.tiles.map((tile) => [tile.space, tile]));
   let html = `<div class="desert-center"><div class="pyramid">△</div><strong>撒哈拉竞速场</strong><small>疯狂骆驼会逆向奔跑</small></div>
     <div id="rollFeedback" class="roll-feedback"><div class="roll-die"><span></span></div><div class="roll-copy"></div></div>
@@ -84,7 +86,9 @@ function renderTrack(game, room) {
     const angle = (130 + (space - 1) * 22.5) * Math.PI / 180;
     const left = 50 + 43 * Math.cos(angle); const top = 50 + 40 * Math.sin(angle);
     html += `<div class="space ${space === 16 ? "finish" : ""}" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%"><span class="space-number">${space}${space === 16 ? " · 终点" : ""}</span>${tile ? `<span class="track-tile ${tile.type}" style="--owner-color:${playerMarkerColor(ownerIndex)}" title="${escapeHtml(owner?.name || "玩家")}的${tile.type === "oasis" ? "绿洲" : "幻境"}"><b>${tile.type === "oasis" ? "+1" : "−1"}</b><em>${escapeHtml((owner?.name || "玩").slice(0, 1))}</em></span>` : ""}<div class="camel-stack">${stack.map((color) => `<div class="camel ${color} ${["black","white"].includes(color) ? "crazy" : ""}" data-camel="${color}" title="${COLOR_NAMES[color]}">${["black","white"].includes(color) ? "↶" : ""}</div>`).join("")}</div></div>`;
-  } $("track").innerHTML = html;
+  }
+  track.innerHTML = html;
+  floatingControls.forEach((control) => track.appendChild(control));
 }
 function translateLog(line) { return ALL_CAMELS.reduce((text, color) => text.replaceAll(color, COLOR_NAMES[color]), line); }
 function playerMarkerColor(index) { return ["#e4573f", "#3186ad", "#7c57a5", "#378a5b", "#d08b25", "#b84578", "#49616f", "#73542f"][Math.max(0, index) % 8]; }
