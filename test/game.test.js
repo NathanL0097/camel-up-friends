@@ -153,6 +153,21 @@ test("踩到海市蜃楼后退时移动驼队放在原有驼队下方", () => {
   assert.deepEqual(game.stacks[5], ["red", "green", "blue", "yellow"]);
 });
 
+test("掷骰踩中赛道板块时记录触发格并奖励板块主人", () => {
+  const r = room();
+  r.game.dice = ["red"];
+  r.game.rollsRemaining = 1;
+  r.game.stacks = { 3: ["red"], 5: ["blue"] };
+  r.game.camels.red.space = 3;
+  r.game.camels.blue.space = 5;
+  r.game.tiles = [{ space: 6, type: "mirage", playerId: "b" }];
+  rollDie(r, "a", () => 0.99);
+  assert.equal(r.game.camels.red.space, 5);
+  assert.equal(r.players[1].coins, 4);
+  assert.deepEqual(r.game.lastEvent.tile, { type: "mirage", space: 6 });
+  assert.deepEqual(r.game.tiles, []);
+});
+
 test("只有一匹疯狂骆驼背着比赛骆驼时必须移动它", () => {
   const game = createGame([], () => 0);
   game.stacks = { 12: ["white", "green"], 14: ["black"] };

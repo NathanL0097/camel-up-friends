@@ -93,7 +93,7 @@
         const angle = (130 + (space - 1) * 22.5) * Math.PI / 180;
         const left = 50 + 43 * Math.cos(angle);
         const top = 50 + 40 * Math.sin(angle);
-        html += `<div class="space ${space === 16 ? "finish" : ""}" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%"><span class="space-number">${space}${space === 16 ? " · 终点" : ""}</span>${tile ? `<span class="track-tile ${tile.type}" style="--owner-color:${playerMarkerColor(ownerIndex)}" title="${escapeHtml(owner?.name || "玩家")}的${tile.type === "oasis" ? "绿洲" : "幻境"}"><b>${tile.type === "oasis" ? "+1" : "−1"}</b><em>${escapeHtml((owner?.name || "玩").slice(0, 1))}</em></span>` : ""}<div class="camel-stack">${stack.map((color, stackIndex) => camelMarkup(color, color === leader, stackIndex)).join("")}</div></div>`;
+        html += `<div class="space ${space === 16 ? "finish" : ""} ${tile ? `has-track-tile ${tile.type}` : ""}" data-space="${space}" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%"><span class="space-number">${space}${space === 16 ? " · 终点" : ""}</span>${tile ? `<span class="track-tile ${tile.type}" style="--owner-color:${playerMarkerColor(ownerIndex)}" title="${escapeHtml(owner?.name || "玩家")}的${tile.type === "oasis" ? "绿洲" : "幻境"}"><b>${tile.type === "oasis" ? "+1" : "−1"}</b><em>${escapeHtml((owner?.name || "玩").slice(0, 1))}</em></span>` : ""}<div class="camel-stack">${stack.map((color, stackIndex) => camelMarkup(color, color === leader, stackIndex)).join("")}</div></div>`;
       }
       track.innerHTML = html;
       floatingControls.forEach((control) => track.appendChild(control));
@@ -139,6 +139,10 @@
     function animateCamelMove(previousRects, event) {
       const trackRect = $("track")?.getBoundingClientRect();
       if (!trackRect) return;
+      const tileSpace = event.tile ? document.querySelector(`[data-space="${event.tile.space}"]`) : null;
+      const tileRect = tileSpace?.getBoundingClientRect();
+      const movingBase = previousRects[event.moving?.[0]];
+      if (tileRect) showTileCoin(tileSpace, trackRect, event.tile.type);
       Object.keys(previousRects).forEach((color) => {
         const camel = document.querySelector(`[data-camel="${color}"]`);
         const before = previousRects[color];
@@ -153,18 +157,46 @@
         const movingIndex = event.moving.indexOf(color);
         const isMoving = movingIndex >= 0;
         const directionTilt = event.direction > 0 ? 1 : -1;
-        const keyframes = isMoving ? [
+        const tileTx = tileRect && movingBase ? (tileRect.left + tileRect.width / 2 - after.width / 2 + before.left - movingBase.left - after.left) / visualScale : 0;
+        const tileTy = tileRect && movingBase ? (tileRect.top + tileRect.height / 2 - after.height / 2 + before.top - movingBase.top - after.top) / visualScale : 0;
+        const regularKeyframes = [
           { transform: `translate(${tx}px, ${ty}px) rotate(0deg) scale(1)`, zIndex: 20 },
           { transform: `translate(${tx * .78}px, ${ty * .78 - 18}px) rotate(${5 * directionTilt}deg) scale(1.06,.94)`, zIndex: 20, offset: .24 },
           { transform: `translate(${tx * .52}px, ${ty * .52 + 2}px) rotate(${-3 * directionTilt}deg) scale(.96,1.05)`, zIndex: 20, offset: .48 },
           { transform: `translate(${tx * .25}px, ${ty * .25 - 22}px) rotate(${4 * directionTilt}deg) scale(1.05,.95)`, zIndex: 20, offset: .72 },
           { transform: "translate(0, 0) rotate(0deg) scale(.98,1.06)", zIndex: 20, offset: .92 },
           { transform: "translate(0, 0) rotate(0deg) scale(1)", zIndex: 20 }
-        ] : [{ transform: `translate(${tx}px, ${ty}px)` }, { transform: "translate(0, 0)" }];
+        ];
+        const tileKeyframes = [
+          { transform: `translate(${tx}px, ${ty}px) rotate(0deg) scale(1)`, zIndex: 20 },
+          { transform: `translate(${(tx + tileTx) * .5}px, ${(ty + tileTy) * .5 - 25}px) rotate(${5 * directionTilt}deg) scale(1.06,.94)`, zIndex: 20, offset: .28 },
+          { transform: `translate(${tileTx}px, ${tileTy - 18}px) rotate(${-3 * directionTilt}deg) scale(1.05,.95)`, zIndex: 20, offset: .49 },
+          { transform: `translate(${tileTx}px, ${tileTy}px) rotate(0deg) scale(1.12,.78)`, zIndex: 20, offset: .57 },
+          { transform: `translate(${tileTx}px, ${tileTy - 13}px) rotate(${event.tile?.type === "mirage" ? -7 : 7}deg) scale(.96,1.08)`, zIndex: 20, offset: .67 },
+          { transform: `translate(${tileTx * .45}px, ${tileTy * .45 - 14}px) rotate(${-4 * directionTilt}deg) scale(1.04,.96)`, zIndex: 20, offset: .84 },
+          { transform: "translate(0, 0) rotate(0deg) scale(.98,1.06)", zIndex: 20, offset: .95 },
+          { transform: "translate(0, 0) rotate(0deg) scale(1)", zIndex: 20 }
+        ];
+        const keyframes = isMoving ? (tileRect ? tileKeyframes : regularKeyframes) : [{ transform: `translate(${tx}px, ${ty}px)` }, { transform: "translate(0, 0)" }];
         if (isMoving) camel.classList.add("is-running");
-        const animation = camel.animate(keyframes, { duration: isMoving ? 1380 : 720, delay: 900 + Math.max(0, movingIndex) * 55, easing: "cubic-bezier(.2,.72,.22,1)", fill: "backwards" });
+        const animation = camel.animate(keyframes, { duration: isMoving ? (tileRect ? 1900 : 1380) : 720, delay: 900 + Math.max(0, movingIndex) * 55, easing: "cubic-bezier(.2,.72,.22,1)", fill: "backwards" });
         animation.finished.then(() => camel.classList.remove("is-running"), () => camel.classList.remove("is-running"));
       });
+    }
+    function showTileCoin(tileSpace, trackRect, type) {
+      const tile = tileSpace.querySelector(".track-tile");
+      setTimeout(() => {
+        const currentRect = tileSpace.getBoundingClientRect();
+        tile?.classList.add("triggered");
+        tileSpace.classList.add("tile-hit-flash", type);
+        const coin = document.createElement("div");
+        coin.className = `tile-coin-pop ${type}`;
+        coin.style.left = `${currentRect.left + currentRect.width / 2 - trackRect.left}px`;
+        coin.style.top = `${currentRect.top + currentRect.height / 2 - trackRect.top}px`;
+        coin.innerHTML = `<span>🪙</span><b>+1</b>`;
+        $("track").appendChild(coin);
+        setTimeout(() => { tile?.classList.remove("triggered"); tileSpace.classList.remove("tile-hit-flash", type); coin.remove(); }, 1350);
+      }, 1880);
     }
     function showRollFeedback(event) {
       const feedback = $("rollFeedback");
@@ -174,7 +206,8 @@
       die.className = `roll-die ${event.die}`;
       die.querySelector("span").textContent = event.amount;
       const rolledName = event.die === "gray" ? `${COLOR_NAMES[event.color]}（灰骰）` : COLOR_NAMES[event.color];
-      feedback.querySelector(".roll-copy").innerHTML = `<strong>${escapeHtml(event.playerName)} 掷出了 ${event.amount} 点</strong><small>${rolledName}${event.direction < 0 ? " · 逆向移动" : " · 向前移动"}</small>`;
+      const tileNote = event.tile ? ` · 踩中${event.tile.type === "oasis" ? "绿洲 +1" : "幻境 −1"}` : "";
+      feedback.querySelector(".roll-copy").innerHTML = `<strong>${escapeHtml(event.playerName)} 掷出了 ${event.amount} 点</strong><small>${rolledName}${event.direction < 0 ? " · 逆向移动" : " · 向前移动"}${tileNote}</small>`;
       feedback.className = "roll-feedback";
       if (event.legEnd?.usedDice) renderUsedDice(event.legEnd.usedDice);
       void feedback.offsetWidth;
