@@ -34,6 +34,15 @@ function replyError(socket, error) {
   socket.emit("game:error", error instanceof Error ? error.message : "操作失败");
 }
 
+const gameTicker = setInterval(() => {
+  const now = Date.now();
+  for (const room of rooms.values()) {
+    const definition = getGame(room.gameId);
+    if (room.game && definition.tick?.(room, now)) sendRoom(room);
+  }
+}, 500);
+gameTicker.unref();
+
 io.on("connection", (socket) => {
   socket.on("room:create", ({ name, playerToken, gameId = DEFAULT_GAME_ID } = {}, ack = () => {}) => {
     try {

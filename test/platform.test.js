@@ -25,7 +25,22 @@ test("平台游戏注册表公开元数据但不公开服务端处理器", () =>
   assert.equal(catalog[0].actions, undefined);
   assert.equal(catalog[1].title, "开盘！");
   assert.equal(catalog[1].clientScript, "/games/market-opening.js");
+  assert.equal(catalog[2].title, "你画我猜");
+  assert.equal(catalog[2].clientScript, "/games/draw-and-guess.js");
   assert.throws(() => getGame("unknown-game"), /暂未开放/);
+});
+
+test("你画我猜复用好友房并要求至少两人开局", () => {
+  const { roomService } = service();
+  const { room, player: host } = roomService.createRoom({ name: "画家", playerToken: "host-token", gameId: "draw-and-guess" });
+  assert.throws(() => roomService.startGame(room, host.id), /至少需要 2 人/);
+  const { player: friend } = roomService.joinRoom({ rawCode: room.code, name: "猜题者", playerToken: "friend-token" });
+  roomService.startGame(room, host.id);
+  assert.equal(room.game.totalTurns, 4);
+  const artistView = roomService.publicRoom(room, room.game.artistId);
+  const friendView = roomService.publicRoom(room, friend.id === room.game.artistId ? host.id : friend.id);
+  assert.equal(artistView.game.wordChoices.length, 3);
+  assert.equal(friendView.game.wordChoices.length, 0);
 });
 
 test("平台房间保存游戏类型并生成对应的公开状态", () => {

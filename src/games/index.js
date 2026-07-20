@@ -1,9 +1,11 @@
 const { definition: camelRace } = require("./camel-race");
 const { definition: marketOpening } = require("./market-opening");
+const { definition: drawAndGuess } = require("./draw-and-guess");
 
 const games = new Map([
   [camelRace.id, camelRace],
-  [marketOpening.id, marketOpening]
+  [marketOpening.id, marketOpening],
+  [drawAndGuess.id, drawAndGuess]
 ]);
 
 function getGame(gameId) {
