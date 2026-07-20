@@ -95,8 +95,18 @@ test("比赛中只向玩家本人公开金币", () => {
 test("同一玩家的每张颜色终局卡只能使用一次", () => {
   const r = room();
   predict(r, "a", "red", "winner");
+  r.game.turn = 0;
   assert.throws(() => predict(r, "a", "red", "loser"), /颜色卡已经用于/);
+  r.game.turn = 0;
   assert.doesNotThrow(() => predict(r, "a", "blue", "loser"));
+});
+
+test("秘密终局预测只能在自己的回合进行并消耗行动", () => {
+  const r = room();
+  assert.throws(() => predict(r, "b", "red", "winner"), /还没轮到你/);
+  predict(r, "a", "red", "winner");
+  assert.equal(r.game.turn, 1);
+  assert.throws(() => predict(r, "a", "blue", "loser"), /还没轮到你/);
 });
 
 test("终局预测只向本人公开颜色", () => {
@@ -156,6 +166,18 @@ test("第五次掷骰事件包含赛段冠军供所有客户端高亮", () => {
   r.game.stacks = { 8: ["blue"], 7: ["green"], 6: ["yellow"], 5: ["purple"], 4: ["red"], 14: ["black"], 15: ["white"] };
   Object.entries(r.game.stacks).forEach(([space, stack]) => stack.forEach((color) => { r.game.camels[color].space = Number(space); }));
   rollDie(r, "a", () => 0);
-  assert.deepEqual(r.game.lastEvent.legEnd, { leg: 1, first: "blue", second: "green", wealth: { highest: 4, lowest: 4 } });
+  assert.deepEqual(r.game.lastEvent.legEnd, { leg: 1, first: "blue", second: "green", usedDice: [{ die: "red", color: "red", amount: 1 }], wealth: { highest: 4, lowest: 4 } });
   assert.equal(r.game.leg, 2);
+});
+
+test("每赛段记录已使用骰子并在新赛段清空", () => {
+  const r = room();
+  r.players = [r.players[0]];
+  rollDie(r, "a", () => 0);
+  assert.equal(r.game.usedDice.length, 1);
+  assert.equal(r.game.usedDice[0].amount, 1);
+  r.game.rollsRemaining = 1;
+  rollDie(r, "a", () => 0);
+  assert.deepEqual(r.game.usedDice, []);
+  assert.equal(r.game.lastEvent.legEnd.usedDice.length, 2);
 });

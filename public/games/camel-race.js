@@ -10,8 +10,8 @@
     let resultTimer = null;
     const emitAction = (action, payload = {}) => socket.emit("game:action", { action, payload });
 
-    $("gameMount").innerHTML = `<div class="game-head"><div><div class="eyebrow"><span id="gameTitleBadge">好友桌游</span> · 房间 <span id="gameCode"></span></div><h2 id="legTitle">第 1 赛段</h2></div><div id="turnBadge" class="turn-badge"></div><div class="game-head-actions"><button id="gameRulesButton" class="ghost-button rules-shortcut">📖 规则速查</button><button id="gameCopyButton" class="ghost-button">邀请好友</button></div></div><div class="game-layout"><aside class="panel players-panel"><h3>探险队</h3><div id="playerList"></div></aside><section class="board-wrap"><div id="finishBanner" class="finish-banner hidden"></div><div id="track" class="track"></div><div id="diceZone" class="dice-zone"><span>剩余骰子</span><div id="diceLeft"></div></div><div id="actions" class="actions paper"><button id="rollButton" class="roll-button"><span class="die">◆</span><span><strong>掷金字塔骰子</strong><small>获得 1 金币并结束回合</small></span></button><div class="action-block"><strong>拿赛段投注牌</strong><div id="betButtons" class="color-buttons"></div></div><div class="action-block"><strong>放置赛道板块</strong><div class="tile-controls"><input id="tileSpace" type="number" min="2" max="15" value="8"><button data-tile="oasis">🌴 绿洲 +1</button><button data-tile="mirage">🌀 幻境 −1</button></div></div><div class="action-block prediction"><strong>秘密终局预测</strong><div><select id="predictionColor"></select><button data-predict="winner">猜冠军</button><button data-predict="loser">猜末名</button></div><div id="predictionCards" class="prediction-cards"></div></div><div id="partnershipAction" class="action-block partnership hidden"><strong>🤝 建立结盟</strong><div class="partnership-controls"><select id="partnershipPlayer"></select><button id="partnershipButton">结盟</button></div><small id="partnershipStatus">仅限6人以上游戏</small></div></div></section><aside class="panel log-panel"><h3>赛况播报</h3><div id="gameLog"></div></aside></div>`;
-    $("rulesContent").innerHTML = `<div class="eyebrow">比赛中随时查看</div><h2>沙漠驼队竞速 · 规则速查</h2><ol><li><strong>轮到你时选一个行动：</strong>掷骰子、拿一张赛段投注牌、放置自己的赛道板块；6人以上还可选择结盟。秘密终局预测可在比赛结束前提交。</li><li><strong>骆驼会叠在一起：</strong>下方骆驼移动时，会带走它上面的所有骆驼；同格最上面的骆驼领先。</li><li><strong>骰子与疯狂骆驼：</strong>每赛段从5颗彩色骰和1颗灰骰中抽5颗。灰骰让黑/白骆驼逆向移动，它们可能驮着彩色骆驼后退，但不参与名次。</li><li><strong>赛段投注：</strong>每匹骆驼有5、3、3、2、1金币牌，越早拿收益越高。赛段结束时猜中第一获得牌面金币，猜中第二获得1金币，其余扣1。</li><li><strong>财富保密：</strong>你可以看到自己的金币，但其他玩家的金币不公开。每赛段结束只匿名公布当前最高和最低财富；比赛结束后才公开所有人的金币与排名。</li><li><strong>赛道板块：</strong>放在第2–15格的空位，不能与其他板块相邻。绿洲使驼队前进1格，幻境使其后退1格；触发时板块主人获得1金币。</li><li><strong>秘密终局预测：</strong>每位玩家的每种颜色卡只能使用一次，可放入冠军或末名。正确预测按提交先后奖励8、5、3、2、1金币，错误扣1。</li><li><strong>结盟（6–8人）：</strong>结盟会消耗一次行动，双方本赛段内不能再与别人结盟且对方不能拒绝。赛段结算时，双方各自复制伙伴一张收益最高的赛段投注牌或金字塔牌；没有正收益可以不复制，结算后自动解除。</li><li><strong>比赛结束：</strong>任一骆驼越过第16格立刻结算，总金币最多的玩家获胜。</li></ol><p class="rules-note">这是采用原创界面与简化好友房规则的私人技术演示，不作为正式商业发行版本。</p>`;
+    $("gameMount").innerHTML = `<div class="game-head"><div><div class="eyebrow"><span id="gameTitleBadge">好友桌游</span> · 房间 <span id="gameCode"></span></div><h2 id="legTitle">第 1 赛段</h2></div><div id="turnBadge" class="turn-badge"></div><div class="game-head-actions"><button id="gameRulesButton" class="ghost-button rules-shortcut">📖 规则速查</button><button id="gameCopyButton" class="ghost-button">邀请好友</button></div></div><div class="game-layout"><aside class="panel players-panel"><h3>探险队</h3><div id="playerList"></div></aside><section class="board-wrap"><div id="finishBanner" class="finish-banner hidden"></div><div id="track" class="track"></div><div id="diceZone" class="dice-zone"><span>金字塔内剩余</span><div id="diceLeft"></div></div><div id="actions" class="actions paper"><button id="rollButton" class="roll-button"><span class="die">◆</span><span><strong>掷金字塔骰子</strong><small>获得 1 金币并结束回合</small></span></button><div class="action-block"><strong>拿赛段投注牌</strong><div id="betButtons" class="color-buttons"></div></div><div class="action-block"><strong>放置赛道板块</strong><div class="tile-controls"><input id="tileSpace" type="number" min="2" max="15" value="8"><button data-tile="oasis">🌴 绿洲 +1</button><button data-tile="mirage">🌀 幻境 −1</button></div></div><div class="action-block prediction"><strong>秘密终局预测 · 消耗行动</strong><div><select id="predictionColor"></select><button data-predict="winner">猜冠军</button><button data-predict="loser">猜末名</button></div><div id="predictionCards" class="prediction-cards"></div></div></div><div id="partnershipAction" class="partnership-dock hidden"><div><strong>🤝 本赛段结盟</strong><small id="partnershipStatus">仅限6人以上游戏</small></div><div class="partnership-controls"><select id="partnershipPlayer"></select><button id="partnershipButton">结盟并结束回合</button></div></div></section><aside class="panel log-panel"><h3>赛况播报</h3><div id="gameLog"></div></aside></div>`;
+    $("rulesContent").innerHTML = `<div class="eyebrow">比赛中随时查看</div><h2>沙漠驼队竞速 · 规则速查</h2><ol><li><strong>轮到你时选一个行动：</strong>掷骰子、拿一张赛段投注牌、放置自己的赛道板块、提交一次秘密终局预测；6人以上还可选择结盟。每项都会结束你的回合。</li><li><strong>骆驼会叠在一起：</strong>下方骆驼移动时，会带走它上面的所有骆驼；同格最上面的骆驼领先。</li><li><strong>骰子与疯狂骆驼：</strong>每赛段从5颗彩色骰和1颗灰骰中抽5颗。跑道中央五格骰盘会显示已使用骰子，第5颗放入后赛段立刻结束。灰骰让黑/白骆驼逆向移动，它们可能驮着彩色骆驼后退，但不参与名次。</li><li><strong>赛段投注：</strong>每匹骆驼有5、3、3、2、1金币牌，越早拿收益越高。赛段结束时猜中第一获得牌面金币，猜中第二获得1金币，其余扣1。</li><li><strong>财富保密：</strong>你可以看到自己的金币，但其他玩家的金币不公开。每赛段结束只匿名公布当前最高和最低财富；比赛结束后才公开所有人的金币与排名。</li><li><strong>赛道板块：</strong>放在第2–15格的空位，不能与其他板块相邻。绿洲使驼队前进1格，幻境使其后退1格；触发时板块主人获得1金币。</li><li><strong>秘密终局预测：</strong>只能在自己的回合提交且算作一次行动。每位玩家的每种颜色卡只能使用一次，可放入冠军或末名。正确预测按提交先后奖励8、5、3、2、1金币，错误扣1。</li><li><strong>结盟（6–8人）：</strong>结盟会消耗一次行动，双方本赛段内不能再与别人结盟且对方不能拒绝。赛段结算时，双方各自复制伙伴一张收益最高的赛段投注牌或金字塔牌；没有正收益可以不复制，结算后自动解除。</li><li><strong>比赛结束：</strong>任一骆驼越过第16格立刻结算，总金币最多的玩家获胜。</li></ol><p class="rules-note">这是采用原创界面与简化好友房规则的私人技术演示，不作为正式商业发行版本。</p>`;
 
     $("rollButton").onclick = () => emitAction("roll");
     document.querySelectorAll("[data-tile]").forEach((button) => button.onclick = () => emitAction("tile", { space: $("tileSpace").value, type: button.dataset.tile }));
@@ -55,8 +55,8 @@
       const colorsLeft = COLORS.filter((color) => !usedColors.includes(color));
       $("predictionColor").innerHTML = COLORS.map((color) => `<option value="${color}" ${usedColors.includes(color) ? "disabled" : ""}>${COLOR_NAMES[color]}${usedColors.includes(color) ? " · 已使用" : ""}</option>`).join("");
       if (colorsLeft.length) $("predictionColor").value = colorsLeft[0];
-      $("predictionColor").disabled = !colorsLeft.length || game.status !== "playing";
-      document.querySelectorAll("[data-predict]").forEach((button) => button.disabled = game.status !== "playing" || !colorsLeft.length);
+      $("predictionColor").disabled = !myTurn || !colorsLeft.length;
+      document.querySelectorAll("[data-predict]").forEach((button) => button.disabled = !myTurn || !colorsLeft.length);
       $("predictionCards").innerHTML = mine.length ? mine.map((item) => `<span class="prediction-card ${item.color}"><i class="dot ${item.color}"></i>${COLOR_NAMES[item.color]} · ${item.type === "winner" ? "冠军" : "末名"}</span>`).join("") : `<small>每种颜色卡只能使用一次；还可使用 ${colorsLeft.length} 张</small>`;
       const partnershipEnabled = room.players.length >= 6 && game.status === "playing";
       $("partnershipAction").classList.toggle("hidden", !partnershipEnabled);
@@ -83,7 +83,8 @@
       const track = $("track");
       const floatingControls = [$("diceZone"), $("actions")].filter(Boolean);
       const tiles = Object.fromEntries(game.tiles.map((tile) => [tile.space, tile]));
-      let html = `<div class="desert-center"><div class="pyramid">△</div><strong>撒哈拉竞速场</strong><small>疯狂骆驼会逆向奔跑</small></div><div id="rollFeedback" class="roll-feedback"><div class="roll-die"><span></span></div><div class="roll-copy"></div></div><div id="startAnnouncement" class="start-announcement"><strong>起跑位置抽签</strong><small>骆驼正在进入随机起跑位…</small></div><div class="palm-real palm-a"><i class="trunk"></i><span class="fronds"><b></b><b></b><b></b><b></b><b></b><b></b></span></div><div class="palm-real palm-b"><i class="trunk"></i><span class="fronds"><b></b><b></b><b></b><b></b><b></b><b></b></span></div><div class="desert-tent"><i></i><b></b></div><div class="cactus-real"><i></i><b></b><em></em></div><div class="desert-rocks rocks-a"><i></i><b></b><em></em></div><div class="desert-rocks rocks-b"><i></i><b></b></div><div class="desert-shrub shrub-a"></div><div class="desert-shrub shrub-b"></div>`;
+      const leader = getLeader(game);
+      let html = `<div class="desert-center"><div class="pyramid">△</div><strong>撒哈拉竞速场</strong><small>疯狂骆驼会逆向奔跑</small></div><div id="usedDiceTray" class="used-dice-tray">${usedDiceMarkup(game.usedDice || [])}</div><div id="rollFeedback" class="roll-feedback"><div class="roll-die"><span></span></div><div class="roll-copy"></div></div><div id="startAnnouncement" class="start-announcement"><strong>起跑位置抽签</strong><small>骆驼正在进入随机起跑位…</small></div><div class="palm-real palm-a"><i class="trunk"></i><span class="fronds"><b></b><b></b><b></b><b></b><b></b><b></b></span></div><div class="palm-real palm-b"><i class="trunk"></i><span class="fronds"><b></b><b></b><b></b><b></b><b></b><b></b></span></div><div class="desert-tent"><i></i><b></b></div><div class="cactus-real"><i></i><b></b><em></em></div><div class="desert-rocks rocks-a"><i></i><b></b><em></em></div><div class="desert-rocks rocks-b"><i></i><b></b></div><div class="desert-shrub shrub-a"></div><div class="desert-shrub shrub-b"></div>`;
       for (let space = 1; space <= 16; space += 1) {
         const stack = game.stacks[space] || [];
         const tile = tiles[space];
@@ -92,10 +93,37 @@
         const angle = (130 + (space - 1) * 22.5) * Math.PI / 180;
         const left = 50 + 43 * Math.cos(angle);
         const top = 50 + 40 * Math.sin(angle);
-        html += `<div class="space ${space === 16 ? "finish" : ""}" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%"><span class="space-number">${space}${space === 16 ? " · 终点" : ""}</span>${tile ? `<span class="track-tile ${tile.type}" style="--owner-color:${playerMarkerColor(ownerIndex)}" title="${escapeHtml(owner?.name || "玩家")}的${tile.type === "oasis" ? "绿洲" : "幻境"}"><b>${tile.type === "oasis" ? "+1" : "−1"}</b><em>${escapeHtml((owner?.name || "玩").slice(0, 1))}</em></span>` : ""}<div class="camel-stack">${stack.map((color) => `<div class="camel ${color} ${["black", "white"].includes(color) ? "crazy" : ""}" data-camel="${color}" title="${COLOR_NAMES[color]}">${["black", "white"].includes(color) ? "↶" : ""}</div>`).join("")}</div></div>`;
+        html += `<div class="space ${space === 16 ? "finish" : ""}" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%"><span class="space-number">${space}${space === 16 ? " · 终点" : ""}</span>${tile ? `<span class="track-tile ${tile.type}" style="--owner-color:${playerMarkerColor(ownerIndex)}" title="${escapeHtml(owner?.name || "玩家")}的${tile.type === "oasis" ? "绿洲" : "幻境"}"><b>${tile.type === "oasis" ? "+1" : "−1"}</b><em>${escapeHtml((owner?.name || "玩").slice(0, 1))}</em></span>` : ""}<div class="camel-stack">${stack.map((color) => camelMarkup(color, color === leader)).join("")}</div></div>`;
       }
       track.innerHTML = html;
       floatingControls.forEach((control) => track.appendChild(control));
+    }
+
+    function getLeader(game) {
+      return COLORS.slice().sort((a, b) => {
+        const distance = game.camels[b].space - game.camels[a].space;
+        if (distance) return distance;
+        const stack = game.stacks[game.camels[a].space] || [];
+        return stack.indexOf(b) - stack.indexOf(a);
+      })[0];
+    }
+
+    function camelMarkup(color, isLeader) {
+      const crazy = color === "black" || color === "white";
+      return `<div class="camel ${color} ${crazy ? "crazy" : ""} ${isLeader ? "race-leader" : ""}" data-camel="${color}" title="${COLOR_NAMES[color]}"><span class="camel-shadow"></span><span class="camel-body"><i class="camel-hump hump-one"></i><i class="camel-hump hump-two"></i><i class="camel-neck"></i><i class="camel-head"><b></b></i><i class="camel-saddle"></i><i class="camel-tail"></i></span><span class="camel-legs"><i></i><i></i><i></i><i></i></span><span class="camel-dust"><i></i><i></i><i></i></span>${crazy ? `<span class="crazy-direction">↶</span>` : ""}${isLeader ? `<span class="leader-flag">领跑</span>` : ""}</div>`;
+    }
+
+    function usedDiceMarkup(usedDice) {
+      const slots = Array.from({ length: 5 }, (_, index) => {
+        const used = usedDice[index];
+        return used ? `<i class="used-die ${used.die}" title="${COLOR_NAMES[used.die]} · ${used.amount}点"><b>${used.amount}</b></i>` : `<i class="used-die empty"><b>${index + 1}</b></i>`;
+      }).join("");
+      return `<span><strong>本赛段已使用</strong><small>${usedDice.length} / 5 · 放满即结算</small></span><div>${slots}</div>`;
+    }
+
+    function renderUsedDice(usedDice) {
+      const tray = $("usedDiceTray");
+      if (tray) tray.innerHTML = usedDiceMarkup(usedDice);
     }
 
     function translateLog(line) { return ALL_CAMELS.reduce((text, color) => text.replaceAll(color, COLOR_NAMES[color]), line); }
@@ -124,8 +152,18 @@
         const ty = dy / visualScale;
         const movingIndex = event.moving.indexOf(color);
         const isMoving = movingIndex >= 0;
-        const keyframes = isMoving ? [{ transform: `translate(${tx}px, ${ty}px) rotate(0deg)`, zIndex: 20 }, { transform: `translate(${tx * .5}px, ${ty * .5 - 28}px) rotate(${event.direction > 0 ? 4 : -4}deg)`, zIndex: 20, offset: .52 }, { transform: "translate(0, 0) rotate(0deg)", zIndex: 20 }] : [{ transform: `translate(${tx}px, ${ty}px)` }, { transform: "translate(0, 0)" }];
-        camel.animate(keyframes, { duration: isMoving ? 1050 : 620, delay: 900 + Math.max(0, movingIndex) * 35, easing: "cubic-bezier(.22,.72,.25,1)", fill: "both" });
+        const directionTilt = event.direction > 0 ? 1 : -1;
+        const keyframes = isMoving ? [
+          { transform: `translate(${tx}px, ${ty}px) rotate(0deg) scale(1)`, zIndex: 20 },
+          { transform: `translate(${tx * .78}px, ${ty * .78 - 18}px) rotate(${5 * directionTilt}deg) scale(1.06,.94)`, zIndex: 20, offset: .24 },
+          { transform: `translate(${tx * .52}px, ${ty * .52 + 2}px) rotate(${-3 * directionTilt}deg) scale(.96,1.05)`, zIndex: 20, offset: .48 },
+          { transform: `translate(${tx * .25}px, ${ty * .25 - 22}px) rotate(${4 * directionTilt}deg) scale(1.05,.95)`, zIndex: 20, offset: .72 },
+          { transform: "translate(0, 0) rotate(0deg) scale(.98,1.06)", zIndex: 20, offset: .92 },
+          { transform: "translate(0, 0) rotate(0deg) scale(1)", zIndex: 20 }
+        ] : [{ transform: `translate(${tx}px, ${ty}px)` }, { transform: "translate(0, 0)" }];
+        if (isMoving) camel.classList.add("is-running");
+        const animation = camel.animate(keyframes, { duration: isMoving ? 1380 : 720, delay: 900 + Math.max(0, movingIndex) * 55, easing: "cubic-bezier(.2,.72,.22,1)", fill: "both" });
+        animation.finished.then(() => camel.classList.remove("is-running"), () => camel.classList.remove("is-running"));
       });
     }
     function showRollFeedback(event) {
@@ -138,6 +176,7 @@
       const rolledName = event.die === "gray" ? `${COLOR_NAMES[event.color]}（灰骰）` : COLOR_NAMES[event.color];
       feedback.querySelector(".roll-copy").innerHTML = `<strong>${escapeHtml(event.playerName)} 掷出了 ${event.amount} 点</strong><small>${rolledName}${event.direction < 0 ? " · 逆向移动" : " · 向前移动"}</small>`;
       feedback.className = "roll-feedback";
+      if (event.legEnd?.usedDice) renderUsedDice(event.legEnd.usedDice);
       void feedback.offsetWidth;
       feedback.classList.add("showing");
       feedbackTimer = setTimeout(() => feedback.classList.remove("showing"), event.legEnd ? 2050 : 2200);
@@ -168,7 +207,11 @@
       feedback.querySelector(".roll-copy").innerHTML = `<strong>第 ${result.leg} 赛段结束 · ${COLOR_NAMES[result.first]} 领跑</strong><small class="wealth-announcement"><span>财富榜首 <b>${result.wealth.highest}</b> 金币</span><i></i><span>财富榜尾 <b>${result.wealth.lowest}</b> 金币</span></small><em class="anonymous-note">身份保密 · 只公布财富区间</em>`;
       feedback.className = "roll-feedback leg-result showing";
       winner?.classList.add("leg-winner");
-      feedbackTimer = setTimeout(() => { feedback.classList.remove("showing"); winner?.classList.remove("leg-winner"); }, 4500);
+      feedbackTimer = setTimeout(() => {
+        feedback.classList.remove("showing");
+        winner?.classList.remove("leg-winner");
+        if (result.usedDice?.length === 5) renderUsedDice([]);
+      }, 4500);
     }
 
     return {

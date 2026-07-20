@@ -37,6 +37,7 @@ function createGame(players, random = Math.random) {
     stacks,
     dice: shuffle([...COLORS, "gray"], random),
     rollsRemaining: 5,
+    usedDice: [],
     bets: Object.fromEntries(COLORS.map((color) => [color, [...BET_VALUES]])),
     legBets: [],
     pyramidTickets: [],
@@ -122,6 +123,7 @@ function legBetReward(bet, first, second) {
 function settleLeg(room, startNextLeg = true) {
   const game = room.game;
   const endedLeg = game.leg;
+  const usedDice = [...(game.usedDice || [])];
   const [first, second] = getRanking(game);
   const scoredBets = game.legBets.map((bet) => ({ ...bet, reward: legBetReward(bet, first, second) }));
   for (const bet of scoredBets) {
@@ -149,6 +151,7 @@ function settleLeg(room, startNextLeg = true) {
     game.leg += 1;
     game.dice = shuffle([...COLORS, "gray"], game.random);
     game.rollsRemaining = 5;
+    game.usedDice = [];
   }
   game.bets = Object.fromEntries(COLORS.map((color) => [color, [...BET_VALUES]]));
   game.legBets = [];
@@ -156,7 +159,7 @@ function settleLeg(room, startNextLeg = true) {
   game.partnerships = [];
   game.tiles = [];
   const wealth = room.players.map((player) => player.coins);
-  return { leg: endedLeg, first, second, wealth: { highest: Math.max(...wealth), lowest: Math.min(...wealth) } };
+  return { leg: endedLeg, first, second, usedDice, wealth: { highest: Math.max(...wealth), lowest: Math.min(...wealth) } };
 }
 
 function finishRace(room) {
@@ -191,6 +194,8 @@ function rollDie(room, playerId, random = Math.random) {
   const direction = die === "gray" ? -1 : 1;
   const result = moveCamelInDirection(game, color, amount, direction);
   game.rollsRemaining -= 1;
+  game.usedDice ||= [];
+  game.usedDice.push({ die, color, amount });
   const player = currentPlayer(room);
   player.coins += 1;
   game.pyramidTickets.push({ playerId });
@@ -273,11 +278,12 @@ function enterPartnership(room, playerId, partnerId) {
 }
 
 function predict(room, playerId, color, type) {
-  if (!room.game || room.game.status !== "playing") throw new Error("比赛尚未开始或已经结束");
+  requireTurn(room, playerId);
   if (!COLORS.includes(color) || !["winner", "loser"].includes(type)) throw new Error("预测无效");
   if (room.game.predictions.some((item) => item.playerId === playerId && item.color === color)) throw new Error("这张颜色卡已经用于终局预测");
   room.game.predictions.push({ playerId, color, type });
   room.game.log.unshift(`${room.players.find((item) => item.id === playerId)?.name} 已提交一个秘密终局预测。`);
+  advanceTurn(room);
 }
 
 function publicRoom(room, viewerId = null) {
