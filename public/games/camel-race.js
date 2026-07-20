@@ -93,7 +93,7 @@
         const angle = (130 + (space - 1) * 22.5) * Math.PI / 180;
         const left = 50 + 43 * Math.cos(angle);
         const top = 50 + 40 * Math.sin(angle);
-        html += `<div class="space ${space === 16 ? "finish" : ""}" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%"><span class="space-number">${space}${space === 16 ? " · 终点" : ""}</span>${tile ? `<span class="track-tile ${tile.type}" style="--owner-color:${playerMarkerColor(ownerIndex)}" title="${escapeHtml(owner?.name || "玩家")}的${tile.type === "oasis" ? "绿洲" : "幻境"}"><b>${tile.type === "oasis" ? "+1" : "−1"}</b><em>${escapeHtml((owner?.name || "玩").slice(0, 1))}</em></span>` : ""}<div class="camel-stack">${stack.map((color) => camelMarkup(color, color === leader)).join("")}</div></div>`;
+        html += `<div class="space ${space === 16 ? "finish" : ""}" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%"><span class="space-number">${space}${space === 16 ? " · 终点" : ""}</span>${tile ? `<span class="track-tile ${tile.type}" style="--owner-color:${playerMarkerColor(ownerIndex)}" title="${escapeHtml(owner?.name || "玩家")}的${tile.type === "oasis" ? "绿洲" : "幻境"}"><b>${tile.type === "oasis" ? "+1" : "−1"}</b><em>${escapeHtml((owner?.name || "玩").slice(0, 1))}</em></span>` : ""}<div class="camel-stack">${stack.map((color, stackIndex) => camelMarkup(color, color === leader, stackIndex)).join("")}</div></div>`;
       }
       track.innerHTML = html;
       floatingControls.forEach((control) => track.appendChild(control));
@@ -108,9 +108,9 @@
       })[0];
     }
 
-    function camelMarkup(color, isLeader) {
+    function camelMarkup(color, isLeader, stackIndex) {
       const crazy = color === "black" || color === "white";
-      return `<div class="camel ${color} ${crazy ? "crazy" : ""} ${isLeader ? "race-leader" : ""}" data-camel="${color}" title="${COLOR_NAMES[color]}"><span class="camel-shadow"></span><span class="camel-body"><i class="camel-hump hump-one"></i><i class="camel-hump hump-two"></i><i class="camel-neck"></i><i class="camel-head"><b></b></i><i class="camel-saddle"></i><i class="camel-tail"></i></span><span class="camel-legs"><i></i><i></i><i></i><i></i></span><span class="camel-dust"><i></i><i></i><i></i></span>${crazy ? `<span class="crazy-direction">↶</span>` : ""}</div>`;
+      return `<div class="camel ${color} ${crazy ? "crazy" : ""} ${isLeader ? "race-leader" : ""}" style="--stack-level:${stackIndex + 1}" data-camel="${color}" title="${COLOR_NAMES[color]}"><span class="camel-shadow"></span><span class="camel-body"><i class="camel-hump hump-one"></i><i class="camel-hump hump-two"></i><i class="camel-neck"></i><i class="camel-head"><b></b></i><i class="camel-saddle"></i><i class="camel-tail"></i></span><span class="camel-legs"><i></i><i></i><i></i><i></i></span><span class="camel-dust"><i></i><i></i><i></i></span>${crazy ? `<span class="crazy-direction">↶</span>` : ""}</div>`;
     }
 
     function usedDiceMarkup(usedDice) {
@@ -162,7 +162,7 @@
           { transform: "translate(0, 0) rotate(0deg) scale(1)", zIndex: 20 }
         ] : [{ transform: `translate(${tx}px, ${ty}px)` }, { transform: "translate(0, 0)" }];
         if (isMoving) camel.classList.add("is-running");
-        const animation = camel.animate(keyframes, { duration: isMoving ? 1380 : 720, delay: 900 + Math.max(0, movingIndex) * 55, easing: "cubic-bezier(.2,.72,.22,1)", fill: "both" });
+        const animation = camel.animate(keyframes, { duration: isMoving ? 1380 : 720, delay: 900 + Math.max(0, movingIndex) * 55, easing: "cubic-bezier(.2,.72,.22,1)", fill: "backwards" });
         animation.finished.then(() => camel.classList.remove("is-running"), () => camel.classList.remove("is-running"));
       });
     }

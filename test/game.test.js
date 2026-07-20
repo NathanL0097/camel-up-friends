@@ -143,6 +143,16 @@ test("疯狂骆驼逆向移动并驮走上方比赛骆驼", () => {
   assert.equal(game.camels.red.space, 10);
 });
 
+test("踩到海市蜃楼后退时移动驼队放在原有驼队下方", () => {
+  const game = createGame([], () => 0);
+  game.stacks = { 3: ["red", "green"], 5: ["blue", "yellow"] };
+  game.camels.red.space = game.camels.green.space = 3;
+  game.camels.blue.space = game.camels.yellow.space = 5;
+  game.tiles = [{ space: 6, type: "mirage", playerId: "a" }];
+  moveCamel(game, "red", 3);
+  assert.deepEqual(game.stacks[5], ["red", "green", "blue", "yellow"]);
+});
+
 test("只有一匹疯狂骆驼背着比赛骆驼时必须移动它", () => {
   const game = createGame([], () => 0);
   game.stacks = { 12: ["white", "green"], 14: ["black"] };
