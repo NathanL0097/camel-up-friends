@@ -1,20 +1,12 @@
+const { WORDS } = require("./words");
+const { TRUTHS, DARES } = require("./challenges");
+
 const DRAW_SECONDS = 75;
 const CHOOSE_SECONDS = 18;
-const REVEAL_SECONDS = 6;
-const ROUNDS_PER_PLAYER = 2;
+const REVEAL_SECONDS = 8;
+const ROUNDS_PER_PLAYER = 3;
+const NO_GUESS_PENALTY = 60;
 const COLORS = ["#172b2b", "#ffffff", "#ef5350", "#ff9f43", "#f5c842", "#39a96b", "#3498db", "#845ec2", "#e35d9f"];
-
-const WORDS = [
-  ["动物", "长颈鹿"], ["动物", "企鹅"], ["动物", "刺猬"], ["动物", "袋鼠"], ["动物", "海豚"], ["动物", "章鱼"], ["动物", "孔雀"], ["动物", "蜗牛"], ["动物", "松鼠"], ["动物", "斑马"],
-  ["食物", "火锅"], ["食物", "冰淇淋"], ["食物", "汉堡包"], ["食物", "爆米花"], ["食物", "生日蛋糕"], ["食物", "珍珠奶茶"], ["食物", "煎鸡蛋"], ["食物", "西瓜"], ["食物", "甜甜圈"], ["食物", "方便面"],
-  ["物品", "雨伞"], ["物品", "闹钟"], ["物品", "牙刷"], ["物品", "剪刀"], ["物品", "望远镜"], ["物品", "吹风机"], ["物品", "行李箱"], ["物品", "灭火器"], ["物品", "遥控器"], ["物品", "充电器"],
-  ["地点", "游乐园"], ["地点", "电影院"], ["地点", "动物园"], ["地点", "图书馆"], ["地点", "飞机场"], ["地点", "火车站"], ["地点", "健身房"], ["地点", "海底世界"], ["地点", "便利店"], ["地点", "露营地"],
-  ["职业", "消防员"], ["职业", "宇航员"], ["职业", "魔术师"], ["职业", "厨师"], ["职业", "摄影师"], ["职业", "牙医"], ["职业", "快递员"], ["职业", "潜水员"], ["职业", "理发师"], ["职业", "程序员"],
-  ["动作", "打喷嚏"], ["动作", "梦游"], ["动作", "跳绳"], ["动作", "自拍"], ["动作", "钓鱼"], ["动作", "堆雪人"], ["动作", "坐过山车"], ["动作", "刷牙"], ["动作", "打篮球"], ["动作", "放风筝"],
-  ["自然", "龙卷风"], ["自然", "火山爆发"], ["自然", "彩虹"], ["自然", "流星雨"], ["自然", "日落"], ["自然", "沙漠"], ["自然", "瀑布"], ["自然", "闪电"], ["自然", "雪山"], ["自然", "海浪"],
-  ["娱乐", "电子游戏"], ["娱乐", "卡拉OK"], ["娱乐", "桌游"], ["娱乐", "摇滚乐队"], ["娱乐", "烟花"], ["娱乐", "摩天轮"], ["娱乐", "鬼屋"], ["娱乐", "滑雪"], ["娱乐", "冲浪"], ["娱乐", "露营"],
-  ["奇思妙想", "外星人"], ["奇思妙想", "时间机器"], ["奇思妙想", "隐形人"], ["奇思妙想", "会飞的猪"], ["奇思妙想", "机器人"], ["奇思妙想", "独角兽"], ["奇思妙想", "藏宝图"], ["奇思妙想", "魔法扫帚"], ["奇思妙想", "恐龙"], ["奇思妙想", "超级英雄"]
-].map(([category, word]) => ({ category, word }));
 
 function shuffle(items, random = Math.random) {
   const result = [...items];
@@ -26,7 +18,14 @@ function shuffle(items, random = Math.random) {
 }
 
 function choiceSet(game) {
-  return shuffle(WORDS, game.random).slice(0, 3).map((item) => ({ ...item }));
+  let available = WORDS.filter((item) => !game.seenWords.includes(item.word));
+  if (available.length < 3) {
+    game.seenWords = [];
+    available = WORDS;
+  }
+  const choices = shuffle(available, game.random).slice(0, 3).map((item) => ({ ...item }));
+  game.seenWords.push(...choices.map((item) => item.word));
+  return choices;
 }
 
 function currentArtistId(game) {
@@ -41,10 +40,10 @@ function beginChoosing(game, now) {
   game.category = null;
   game.deadline = now + CHOOSE_SECONDS * 1000;
   game.startedAt = null;
-  game.hintStage = 0;
   game.strokes = [];
   game.guesses = [];
   game.messages = [];
+  game.reactions = [];
   game.turnScores = {};
   game.lastResult = null;
 }
@@ -60,17 +59,19 @@ function createGame(players, random = Math.random, now = Date.now()) {
     turnOrder: shuffle(players.map((player) => player.id), random),
     artistId: null,
     wordChoices: [],
+    seenWords: [],
     word: null,
     category: null,
     deadline: null,
     startedAt: null,
-    hintStage: 0,
     strokes: [],
     guesses: [],
     messages: [],
+    reactions: [],
     turnScores: {},
     lastResult: null,
     ranking: [],
+    finalChallenge: null,
     random
   };
   beginChoosing(game, now);
@@ -87,7 +88,15 @@ function startDrawing(game, selected, now) {
   game.phase = "drawing";
   game.startedAt = now;
   game.deadline = now + DRAW_SECONDS * 1000;
-  game.hintStage = 0;
+}
+
+function refreshWords(room, playerId, now = Date.now()) {
+  requirePlaying(room);
+  const game = room.game;
+  if (game.phase !== "choosing") throw new Error("现在不是选词阶段");
+  if (game.artistId !== playerId) throw new Error("只有本轮画家可以刷新词语");
+  game.wordChoices = choiceSet(game);
+  game.deadline = now + CHOOSE_SECONDS * 1000;
 }
 
 function selectWord(room, playerId, word, now = Date.now()) {
@@ -96,7 +105,7 @@ function selectWord(room, playerId, word, now = Date.now()) {
   if (game.phase !== "choosing") throw new Error("现在不是选词阶段");
   if (game.artistId !== playerId) throw new Error("只有本轮画家可以选词");
   const selected = game.wordChoices.find((item) => item.word === String(word || ""));
-  if (!selected) throw new Error("请选择提供的词语");
+  if (!selected) throw new Error("请选择当前提供的词语");
   startDrawing(game, selected, now);
 }
 
@@ -109,12 +118,24 @@ function finishTurn(room, now) {
   game.phase = "reveal";
   game.deadline = now + REVEAL_SECONDS * 1000;
   const artist = room.players.find((player) => player.id === game.artistId);
+  const correctPlayers = game.guesses.filter((guess) => guess.correct).map((guess) => ({
+    playerId: guess.playerId,
+    playerName: guess.playerName,
+    score: game.turnScores[guess.playerId] || 0
+  }));
+  let artistPenalty = 0;
+  if (correctPlayers.length === 0 && artist) {
+    artistPenalty = NO_GUESS_PENALTY;
+    artist.score = (artist.score || 0) - artistPenalty;
+    game.turnScores[game.artistId] = (game.turnScores[game.artistId] || 0) - artistPenalty;
+  }
   game.lastResult = {
     word: game.word,
     category: game.category,
     artistId: game.artistId,
     artistName: artist?.name || "画家",
-    correctPlayers: game.guesses.filter((guess) => guess.correct).map((guess) => ({ playerId: guess.playerId, playerName: guess.playerName, score: game.turnScores[guess.playerId] || 0 })),
+    correctPlayers,
+    artistPenalty,
     turnScores: { ...game.turnScores }
   };
 }
@@ -145,6 +166,21 @@ function submitGuess(room, playerId, text, now = Date.now()) {
   } else {
     game.messages.push({ id: `${now}-${playerId}`, playerId, playerName: player.name, correct: false, text: cleanText });
     game.messages = game.messages.slice(-40);
+  }
+}
+
+function reactToDrawing(room, playerId, type, now = Date.now()) {
+  requirePlaying(room);
+  const game = room.game;
+  if (game.phase !== "reveal") throw new Error("只能在答案揭晓时评价画作");
+  if (game.artistId === playerId) throw new Error("不能评价自己的画作");
+  if (!room.players.some((player) => player.id === playerId)) throw new Error("找不到玩家");
+  if (!["like", "egg"].includes(type)) throw new Error("请选择点赞或扔鸡蛋");
+  game.reactions = game.reactions.filter((reaction) => reaction.playerId !== playerId);
+  game.reactions.push({ playerId, type });
+  const eligible = room.players.filter((player) => player.id !== game.artistId && player.connected !== false);
+  if (eligible.every((player) => game.reactions.some((reaction) => reaction.playerId === player.id))) {
+    game.deadline = Math.min(game.deadline, now + 1500);
   }
 }
 
@@ -197,13 +233,20 @@ function finishGame(room) {
   game.ranking = room.players.slice().sort((a, b) => (b.score || 0) - (a.score || 0)).map((player) => player.id);
 }
 
+function chooseFinalChallenge(room, playerId, type) {
+  const game = room.game;
+  if (!game || game.status !== "finished") throw new Error("游戏结束后才能选择趣味惩罚");
+  if (game.ranking[0] !== playerId) throw new Error("只有本局冠军可以选择");
+  if (game.finalChallenge) throw new Error("本局趣味惩罚已经选好了");
+  if (!["truth", "dare"].includes(type)) throw new Error("请选择真心话或大冒险");
+  const prompts = type === "truth" ? TRUTHS : DARES;
+  const prompt = prompts[Math.floor(game.random() * prompts.length)];
+  game.finalChallenge = { type, prompt, targetId: game.ranking[game.ranking.length - 1] };
+}
+
 function tick(room, now = Date.now()) {
   const game = room.game;
   if (!game || game.status !== "playing") return false;
-  if (game.phase === "drawing" && game.hintStage === 0 && now >= game.startedAt + DRAW_SECONDS * 500) {
-    game.hintStage = 1;
-    return true;
-  }
   if (now < game.deadline) return false;
   if (game.phase === "choosing") {
     startDrawing(game, game.wordChoices[0], now);
@@ -225,13 +268,7 @@ function tick(room, now = Date.now()) {
 }
 
 function hintFor(game) {
-  if (!game.word) return "";
-  let revealed = false;
-  return [...game.word].map((char) => {
-    if (/\s/.test(char)) return " ";
-    if (game.hintStage > 0 && !revealed) { revealed = true; return char; }
-    return "＿";
-  }).join(" ");
+  return game.word ? [...game.word].map((char) => (/\s/.test(char) ? " " : "＿")).join(" ") : "";
 }
 
 function publicRoom(room, viewerId = null) {
@@ -243,6 +280,7 @@ function publicRoom(room, viewerId = null) {
     game = {
       ...source,
       random: undefined,
+      seenWords: undefined,
       wordChoices: isArtist && source.phase === "choosing" ? source.wordChoices : [],
       word: revealWord ? source.word : undefined,
       hint: source.phase === "drawing" && !isArtist ? hintFor(source) : undefined,
@@ -254,6 +292,7 @@ function publicRoom(room, viewerId = null) {
 }
 
 module.exports = {
-  DRAW_SECONDS, CHOOSE_SECONDS, REVEAL_SECONDS, ROUNDS_PER_PLAYER, WORDS,
-  createGame, currentArtistId, selectWord, submitGuess, addStroke, undoStroke, clearCanvas, tick, publicRoom
+  DRAW_SECONDS, CHOOSE_SECONDS, REVEAL_SECONDS, ROUNDS_PER_PLAYER, NO_GUESS_PENALTY, WORDS,
+  createGame, currentArtistId, refreshWords, selectWord, submitGuess, reactToDrawing, addStroke, undoStroke, clearCanvas,
+  chooseFinalChallenge, tick, publicRoom
 };

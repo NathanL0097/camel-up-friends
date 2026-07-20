@@ -16,7 +16,7 @@
 
     $("gameMount").innerHTML = `<div class="draw-game"><div class="game-head draw-head"><div><div class="eyebrow">创意派对 · 房间 <span id="drawCode"></span></div><h2>你画我猜</h2></div><div id="drawPhase" class="draw-phase"></div><div class="game-head-actions"><button id="drawRulesButton" class="ghost-button rules-shortcut">📖 规则</button><button id="drawCopyButton" class="ghost-button">邀请好友</button></div></div><div class="draw-layout"><aside class="draw-panel draw-players"><div class="draw-panel-title"><span>🏆 积分榜</span><small id="drawTurnLabel"></small></div><div id="drawPlayerList"></div></aside><main class="draw-stage"><div class="draw-word-bar"><div><small id="drawWordKicker">等待画家选词</small><strong id="drawWordHint">准备好你的脑洞</strong></div><div id="drawTimer" class="draw-timer">--</div></div><div class="canvas-card"><div id="drawToolbar" class="draw-toolbar"><div id="drawColors" class="draw-colors"></div><button id="brushTool" class="tool-button selected">✏️ 画笔</button><button id="eraserTool" class="tool-button">◻︎ 橡皮</button><label>粗细 <input id="brushWidth" type="range" min="2" max="24" value="6"></label><button id="undoDraw" class="tool-button">↶ 撤销</button><button id="clearDraw" class="tool-button danger">清空</button></div><div id="canvasWrap" class="canvas-wrap"><canvas id="drawingCanvas"></canvas><div id="canvasNotice" class="canvas-notice hidden"></div><div id="wordChoice" class="word-choice hidden"></div><div id="roundReveal" class="round-reveal hidden"></div></div></div></main><aside class="draw-panel guess-panel"><div class="draw-panel-title"><span>💬 猜词区</span><small>答案不会公开</small></div><div id="guessMessages" class="guess-messages"></div><div class="guess-compose"><input id="guessInput" maxlength="40" placeholder="输入你的答案…"><button id="guessButton">发送</button></div></aside></div><div id="drawFinish" class="draw-finish hidden"></div></div>`;
 
-    $("rulesContent").innerHTML = `<div class="eyebrow">轻松上手</div><h2>你画我猜 · 规则</h2><ol><li><strong>轮流作画：</strong>每位玩家会担任两次画家，游戏自动决定顺序。</li><li><strong>秘密选词：</strong>画家从三个词中选择一个，其他玩家只能看到类别、字数和提示。</li><li><strong>限时75秒：</strong>画家只能用画板表达，不能在聊天中透露答案。时间过半会揭示第一个字。</li><li><strong>实时猜词：</strong>错误答案会出现在聊天中；正确答案不会泄露，只会显示“猜中了”。</li><li><strong>计分：</strong>猜得越早分数越高；每有一位玩家猜中，画家也获得40分。</li><li><strong>提前结束：</strong>所有在线猜题玩家都猜中后，本轮立即公布答案。</li><li><strong>最终胜利：</strong>所有人完成两次作画后，总分最高者获胜。</li></ol>`;
+    $("rulesContent").innerHTML = `<div class="eyebrow">轻松上手</div><h2>你画我猜 · 规则</h2><ol><li><strong>轮流作画：</strong>每位玩家会担任三次画家，游戏自动决定顺序。</li><li><strong>秘密选词：</strong>画家从三个词中选择一个；都不满意可以不限次数换一批。</li><li><strong>限时75秒：</strong>画家只能用画板表达，不能直接写出答案；猜题者只知道类别和字数，不会自动揭字。</li><li><strong>实时猜词：</strong>错误答案会出现在聊天中；正确答案不会泄露，只会显示“猜中了”。</li><li><strong>计分：</strong>猜得越早分数越高；每有一位玩家猜中，画家获得40分。如果无人猜中，画家扣60分。</li><li><strong>欢乐评价：</strong>答案揭晓后，其他玩家可以给画作点赞或扔鸡蛋，只为搞笑，不影响分数。</li><li><strong>提前结束：</strong>所有在线猜题玩家都猜中后，75秒倒计时立即结束并进入揭晓。</li><li><strong>最终彩蛋：</strong>所有人完成三次作画后，冠军可为最后一名抽取健康的真心话或大冒险。</li></ol>`;
 
     $("drawRulesButton").onclick = () => $("rulesDialog").showModal();
     $("drawCopyButton").onclick = copyInvite;
@@ -177,8 +177,9 @@
       const choosingMine = game.phase === "choosing" && game.isArtist;
       $("wordChoice").classList.toggle("hidden", !choosingMine);
       if (choosingMine) {
-        $("wordChoice").innerHTML = `<small>选择你最想画的题目</small><div>${game.wordChoices.map((choice) => `<button data-word="${escapeHtml(choice.word)}"><span>${escapeHtml(choice.category)}</span><strong>${escapeHtml(choice.word)}</strong></button>`).join("")}</div>`;
+        $("wordChoice").innerHTML = `<small>选择你最想画的题目</small><div>${game.wordChoices.map((choice) => `<button data-word="${escapeHtml(choice.word)}"><span>${escapeHtml(choice.category)}</span><strong>${escapeHtml(choice.word)}</strong></button>`).join("")}</div><button id="refreshWords" class="refresh-words">🔄 都不满意，换一批</button>`;
         document.querySelectorAll("[data-word]").forEach((button) => button.onclick = () => emitAction("choose", { word: button.dataset.word }));
+        $("refreshWords").onclick = () => emitAction("refresh");
       }
 
       const notice = $("canvasNotice");
@@ -200,13 +201,24 @@
       reveal.classList.toggle("hidden", game.phase !== "reveal");
       if (game.phase === "reveal" && game.lastResult) {
         const result = game.lastResult;
-        reveal.innerHTML = `<small>本轮答案</small><strong>${escapeHtml(result.word)}</strong><p>${result.correctPlayers.length ? `${result.correctPlayers.length} 人猜中 · 画家 ${escapeHtml(result.artistName)} 获得 ${result.turnScores[result.artistId] || 0} 分` : "无人猜中 · 这幅画太有灵魂了"}</p><div>${result.correctPlayers.map((player) => `<span>${escapeHtml(player.playerName)} +${player.score}</span>`).join("")}</div>`;
+        const likes = game.reactions.filter((reaction) => reaction.type === "like").length;
+        const eggs = game.reactions.filter((reaction) => reaction.type === "egg").length;
+        const myReaction = game.reactions.find((reaction) => reaction.playerId === myId)?.type;
+        const reactionButtons = game.artistId !== myId ? `<div class="drawing-reactions"><button class="${myReaction === "like" ? "selected" : ""}" data-reaction="like">👍 点赞 <b>${likes}</b></button><button class="${myReaction === "egg" ? "selected" : ""}" data-reaction="egg">🥚 扔鸡蛋 <b>${eggs}</b></button></div>` : `<div class="drawing-reactions reaction-score"><span>👍 ${likes}</span><span>🥚 ${eggs}</span></div>`;
+        reveal.innerHTML = `<small>本轮答案</small><strong>${escapeHtml(result.word)}</strong><p>${result.correctPlayers.length ? `${result.correctPlayers.length} 人猜中 · 画家 ${escapeHtml(result.artistName)} 获得 ${result.turnScores[result.artistId] || 0} 分` : `无人猜中 · 画家扣 ${result.artistPenalty || 60} 分`}</p><div class="correct-score-list">${result.correctPlayers.map((player) => `<span>${escapeHtml(player.playerName)} +${player.score}</span>`).join("")}</div>${reactionButtons}<i class="reaction-pop ${myReaction || ""}">${myReaction === "like" ? "👍" : myReaction === "egg" ? "🥚" : ""}</i>`;
+        document.querySelectorAll("[data-reaction]").forEach((button) => button.onclick = () => emitAction("react", { type: button.dataset.reaction }));
       }
 
       $("drawFinish").classList.toggle("hidden", game.status !== "finished");
       if (game.status === "finished") {
         const ranked = game.ranking.map((id) => room.players.find((player) => player.id === id)).filter(Boolean);
-        $("drawFinish").innerHTML = `<div class="finish-ribbon">创意之王诞生</div><h2>🏆 ${escapeHtml(ranked[0]?.name || "玩家")} 获胜！</h2><div class="draw-final-ranking">${ranked.map((player, index) => `<div><b>#${index + 1}</b><span>${escapeHtml(player.name)}</span><strong>${player.score || 0} 分</strong></div>`).join("")}</div>${room.hostId === myId ? `<button id="drawRestart">再玩一局 ↻</button>` : `<small>等待房主开启下一局</small>`}`;
+        const winner = ranked[0];
+        const lastPlayer = ranked[ranked.length - 1];
+        const challenge = game.finalChallenge;
+        const challengeTarget = challenge ? room.players.find((player) => player.id === challenge.targetId) : lastPlayer;
+        const challengePanel = challenge ? `<div class="final-challenge"><small>${challenge.type === "truth" ? "💬 真心话" : "🎭 大冒险"} · 给 ${escapeHtml(challengeTarget?.name || "最后一名")}</small><strong>${escapeHtml(challenge.prompt)}</strong><p>轻松完成即可，拒绝起哄和危险行为。</p></div>` : winner?.id === myId ? `<div class="challenge-picker"><small>为最后一名 ${escapeHtml(lastPlayer?.name || "玩家")} 选择欢乐彩蛋</small><div><button data-challenge="truth">💬 抽一条真心话</button><button data-challenge="dare">🎭 抽一个大冒险</button></div></div>` : `<div class="challenge-wait">等待冠军选择真心话或大冒险…</div>`;
+        $("drawFinish").innerHTML = `<div class="finish-ribbon">创意之王诞生</div><h2>🏆 ${escapeHtml(winner?.name || "玩家")} 获胜！</h2><div class="draw-final-ranking">${ranked.map((player, index) => `<div><b>#${index + 1}</b><span>${escapeHtml(player.name)}</span><strong>${player.score || 0} 分</strong></div>`).join("")}</div>${challengePanel}${room.hostId === myId ? `<button id="drawRestart" ${challenge ? "" : "disabled"}>再玩一局 ↻</button>` : `<small>等待房主开启下一局</small>`}`;
+        document.querySelectorAll("[data-challenge]").forEach((button) => button.onclick = () => emitAction("challenge", { type: button.dataset.challenge }));
         $("drawRestart")?.addEventListener("click", () => socket.emit("game:restart"));
       }
 

@@ -14,12 +14,25 @@ function makeRoom(count = 3, now = 1_000_000) {
   return room;
 }
 
-test("开局安排每人两次作画并重置积分", () => {
+test("开局安排每人三次作画并重置积分", () => {
   const room = makeRoom(3);
   assert.equal(room.game.phase, "choosing");
-  assert.equal(room.game.totalTurns, 6);
+  assert.equal(room.game.totalTurns, 9);
   assert.equal(new Set(room.game.turnOrder).size, 3);
   assert.deepEqual(room.players.map((player) => player.score), [0, 0, 0]);
+});
+
+test("词库覆盖丰富领域且刷新不会立刻重复", () => {
+  const room = makeRoom(2);
+  const artistId = room.game.artistId;
+  const firstWords = room.game.wordChoices.map((choice) => choice.word);
+  assert.ok(rules.WORDS.length >= 350);
+  assert.ok(new Set(rules.WORDS.map((item) => item.category)).size >= 15);
+  assert.ok(rules.WORDS.some((item) => item.category === "四字成语"));
+  rules.refreshWords(room, artistId, 1_001_000);
+  const nextWords = room.game.wordChoices.map((choice) => choice.word);
+  assert.equal(nextWords.some((word) => firstWords.includes(word)), false);
+  assert.equal(room.game.deadline, 1_019_000);
 });
 
 test("选词仅对画家可见，猜题者只看类别和字数提示", () => {
@@ -40,6 +53,35 @@ test("选词仅对画家可见，猜题者只看类别和字数提示", () => {
   assert.equal(guesserView.game.word, undefined);
   assert.equal(guesserView.game.category, secret.category);
   assert.equal(guesserView.game.hint.replaceAll(" ", "").length, [...secret.word].length);
+  room.game.startedAt = 1;
+  rules.tick(room, room.game.deadline - 1);
+  assert.equal(rules.publicRoom(room, guesserId).game.hint.includes(secret.word[0]), false);
+});
+
+test("无人猜中时画家扣六十分", () => {
+  const room = makeRoom(2);
+  const artistId = room.game.artistId;
+  rules.selectWord(room, artistId, room.game.wordChoices[0].word, 1_001_000);
+  rules.tick(room, room.game.deadline + 1);
+  assert.equal(room.game.phase, "reveal");
+  assert.equal(room.players.find((player) => player.id === artistId).score, -60);
+  assert.equal(room.game.lastResult.artistPenalty, 60);
+});
+
+test("揭晓阶段其他玩家可点赞或扔鸡蛋且不影响分数", () => {
+  const room = makeRoom(3);
+  const artistId = room.game.artistId;
+  const viewers = room.players.filter((player) => player.id !== artistId);
+  rules.selectWord(room, artistId, room.game.wordChoices[0].word, 1_001_000);
+  rules.tick(room, room.game.deadline + 1);
+  const scoresBefore = room.players.map((player) => player.score);
+  rules.reactToDrawing(room, viewers[0].id, "like", 1_080_000);
+  rules.reactToDrawing(room, viewers[1].id, "egg", 1_080_000);
+  rules.reactToDrawing(room, viewers[0].id, "egg", 1_080_000);
+  assert.deepEqual(room.game.reactions.map((reaction) => reaction.type).sort(), ["egg", "egg"]);
+  assert.equal(room.game.deadline, 1_081_500);
+  assert.deepEqual(room.players.map((player) => player.score), scoresBefore);
+  assert.throws(() => rules.reactToDrawing(room, artistId, "like"), /不能评价自己的画作/);
 });
 
 test("画笔数据被限制在画布范围且只有画家可修改", () => {
@@ -84,7 +126,6 @@ test("超时自动选词、揭晓并完成全部轮次排名", () => {
     assert.equal(room.game.phase, "choosing");
     rules.tick(room, room.game.deadline + 1);
     assert.equal(room.game.phase, "drawing");
-    room.game.hintStage = 1;
     rules.tick(room, room.game.deadline + 1);
     assert.equal(room.game.phase, "reveal");
     rules.tick(room, room.game.deadline + 1);
@@ -92,4 +133,21 @@ test("超时自动选词、揭晓并完成全部轮次排名", () => {
   assert.equal(room.game.status, "finished");
   assert.equal(room.game.phase, "finished");
   assert.equal(room.game.ranking.length, 2);
+});
+
+test("游戏结束后只有冠军能为最后一名抽取健康挑战", () => {
+  const room = makeRoom(2);
+  for (let turn = 1; turn <= room.game.totalTurns; turn += 1) {
+    rules.tick(room, room.game.deadline + 1);
+    rules.tick(room, room.game.deadline + 1);
+    rules.tick(room, room.game.deadline + 1);
+  }
+  const winnerId = room.game.ranking[0];
+  const loserId = room.game.ranking[1];
+  assert.throws(() => rules.chooseFinalChallenge(room, loserId, "truth"), /只有本局冠军/);
+  rules.chooseFinalChallenge(room, winnerId, "dare");
+  assert.equal(room.game.finalChallenge.type, "dare");
+  assert.equal(room.game.finalChallenge.targetId, loserId);
+  assert.ok(room.game.finalChallenge.prompt.length > 5);
+  assert.throws(() => rules.chooseFinalChallenge(room, winnerId, "truth"), /已经选好了/);
 });

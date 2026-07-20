@@ -21,10 +21,13 @@ const definition = {
   },
   actions: {
     choose: (room, playerId, payload) => rules.selectWord(room, playerId, payload.word),
+    refresh: (room, playerId) => rules.refreshWords(room, playerId),
     guess: (room, playerId, payload) => rules.submitGuess(room, playerId, payload.text),
+    react: (room, playerId, payload) => rules.reactToDrawing(room, playerId, payload.type),
     draw: (room, playerId, payload) => rules.addStroke(room, playerId, payload),
     undo: (room, playerId) => rules.undoStroke(room, playerId),
-    clear: (room, playerId) => rules.clearCanvas(room, playerId)
+    clear: (room, playerId) => rules.clearCanvas(room, playerId),
+    challenge: (room, playerId, payload) => rules.chooseFinalChallenge(room, playerId, payload.type)
   }
 };
 

@@ -36,7 +36,7 @@ test("你画我猜复用好友房并要求至少两人开局", () => {
   assert.throws(() => roomService.startGame(room, host.id), /至少需要 2 人/);
   const { player: friend } = roomService.joinRoom({ rawCode: room.code, name: "猜题者", playerToken: "friend-token" });
   roomService.startGame(room, host.id);
-  assert.equal(room.game.totalTurns, 4);
+  assert.equal(room.game.totalTurns, 6);
   const artistView = roomService.publicRoom(room, room.game.artistId);
   const friendView = roomService.publicRoom(room, friend.id === room.game.artistId ? host.id : friend.id);
   assert.equal(artistView.game.wordChoices.length, 3);
