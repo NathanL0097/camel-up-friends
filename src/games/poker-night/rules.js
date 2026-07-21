@@ -28,7 +28,7 @@ function startHand(room, now = Date.now()) {
   const seats = activeSeats(room);
   if (seats.length < 2) { game.street = "waiting"; game.actorIndex = null; game.deadline = null; return; }
   game.handNumber += 1; game.handType = gameType(game); game.board = []; game.deck = shuffle(deck(), game.random); game.pot = 0; game.currentBet = 0; game.lastRaise = game.bigBlind; game.raiseLocked = []; game.showdown = null;
-  room.players.forEach((p) => Object.assign(p, { hole: [], folded: p.chips <= 0 || p.sittingOut, allIn: false, bet: 0, contributed: 0, acted: false, lastAction: "" }));
+  room.players.forEach((p) => Object.assign(p, { hole: [], shownCards: [], folded: p.chips <= 0 || p.sittingOut, allIn: false, bet: 0, contributed: 0, acted: false, lastAction: "" }));
   game.dealerIndex = nextIndex(room, game.dealerIndex, (p) => !p.folded);
   const headsUp = seats.length === 2;
   const sb = headsUp ? game.dealerIndex : nextIndex(room, game.dealerIndex, (p) => !p.folded);
@@ -43,15 +43,15 @@ function startHand(room, now = Date.now()) {
 }
 function contenders(room) { return room.players.filter((p) => !p.folded && p.hole?.length); }
 function refreshPot(room) { room.game.pot = room.players.reduce((sum, p) => sum + (p.contributed || 0), 0); }
-function roundDone(room) { const live = contenders(room).filter((p) => !p.allIn); return live.length <= 1 || live.every((p) => p.acted && p.bet === room.game.currentBet); }
-function awardSingle(room, winner) { refreshPot(room); winner.chips += room.game.pot; room.game.showdown = { winners: [{ id: winner.id, amount: room.game.pot, hand: "其他玩家弃牌" }], hands: [] }; room.game.street = "showdown"; room.game.actorIndex = null; room.game.deadline = Date.now() + 6000; }
+function roundDone(room) { const live = contenders(room).filter((p) => !p.allIn); return live.length === 0 || live.every((p) => p.acted && p.bet === room.game.currentBet); }
+function awardSingle(room, winner, now = Date.now()) { refreshPot(room); winner.chips += room.game.pot; room.game.showdown = { reason: "fold", winners: [{ id: winner.id, amount: room.game.pot, hand: "其他玩家弃牌" }], hands: [] }; room.game.street = "showdown"; room.game.actorIndex = null; room.game.deadline = now + 8000; }
 function showdown(room, now = Date.now()) {
   const game = room.game; refreshPot(room); const live = contenders(room);
   const evaluated = live.map((p) => ({ player: p, result: game.handType === "omaha" ? bestOmaha(p.hole, game.board) : bestHoldem(p.hole, game.board) }));
   const levels = [...new Set(room.players.map((p) => p.contributed).filter(Boolean))].sort((a, b) => a - b); let previous = 0; const winnings = new Map();
   for (const level of levels) { const contributors = room.players.filter((p) => p.contributed >= level); const amount = (level - previous) * contributors.length; const eligible = evaluated.filter(({ player }) => player.contributed >= level); if (!eligible.length) continue; const best = eligible.reduce((top, item) => compare(item.result.score, top.result.score) > 0 ? item : top, eligible[0]); const winners = eligible.filter((item) => compare(item.result.score, best.result.score) === 0); const share = Math.floor(amount / winners.length); let odd = amount - share * winners.length; for (const item of winners) { winnings.set(item.player.id, (winnings.get(item.player.id) || 0) + share + (odd-- > 0 ? 1 : 0)); } previous = level; }
   for (const [id, amount] of winnings) room.players.find((p) => p.id === id).chips += amount;
-  game.showdown = { winners: [...winnings].map(([id, amount]) => ({ id, amount, hand: evaluated.find((x) => x.player.id === id).result.name })), hands: evaluated.map(({ player, result }) => ({ id: player.id, cards: player.hole, hand: result.name })) };
+  game.showdown = { reason: "cards", winners: [...winnings].map(([id, amount]) => ({ id, amount, hand: evaluated.find((x) => x.player.id === id).result.name })), hands: evaluated.map(({ player, result }) => ({ id: player.id, cards: player.hole, hand: result.name })) };
   game.street = "showdown"; game.actorIndex = null; game.deadline = now + 8000;
 }
 function advanceStreet(room, now) {
@@ -65,7 +65,7 @@ function advanceStreet(room, now) {
   game.actorIndex = nextIndex(room, game.dealerIndex, (p) => !p.folded && !p.allIn); game.deadline = now + TURN_MS;
 }
 function continueHand(room, fromIndex, now = Date.now()) {
-  const live = contenders(room); if (live.length === 1) { awardSingle(room, live[0]); return; }
+  const live = contenders(room); if (live.length === 1) { awardSingle(room, live[0], now); return; }
   if (roundDone(room)) { advanceStreet(room, now); return; }
   room.game.actorIndex = nextIndex(room, fromIndex, (p) => !p.folded && !p.allIn); room.game.deadline = now + TURN_MS;
 }
@@ -86,6 +86,17 @@ function act(room, playerId, payload, now = Date.now()) {
 function useTimeCard(room, playerId) { const game = room.game; const p = room.players[game.actorIndex]; if (!p || p.id !== playerId) throw new Error("只有当前行动玩家可以延时"); if (p.timeCards <= 0) throw new Error("延时卡已经用完"); p.timeCards -= 1; game.deadline += TURN_MS; p.lastAction = "使用延时卡 +30秒"; }
 function requestRebuy(room, playerId) { const p = room.players.find((x) => x.id === playerId); if (!p) throw new Error("找不到玩家"); p.rebuyRequest = true; }
 function approveRebuy(room, hostId, payload) { if (room.hostId !== hostId) throw new Error("只有房主可以审批补码"); const p = room.players.find((x) => x.id === payload.playerId); const amount = Math.round(Number(payload.amount)); if (!p?.rebuyRequest) throw new Error("该玩家没有补码申请"); if (!Number.isFinite(amount) || amount < 1 || amount > 1_000_000) throw new Error("补码数量无效"); p.chips += amount; p.timeCards = EXTENSION_CARDS; p.rebuyRequest = false; p.sittingOut = false; }
+function revealCards(room, playerId, payload = {}) {
+  const game = room.game; const p = room.players.find((x) => x.id === playerId);
+  if (!p?.hole?.length) throw new Error("你当前没有可以展示的底牌");
+  if (game.street !== "showdown" || game.showdown?.reason !== "fold") throw new Error("只有弃牌结束后可以自行亮牌");
+  const indexes = payload.all ? p.hole.map((_card, i) => i) : [Math.round(Number(payload.index))];
+  if (indexes.some((i) => !Number.isInteger(i) || i < 0 || i >= p.hole.length)) throw new Error("请选择要展示的牌");
+  p.shownCards = [...new Set([...(p.shownCards || []), ...indexes])].sort((a, b) => a - b);
+}
 function tick(room, now = Date.now()) { const g = room.game; if (!g) return false; if (g.street === "waiting") { if (activeSeats(room).length >= 2) { startHand(room, now); return true; } return false; } if (g.street === "showdown" && now >= g.deadline) { startHand(room, now); return true; } if (g.actorIndex != null && now >= g.deadline) { const p = room.players[g.actorIndex]; const legal = legalActions(room, p.id); act(room, p.id, { type: legal.canCheck ? "check" : "fold" }, now); return true; } return false; }
-function publicRoom(room, viewerId) { const g = room.game; const showAll = g?.street === "showdown"; return { code: room.code, hostId: room.hostId, settings: room.settings || defaults(), players: room.players.map(({ token:_t, hole, ...p }) => ({ ...p, hole: p.id === viewerId || (showAll && !p.folded) ? hole : (hole || []).map(() => null) })), game: g ? { ...g, random:undefined, deck:undefined, legal:legalActions(room, viewerId) } : null }; }
-module.exports = { TURN_MS, EXTENSION_CARDS, MODES, defaults, configure, createGame, act, useTimeCard, requestRebuy, approveRebuy, tick, publicRoom, startHand, legalActions };
+function publicRoom(room, viewerId) {
+  const g = room.game; const cardShowdown = g?.street === "showdown" && g.showdown?.reason === "cards";
+  return { code: room.code, hostId: room.hostId, settings: room.settings || defaults(), players: room.players.map(({ token:_t, hole, ...p }) => ({ ...p, hole: (hole || []).map((card, i) => p.id === viewerId || (cardShowdown && !p.folded) || (p.shownCards || []).includes(i) ? card : null) })), game: g ? { ...g, random:undefined, deck:undefined, legal:legalActions(room, viewerId) } : null };
+}
+module.exports = { TURN_MS, EXTENSION_CARDS, MODES, defaults, configure, createGame, act, useTimeCard, requestRebuy, approveRebuy, revealCards, tick, publicRoom, startHand, legalActions };
