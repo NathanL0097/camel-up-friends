@@ -83,7 +83,7 @@ function prepareInviteJoin(code) {
   $("nameInput").focus();
 }
 
-function renderLobby(room) {
+function renderLobby(room, gameClient) {
   show("lobby");
   $("shareUrl").textContent = roomUrl(room.code);
   $("roomCode").textContent = room.code;
@@ -91,6 +91,8 @@ function renderLobby(room) {
   $("lobbyPlayers").innerHTML = room.players.map((player) => `<div class="lobby-player ${player.connected ? "" : "offline"}">${player.id === room.hostId ? "👑 " : ""}${escapeHtml(player.name)}${player.id === myId ? "（你）" : ""}</div>`).join("");
   $("startButton").classList.toggle("hidden", room.hostId !== myId);
   $("hostHint").textContent = room.hostId === myId ? `已有 ${room.players.length} 人；本房间最多 ${room.gameInfo?.maxPlayers || 8} 人。` : "等待房主开始比赛…";
+  $("gameLobbySettings").innerHTML = "";
+  gameClient?.renderLobby?.(room);
 }
 
 async function copyInvite() {
@@ -122,7 +124,7 @@ socket.on("room:update", async (room) => {
     return toast(error.message);
   }
   state = room;
-  room.game ? gameClient.render(room, transition) : renderLobby(room);
+  room.game ? gameClient.render(room, transition) : renderLobby(room, gameClient);
 });
 socket.on("game:error", (message) => toast(message));
 socket.on("connect", () => {

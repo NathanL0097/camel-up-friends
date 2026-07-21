@@ -33,6 +33,8 @@ test("词库覆盖丰富领域且刷新不会立刻重复", () => {
   assert.equal(rules.WORDS.find((item) => item.word === "电影票").category, "票证物品");
   assert.equal(rules.WORDS.find((item) => item.word === "麦克风").category, "数码设备");
   assert.equal(rules.WORDS.find((item) => item.word === "钢琴").category, "乐器");
+  assert.equal(rules.WORDS.some((item) => item.word === "双簧管"), false);
+  assert.ok(rules.WORDS.some((item) => item.category === "搞笑动作"));
   rules.refreshWords(room, artistId, 1_001_000);
   const nextWords = room.game.wordChoices.map((choice) => choice.word);
   assert.equal(nextWords.some((word) => firstWords.includes(word)), false);
@@ -114,6 +116,8 @@ test("画笔数据被限制在画布范围且只有画家可修改", () => {
   rules.addStroke(room, artistId, { strokeId: "line-2", points: [{ x: .2, y: .3 }] });
   rules.clearCanvas(room, artistId);
   assert.equal(room.game.strokes.length, 0);
+  rules.addStroke(room, artistId, { strokeId: "crayon-1", tool: "crayon", points: [{ x: .3, y: .4 }] });
+  assert.equal(room.game.strokes[0].tool, "crayon");
 });
 
 test("错误答案公开，正确答案保密并按剩余时间给双方计分", () => {

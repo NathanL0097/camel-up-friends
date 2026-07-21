@@ -68,6 +68,14 @@ const EXTRA_GROUPS = {
   "冬季物品": "雪人 雪球 雪橇 滑雪板 滑雪杖 护目镜 毛线帽 围巾 手套 暖手宝 壁炉 热水袋 羽绒服 冰鞋 冰雕 雪地靴 耳罩 雪铲 圣诞帽 姜饼人"
 };
 
+const PARTY_GROUPS = {
+  "搞笑动作": "踩到香蕉皮 偷吃零食 对镜子自拍 抢最后一块蛋糕 被雨淋湿 穿反衣服 睡过头 找不到眼镜 手机掉进水里 边走边睡 对空气打拳 被门夹住 追着帽子跑 吃到辣椒 笑到肚子疼 假装没看见 躲在窗帘后 打嗝停不下来 头发被风吹乱 一口吞包子",
+  "朋友聚会": "生日许愿 合唱跑调 桌游翻盘 真心话大冒险 抢麦克风 分享薯片 集体拍照 石头剪刀布 模仿好友 枕头大战 烧烤聚会 野餐合影 一起看球 交换礼物 猜拳喝水 讲冷笑话 拼命憋笑 朋友迟到 手机合照 击掌庆祝",
+  "网络生活": "视频卡住 忘记密码 手机没电 网购拆箱 群聊刷屏 发错表情包 抢到红包 外卖迟到 直播美颜 语音转文字 网络断线 游戏掉线 自拍加滤镜 扫码付款 地图迷路 闹钟没响 耳机缠住 快递到了 点赞朋友圈 熬夜追剧",
+  "欢乐场景": "熊猫骑单车 企鹅吃火锅 猫咪敲键盘 狗狗戴墨镜 长颈鹿坐飞机 河马跳芭蕾 乌龟赢赛跑 猴子照镜子 狮子剪头发 兔子打篮球 大象吹泡泡 鸭子撑雨伞 老虎刷牙 松鼠开汽车 鲨鱼吃冰淇淋 恐龙做早操 蜗牛送快递 青蛙弹吉他 章鱼打鼓 北极熊晒太阳",
+  "容易画的组合": "太阳和月亮 猫和老鼠 鱼和鱼缸 鸟和鸟笼 钥匙和锁 鞋子和袜子 笔和纸 雨伞和雨滴 蛋糕和蜡烛 锅和锅铲 牙刷和牙膏 手机和充电器 弓和箭 花和花瓶 茶壶和茶杯 锤子和钉子 桌子和椅子 勺子和碗 足球和球门 火车和铁轨"
+};
+
 const CATEGORY_OVERRIDES = {
   "电影票": "票证物品", "卡拉OK": "娱乐活动", "摇滚乐队": "音乐表演", "烟花": "节庆物品", "摩天轮": "游乐设施", "鬼屋": "游乐设施",
   "演唱会": "音乐表演", "颁奖典礼": "娱乐活动", "电影导演": "职业", "特效大片": "影视类型", "喜剧片": "影视类型", "恐怖片": "影视类型",
@@ -86,10 +94,10 @@ const CATEGORY_OVERRIDES = {
   "生日派对": "庆典活动", "倒计时": "庆典活动", "嘉宾席": "场所设施", "采访话筒": "数码设备", "应援灯牌": "娱乐圈物品"
 };
 
-const EXCLUDED_WORDS = new Set(["密码学", "量子电脑"]);
-const entries = [...Object.entries(GROUPS), ...Object.entries(EXTRA_GROUPS)]
+const EXCLUDED_WORDS = new Set(`密码学 量子电脑 自动驾驶 指纹识别 人脸识别 3D打印 全息投影 芯片 雷达 单簧管 双簧管 圆号 长号 扬琴 三角铁 场记板 提词器 吊麦 耳返 舞台升降台 脚手架 钢筋 电焊机 搅拌机 塔吊 工具腰带 行驶证 挂号单 通行证 工程帽 压路机 叉车 水泥袋 电子秤 条形码 扫码枪 防潮垫 相机包 防水袋 便携炉 消毒液 血压计 手术刀 氧气瓶 挤奶桶 饲料槽 农用车 耙子 犁 粮仓 井盖 护栏 交通锥 减速带 撑杆跳 铅球 铁人三项 自由潜水 曲棍球 手球 水球 雕刻刀 滚筒刷 砚台 宣纸 电子书 移动硬盘 路由器 自动铅笔 修正带 回形针 图钉 锉刀 投影仪 行驶证 工作证 取餐券`.split(/\s+/));
+const entries = [...Object.entries(GROUPS), ...Object.entries(EXTRA_GROUPS), ...Object.entries(PARTY_GROUPS)]
   .flatMap(([category, value]) => value.split(/\s+/).filter(Boolean).map((word) => ({ category: CATEGORY_OVERRIDES[word] || category, word })))
   .filter((item) => !EXCLUDED_WORDS.has(item.word));
 const WORDS = [...new Map(entries.map((item) => [item.word, item])).values()];
 
-module.exports = { GROUPS, EXTRA_GROUPS, CATEGORY_OVERRIDES, WORDS };
+module.exports = { GROUPS, EXTRA_GROUPS, PARTY_GROUPS, CATEGORY_OVERRIDES, WORDS };

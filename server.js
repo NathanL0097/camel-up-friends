@@ -73,6 +73,15 @@ io.on("connection", (socket) => {
     } catch (error) { replyError(socket, error); }
   });
 
+  socket.on("game:configure", (payload = {}) => {
+    try {
+      const room = rooms.get(socket.data.roomCode);
+      if (!room) throw new Error("房间已经关闭");
+      roomService.configureGame(room, socket.data.playerId, payload);
+      sendRoom(room);
+    } catch (error) { replyError(socket, error); }
+  });
+
   socket.on("game:restart", () => {
     try {
       const room = rooms.get(socket.data.roomCode);

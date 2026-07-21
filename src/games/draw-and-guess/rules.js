@@ -205,7 +205,7 @@ function addStroke(room, playerId, payload) {
       playerId,
       color: COLORS.includes(payload.color) ? payload.color : COLORS[0],
       width: Math.max(2, Math.min(24, Number(payload.width) || 5)),
-      tool: payload.tool === "eraser" ? "eraser" : "brush",
+      tool: ["eraser", "crayon"].includes(payload.tool) ? payload.tool : "brush",
       points: []
     };
     game.strokes.push(stroke);
