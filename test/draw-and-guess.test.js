@@ -26,9 +26,13 @@ test("词库覆盖丰富领域且刷新不会立刻重复", () => {
   const room = makeRoom(2);
   const artistId = room.game.artistId;
   const firstWords = room.game.wordChoices.map((choice) => choice.word);
-  assert.ok(rules.WORDS.length >= 350);
+  assert.ok(rules.WORDS.length >= 1000);
   assert.ok(new Set(rules.WORDS.map((item) => item.category)).size >= 15);
+  assert.equal(new Set(rules.WORDS.map((item) => item.word)).size, rules.WORDS.length);
   assert.ok(rules.WORDS.some((item) => item.category === "四字成语"));
+  assert.equal(rules.WORDS.find((item) => item.word === "电影票").category, "票证物品");
+  assert.equal(rules.WORDS.find((item) => item.word === "麦克风").category, "数码设备");
+  assert.equal(rules.WORDS.find((item) => item.word === "钢琴").category, "乐器");
   rules.refreshWords(room, artistId, 1_001_000);
   const nextWords = room.game.wordChoices.map((choice) => choice.word);
   assert.equal(nextWords.some((word) => firstWords.includes(word)), false);
@@ -59,13 +63,24 @@ test("选词仅对画家可见，猜题者只看类别和字数提示", () => {
 });
 
 test("无人猜中时画家扣六十分", () => {
-  const room = makeRoom(2);
+  const room = makeRoom(3);
   const artistId = room.game.artistId;
   rules.selectWord(room, artistId, room.game.wordChoices[0].word, 1_001_000);
   rules.tick(room, room.game.deadline + 1);
   assert.equal(room.game.phase, "reveal");
   assert.equal(room.players.find((player) => player.id === artistId).score, -60);
   assert.equal(room.game.lastResult.artistPenalty, 60);
+});
+
+test("仅两人游戏时无人猜中不处罚画家", () => {
+  const room = makeRoom(2);
+  const artistId = room.game.artistId;
+  rules.selectWord(room, artistId, room.game.wordChoices[0].word, 1_001_000);
+  rules.tick(room, room.game.deadline + 1);
+  assert.equal(room.game.phase, "reveal");
+  assert.equal(room.players.find((player) => player.id === artistId).score, 0);
+  assert.equal(room.game.lastResult.artistPenalty, 0);
+  assert.equal(room.game.lastResult.penaltyWaived, true);
 });
 
 test("揭晓阶段其他玩家可点赞或扔鸡蛋且不影响分数", () => {

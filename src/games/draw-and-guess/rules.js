@@ -124,7 +124,8 @@ function finishTurn(room, now) {
     score: game.turnScores[guess.playerId] || 0
   }));
   let artistPenalty = 0;
-  if (correctPlayers.length === 0 && artist) {
+  const penaltyWaived = correctPlayers.length === 0 && room.players.length === 2;
+  if (correctPlayers.length === 0 && artist && !penaltyWaived) {
     artistPenalty = NO_GUESS_PENALTY;
     artist.score = (artist.score || 0) - artistPenalty;
     game.turnScores[game.artistId] = (game.turnScores[game.artistId] || 0) - artistPenalty;
@@ -136,6 +137,7 @@ function finishTurn(room, now) {
     artistName: artist?.name || "画家",
     correctPlayers,
     artistPenalty,
+    penaltyWaived,
     turnScores: { ...game.turnScores }
   };
 }
