@@ -1,6 +1,8 @@
 const { deck, compare, bestHoldem, bestOmaha } = require("./evaluator");
 const TURN_MS = 30_000;
 const EXTENSION_CARDS = 5;
+const DISCONNECT_GRACE_MS = 10_000;
+const RECONNECT_GRACE_MS = 15_000;
 const MODES = ["holdem", "omaha", "mixed"];
 
 function shuffle(items, random = Math.random) { const out = [...items]; for (let i = out.length - 1; i > 0; i -= 1) { const j = Math.floor(random() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; } return out; }
@@ -84,6 +86,31 @@ function act(room, playerId, payload, now = Date.now()) {
   else throw new Error("未知操作"); refreshPot(room); continueHand(room, i, now);
 }
 function useTimeCard(room, playerId) { const game = room.game; const p = room.players[game.actorIndex]; if (!p || p.id !== playerId) throw new Error("只有当前行动玩家可以延时"); if (p.timeCards <= 0) throw new Error("延时卡已经用完"); p.timeCards -= 1; game.deadline += TURN_MS; p.lastAction = "使用延时卡 +30秒"; }
+function handleDisconnect(room, player, now = Date.now()) {
+  const game = room.game;
+  if (!game || game.status !== "playing") return false;
+  player.disconnectedAt = now;
+  if (game.actorIndex != null && room.players[game.actorIndex]?.id === player.id && game.deadline) {
+    game.deadline = Math.min(game.deadline, now + DISCONNECT_GRACE_MS);
+    player.lastAction = "网络中断 · 保留10秒";
+    game.log.unshift(`${player.name}网络中断，行动保留10秒`);
+    game.log = game.log.slice(0, 30);
+  }
+  return true;
+}
+function handleReconnect(room, player, now = Date.now()) {
+  const game = room.game;
+  delete player.disconnectedAt;
+  player.timeCards = EXTENSION_CARDS;
+  if (!game || game.status !== "playing") return false;
+  if (game.actorIndex != null && room.players[game.actorIndex]?.id === player.id && game.deadline) {
+    game.deadline = Math.max(game.deadline, now + RECONNECT_GRACE_MS);
+    player.lastAction = "已重连 · 恢复行动";
+    game.log.unshift(`${player.name}已重连，至少保留15秒行动时间`);
+    game.log = game.log.slice(0, 30);
+  }
+  return true;
+}
 function requestRebuy(room, playerId) { const p = room.players.find((x) => x.id === playerId); if (!p) throw new Error("找不到玩家"); p.rebuyRequest = true; }
 function approveRebuy(room, hostId, payload) { if (room.hostId !== hostId) throw new Error("只有房主可以审批补码"); const p = room.players.find((x) => x.id === payload.playerId); const amount = Math.round(Number(payload.amount)); if (!p?.rebuyRequest) throw new Error("该玩家没有补码申请"); if (!Number.isFinite(amount) || amount < 1 || amount > 1_000_000) throw new Error("补码数量无效"); p.chips += amount; p.timeCards = EXTENSION_CARDS; p.rebuyRequest = false; p.sittingOut = false; }
 function revealCards(room, playerId, payload = {}) {
@@ -99,4 +126,4 @@ function publicRoom(room, viewerId) {
   const g = room.game; const cardShowdown = g?.street === "showdown" && g.showdown?.reason === "cards";
   return { code: room.code, hostId: room.hostId, settings: room.settings || defaults(), players: room.players.map(({ token:_t, hole, ...p }) => ({ ...p, hole: (hole || []).map((card, i) => p.id === viewerId || (cardShowdown && !p.folded) || (p.shownCards || []).includes(i) ? card : null) })), game: g ? { ...g, random:undefined, deck:undefined, legal:legalActions(room, viewerId) } : null };
 }
-module.exports = { TURN_MS, EXTENSION_CARDS, MODES, defaults, configure, createGame, act, useTimeCard, requestRebuy, approveRebuy, revealCards, tick, publicRoom, startHand, legalActions };
+module.exports = { TURN_MS, EXTENSION_CARDS, DISCONNECT_GRACE_MS, RECONNECT_GRACE_MS, MODES, defaults, configure, createGame, act, useTimeCard, requestRebuy, approveRebuy, revealCards, handleDisconnect, handleReconnect, tick, publicRoom, startHand, legalActions };

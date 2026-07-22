@@ -108,7 +108,11 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     const room = rooms.get(socket.data.roomCode);
     const player = room?.players.find((item) => item.id === socket.data.playerId);
-    if (player) { player.connected = false; sendRoom(room); }
+    if (player) {
+      player.connected = false;
+      getGame(room.gameId).onDisconnect?.(room, player, Date.now());
+      sendRoom(room);
+    }
   });
 });
 
