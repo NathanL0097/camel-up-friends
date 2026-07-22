@@ -4,7 +4,6 @@ const { definition: drawAndGuess } = require("./draw-and-guess");
 const { definition: pokerNight } = require("./poker-night");
 const { definition: sevenDuel } = require("./seven-duel");
 const { definition: skyLanding } = require("./sky-landing");
-const { definition: pencilQuest } = require("./pencil-quest");
 const { definition: eldritchFiles } = require("./eldritch-files");
 
 const games = new Map([
@@ -14,7 +13,6 @@ const games = new Map([
   [pokerNight.id, pokerNight],
   [sevenDuel.id, sevenDuel],
   [skyLanding.id, skyLanding],
-  [pencilQuest.id, pencilQuest],
   [eldritchFiles.id, eldritchFiles]
 ]);
 

@@ -14,7 +14,7 @@ function active(g,id){const x=inv(g,id);if(g.phase!=="investigation"||g.investig
 function emit(g,type,title,detail){g.eventSeq++;g.lastEvent={type,title,detail};g.log.unshift(detail||title);g.log=g.log.slice(0,16);}
 function stat(i,name){return i[name]+i.assets.filter(x=>x.stat===name).reduce((n,x)=>n+x.bonus,0);}
 function token(g,i){let t=pick(CHAOS[g.difficulty]);if(t==="tentacle"&&i.id==="professor"&&i.abilityReady){i.abilityReady=false;t=-2;}const mod=typeof t==="number"?t:t==="skull"?-g.agenda:t==="cultist"?-(1+Math.floor(g.doom/2)):-99;return {token:t,mod};}
-function testSkill(g,i,name,difficulty,bonus=0){const t=token(g,i),total=stat(i,name)+bonus+t.mod;return {...t,total,success:total>=difficulty};}
+function testSkill(g,i,name,difficulty,bonus=0){const t=token(g,i),total=stat(i,name)+bonus+t.mod;return {...t,total,success:t.token!=="tentacle"&&total>=difficulty};}
 function spendAction(i){i.actions--;}
 function opportunity(g,i){for(const uid of i.engaged){const e=g.enemies.find(x=>x.uid===uid&&!x.exhausted);if(e)hurt(g,i,e.damage,e.horror,`${e.name}发动趁虚攻击`);if(g.status!=="playing")return false;}return !i.defeated;}
 function move(room,id,p){const g=room.game,i=active(g,id),from=g.locations[i.location],to=g.locations[p.location];if(!to||!from.connections.includes(to.id))throw Error("地点并不相连");if(to.lockedAct&&g.act<to.lockedAct)throw Error("这个地点尚未解锁");if(i.engaged.length)throw Error("与敌人交战时不能直接移动");spendAction(i);i.location=to.id;to.revealed=true;emit(g,"move",`${i.playerName}进入${to.name}`,to.text);afterAction(g);}
