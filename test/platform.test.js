@@ -33,6 +33,10 @@ test("平台游戏注册表公开元数据但不公开服务端处理器", () =>
   assert.equal(catalog[4].maxPlayers, 2);
   assert.equal(catalog[5].title, "云端机组：协同降落");
   assert.equal(catalog[5].maxPlayers, 2);
+  assert.equal(catalog[6].title, "铅笔勇者：空白地牢");
+  assert.equal(catalog[6].maxPlayers, 1);
+  assert.equal(catalog[7].title, "诡镇调查：午夜档案");
+  assert.equal(catalog[7].maxPlayers, 4);
   assert.throws(() => getGame("unknown-game"), /暂未开放/);
 });
 

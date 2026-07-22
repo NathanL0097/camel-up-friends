@@ -10,7 +10,14 @@ const gameCatalog = new Map([["camel-race", { id: "camel-race", clientScript: "/
 const savedName = localStorage.getItem("tabletopName") || localStorage.getItem("camelName");
 if (savedName) $("nameInput").value = savedName;
 
-function show(id) { ["landing", "lobby", "game"].forEach((key) => $(key).classList.toggle("hidden", key !== id)); }
+function show(id) {
+  ["landing", "lobby", "game"].forEach((key) => $(key).classList.toggle("hidden", key !== id));
+  if (id === "game" && !$("game").dataset.entered) {
+    $("game").dataset.entered = "true";
+    window.scrollTo(0, 0);
+  }
+  if (id !== "game") delete $("game").dataset.entered;
+}
 function toast(message) { const el = $("toast"); el.textContent = message; el.classList.add("show"); clearTimeout(el.timer); el.timer = setTimeout(() => el.classList.remove("show"), 2600); }
 function escapeHtml(text) { const div = document.createElement("div"); div.textContent = text; return div.innerHTML; }
 function roomFromUrl() { return location.pathname.match(/^\/room\/([A-Z0-9]+)/i)?.[1]?.toUpperCase(); }

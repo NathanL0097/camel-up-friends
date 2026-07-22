@@ -1,0 +1,17 @@
+const test=require("node:test");const assert=require("node:assert/strict");const rules=require("../src/games/eldritch-files/rules");
+const ps=Array.from({length:4},(_,i)=>({id:`p${i}`,name:`P${i}`}));
+function room(n=2){const players=ps.slice(0,n);return {hostId:"p0",players,settings:{difficulty:"story",choices:{}},game:rules.createGame(players,{difficulty:"story",choices:{}})};}
+test("支持一至四名调查员且角色不会重复",()=>{for(let n=1;n<=4;n++){const r=room(n);assert.equal(r.game.investigators.length,n);assert.equal(new Set(r.game.investigators.map(x=>x.id)).size,n);}});
+test("每名调查员有三次行动与五张私人起手牌",()=>{const r=room(4);for(const i of r.game.investigators){assert.equal(i.actions,3);assert.equal(i.hand.length,5);}});
+test("公开状态只向本人展示手牌内容",()=>{const r=room(2),p=rules.publicRoom(r,"p0");assert.equal(p.game.investigators[0].hand.length,5);assert.equal(p.game.investigators[1].hand.length,0);assert.equal(p.game.investigators[1].handCount,5);});
+test("案件大厅不会泄露玩家重连令牌",()=>{const r={code:"ABC123",hostId:"p0",players:[{...ps[0],token:"secret"}],settings:{difficulty:"story",choices:{}},game:null};const p=rules.publicRoom(r,"p0");assert.equal(p.game,null);assert.equal(p.players[0].token,undefined);});
+test("调查检定成功取得线索并消耗行动",()=>{const r=room(1),i=r.game.investigators[0];i.intellect=99;rules.investigate(r,"p0");assert.equal(i.clues,1);assert.equal(i.actions,2);});
+test("场景按人数缩放线索需求并依次解锁地点",()=>{const r=room(2);assert.equal(r.game.actClues,4);r.game.investigators[0].clues=4;rules.advanceAct(r.game);assert.equal(r.game.act,2);assert.equal(r.game.locations.archive.revealed,true);assert.equal(r.game.actClues,6);});
+test("移动只能前往相邻且已经解锁的地点",()=>{const r=room(1);rules.move(r,"p0",{location:"study"});assert.equal(r.game.investigators[0].location,"study");assert.throws(()=>rules.move(r,"p0",{location:"archive"}),/尚未解锁/);});
+test("打出资产会支付资源并永久提高对应属性",()=>{const r=room(1),i=r.game.investigators[0];i.hand=[{uid:"x",name:"测试放大镜",type:"asset",cost:2,stat:"intellect",bonus:1,text:"+1",icon:"🔍"}];const before=i.resources;rules.play(r,"p0",{cardId:"x"});assert.equal(i.resources,before-2);assert.equal(i.assets.length,1);});
+test("战斗和闪避使用混沌袋技能检定",()=>{const r=room(1),i=r.game.investigators[0];i.combat=99;r.game.enemies=[{uid:"e",name:"怪物",fight:2,evade:2,health:3,maxHealth:3,damage:1,horror:0,location:"foyer",exhausted:false}];i.engaged=["e"];rules.fight(r,"p0",{enemyId:"e"});assert.ok(r.game.enemies[0].health<3);});
+test("与敌人交战时执行普通行动会遭受趁虚攻击",()=>{const r=room(1),i=r.game.investigators[0];r.game.enemies=[{uid:"e",name:"怪物",damage:1,horror:1,location:"foyer",exhausted:false}];i.engaged=["e"];rules.basic(r,"p0",{kind:"resource"});assert.equal(i.damage,1);assert.equal(i.horror,1);});
+test("结束所有调查员回合会自动完成敌人整备和神话阶段",()=>{const r=room(2);rules.endTurn(r,"p0");assert.equal(r.game.currentIndex,1);rules.endTurn(r,"p1");assert.equal(r.game.round,2);assert.equal(r.game.phase,"investigation");assert.equal(r.game.doom,1);assert.ok(r.game.encounterCount>=0);});
+test("先手顺时针轮换后仍会让每名调查员行动",()=>{const r=room(2);rules.endTurn(r,"p0");rules.endTurn(r,"p1");assert.equal(r.game.currentIndex,1);rules.endTurn(r,"p1");assert.equal(r.game.currentIndex,0);assert.equal(r.game.round,2);});
+test("厄运三次推进密谋后案件失败",()=>{const r=room(1);r.game.agenda=3;r.game.doom=r.game.doomThreshold-1;rules.mythos(r.game);assert.equal(r.game.outcome,"lost");});
+test("推进第三幕场景后所有玩家共同获胜",()=>{const r=room(2);r.game.act=3;r.game.actClues=8;r.game.investigators[0].clues=8;rules.advanceAct(r.game);assert.equal(r.game.outcome,"won");});
