@@ -31,6 +31,8 @@ test("平台游戏注册表公开元数据但不公开服务端处理器", () =>
   assert.equal(catalog[3].maxPlayers, 9);
   assert.equal(catalog[4].title, "文明奇迹：双城对决");
   assert.equal(catalog[4].maxPlayers, 2);
+  assert.equal(catalog[5].title, "云端机组：协同降落");
+  assert.equal(catalog[5].maxPlayers, 2);
   assert.throws(() => getGame("unknown-game"), /暂未开放/);
 });
 

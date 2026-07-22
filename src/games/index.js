@@ -3,13 +3,15 @@ const { definition: marketOpening } = require("./market-opening");
 const { definition: drawAndGuess } = require("./draw-and-guess");
 const { definition: pokerNight } = require("./poker-night");
 const { definition: sevenDuel } = require("./seven-duel");
+const { definition: skyLanding } = require("./sky-landing");
 
 const games = new Map([
   [camelRace.id, camelRace],
   [marketOpening.id, marketOpening],
   [drawAndGuess.id, drawAndGuess],
   [pokerNight.id, pokerNight],
-  [sevenDuel.id, sevenDuel]
+  [sevenDuel.id, sevenDuel],
+  [skyLanding.id, skyLanding]
 ]);
 
 function getGame(gameId) {
