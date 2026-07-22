@@ -17,6 +17,24 @@ test("房主可选择岗位且航班严格分配一名机长和一名副驾驶",
   assert.equal(r.game.roleByPlayer.first, "pilot");
 });
 
+test("大厅提供八个机场并保存房主选择的目的地", () => {
+  assert.equal(Object.keys(rules.AIRPORTS).length, 8);
+  const r = { hostId: "captain", players: structuredClone(players), settings: rules.defaults(), game: null };
+  rules.configure(r, "captain", { hostRole: "copilot", airportId: "hnd" });
+  r.game = rules.createGame(r.players, r.settings, () => 0.9);
+  assert.equal(r.game.airport.code, "HND");
+  assert.equal(r.game.airportIndex, 7);
+  assert.equal(r.game.maxRounds, 8);
+});
+
+test("突发事件会按机场配置影响当前轮并公开给双方", () => {
+  const r = { code: "SKY777", hostId: "captain", players: structuredClone(players), settings: { hostRole: "pilot", airportId: "sin" }, game: null };
+  r.game = rules.createGame(r.players, r.settings, () => 0);
+  assert.equal(r.game.activeEvent.id, "traffic");
+  assert.equal(r.game.traffic[2], rules.AIRPORTS.sin.traffic[2] + 1);
+  assert.equal(rules.publicRoom(r, "captain").game.activeEvent.name, "临时进场航班");
+});
+
 test("双方确认简报后秘密掷四骰且只公开自己的结果", () => {
   const r = room(); roll(r);
   assert.equal(r.game.phase, "placing");
@@ -36,6 +54,21 @@ test("骰子严格交替放置并遵守岗位颜色与数字限制", () => {
   assert.throws(() => put(r, "copilot", 0, "gear-0"), /不属于/);
   put(r, "copilot", 0, "axis-copilot");
   assert.throws(() => put(r, "pilot", 1, "brake-0"), /仅接受点数 2/);
+});
+
+test("剩余骰子刚好够用时强制保留给轴线和引擎", () => {
+  const r = room(); roll(r); setHand(r.game, "pilot", [1, 1, 1, 1]); setHand(r.game, "copilot", [1, 1, 1, 1]);
+  put(r, "pilot", 0, "radio-pilot"); put(r, "copilot", 0, "radio-copilot-0");
+  put(r, "pilot", 0, "coffee-0"); put(r, "copilot", 0, "coffee-1");
+  assert.throws(() => put(r, "pilot", 0, "gear-0"), /必须优先完成轴线与引擎/);
+  put(r, "pilot", 0, "axis-pilot"); put(r, "copilot", 0, "axis-copilot");
+});
+
+test("侧风与顺逆风修正会进入轴线和引擎结算", () => {
+  const r = { code: "SKY777", hostId: "captain", players: structuredClone(players), settings: { hostRole: "pilot", airportId: "lis" }, game: null };
+  r.game = rules.createGame(r.players, r.settings, () => 0); roll(r); setHand(r.game, "pilot", [3, 3, 1, 1]); setHand(r.game, "copilot", [3, 3, 1, 1]);
+  put(r, "pilot", 0, "axis-pilot"); put(r, "copilot", 0, "axis-copilot");
+  assert.equal(r.game.axis, -1);
 });
 
 test("轴线按双方骰差倾斜且达到红色极限立即尾旋失败", () => {
