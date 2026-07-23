@@ -9,16 +9,20 @@ const SNG_HANDS_PER_LEVEL = 5;
 const SNG_BLIND_MULTIPLIERS = [1, 2, 3, 5, 8, 12, 20, 30, 50, 80, 120];
 
 function shuffle(items, random = Math.random) { const out = [...items]; for (let i = out.length - 1; i > 0; i -= 1) { const j = Math.floor(random() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; } return out; }
-function defaults() { return { mode: "holdem", tableMode: "cash", buyIn: 1000 }; }
+function defaults() { return { mode: "holdem", tableMode: "cash", buyIn: 1000, smallBlind: 5, bigBlind: 10 }; }
 function configure(room, playerId, payload) {
   if (room.hostId !== playerId) throw new Error("只有房主可以设置牌桌");
   if (room.game) throw new Error("牌局开始后不能修改设置");
   const buyIn = Math.round(Number(payload.buyIn));
+  const smallBlind = Math.round(Number(payload.smallBlind ?? room.settings?.smallBlind ?? 5));
+  const bigBlind = Math.round(Number(payload.bigBlind ?? room.settings?.bigBlind ?? 10));
   const tableMode = TABLE_MODES.includes(payload.tableMode) ? payload.tableMode : "cash";
   const mode = tableMode === "sng" ? "holdem" : payload.mode;
   if (!MODES.includes(mode)) throw new Error("请选择正确的游戏模式");
   if (!Number.isFinite(buyIn) || buyIn < 100 || buyIn > 1_000_000) throw new Error("每人带入须为100至1,000,000");
-  room.settings = { mode, tableMode, buyIn };
+  if (!Number.isFinite(smallBlind) || smallBlind < 1 || smallBlind > 1_000_000) throw new Error("小盲须为1至1,000,000");
+  if (!Number.isFinite(bigBlind) || bigBlind <= smallBlind || bigBlind > 1_000_000) throw new Error("大盲必须高于小盲且不超过1,000,000");
+  room.settings = { mode, tableMode, buyIn, smallBlind, bigBlind };
 }
 function gameType(game) { return game.mode === "mixed" ? (game.handNumber % 2 ? "holdem" : "omaha") : game.mode; }
 function activeSeats(room) { return room.players.map((p, i) => ({ p, i })).filter(({ p }) => p.chips > 0 && p.connected !== false); }
@@ -27,7 +31,7 @@ function createGame(players, settings = {}, random = Math.random, now = Date.now
   const config = { ...defaults(), ...settings };
   if (config.tableMode === "sng") config.mode = "holdem";
   players.forEach((p) => Object.assign(p, { chips: config.buyIn, timeCards: EXTENSION_CARDS, rebuyRequest: false, sittingOut: false, eliminated: false, eliminatedAtHand: null }));
-  const smallBlind = Math.max(1, Math.round(config.buyIn / 200)), bigBlind = Math.max(2, Math.round(config.buyIn / 100));
+  const smallBlind = Math.max(1, Math.round(config.smallBlind)), bigBlind = Math.max(smallBlind + 1, Math.round(config.bigBlind));
   const game = { status: "playing", mode: config.mode, tableMode: config.tableMode, buyIn: config.buyIn, baseSmallBlind: smallBlind, baseBigBlind: bigBlind, smallBlind, bigBlind, blindLevel: 1, handsPerLevel: SNG_HANDS_PER_LEVEL, nextBlindHand: config.tableMode === "sng" ? SNG_HANDS_PER_LEVEL + 1 : null, handNumber: 0, handType: null, dealerIndex: -1, street: "waiting", board: [], pot: 0, currentBet: 0, lastRaise: 0, raiseLocked: [], actorIndex: null, deadline: null, deck: [], log: [], showdown: null, tournamentWinner: null, random };
   startHand({ players, game }, now); return game;
 }
