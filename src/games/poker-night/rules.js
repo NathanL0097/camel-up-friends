@@ -4,33 +4,58 @@ const EXTENSION_CARDS = 5;
 const DISCONNECT_GRACE_MS = 10_000;
 const RECONNECT_GRACE_MS = 15_000;
 const MODES = ["holdem", "omaha", "mixed"];
+const TABLE_MODES = ["cash", "sng"];
+const SNG_HANDS_PER_LEVEL = 5;
+const SNG_BLIND_MULTIPLIERS = [1, 2, 3, 5, 8, 12, 20, 30, 50, 80, 120];
 
 function shuffle(items, random = Math.random) { const out = [...items]; for (let i = out.length - 1; i > 0; i -= 1) { const j = Math.floor(random() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; } return out; }
-function defaults() { return { mode: "holdem", buyIn: 1000 }; }
+function defaults() { return { mode: "holdem", tableMode: "cash", buyIn: 1000 }; }
 function configure(room, playerId, payload) {
   if (room.hostId !== playerId) throw new Error("只有房主可以设置牌桌");
   if (room.game) throw new Error("牌局开始后不能修改设置");
   const buyIn = Math.round(Number(payload.buyIn));
-  if (!MODES.includes(payload.mode)) throw new Error("请选择正确的游戏模式");
+  const tableMode = TABLE_MODES.includes(payload.tableMode) ? payload.tableMode : "cash";
+  const mode = tableMode === "sng" ? "holdem" : payload.mode;
+  if (!MODES.includes(mode)) throw new Error("请选择正确的游戏模式");
   if (!Number.isFinite(buyIn) || buyIn < 100 || buyIn > 1_000_000) throw new Error("每人带入须为100至1,000,000");
-  room.settings = { mode: payload.mode, buyIn };
+  room.settings = { mode, tableMode, buyIn };
 }
 function gameType(game) { return game.mode === "mixed" ? (game.handNumber % 2 ? "holdem" : "omaha") : game.mode; }
 function activeSeats(room) { return room.players.map((p, i) => ({ p, i })).filter(({ p }) => p.chips > 0 && p.connected !== false); }
 function nextIndex(room, from, predicate) { for (let n = 1; n <= room.players.length; n += 1) { const i = (from + n) % room.players.length; if (predicate(room.players[i], i)) return i; } return null; }
 function createGame(players, settings = {}, random = Math.random, now = Date.now()) {
   const config = { ...defaults(), ...settings };
-  players.forEach((p) => Object.assign(p, { chips: config.buyIn, timeCards: EXTENSION_CARDS, rebuyRequest: false, sittingOut: false }));
-  const game = { status: "playing", mode: config.mode, buyIn: config.buyIn, smallBlind: Math.max(1, Math.round(config.buyIn / 200)), bigBlind: Math.max(2, Math.round(config.buyIn / 100)), handNumber: 0, handType: null, dealerIndex: -1, street: "waiting", board: [], pot: 0, currentBet: 0, lastRaise: 0, raiseLocked: [], actorIndex: null, deadline: null, deck: [], log: [], showdown: null, random };
+  if (config.tableMode === "sng") config.mode = "holdem";
+  players.forEach((p) => Object.assign(p, { chips: config.buyIn, timeCards: EXTENSION_CARDS, rebuyRequest: false, sittingOut: false, eliminated: false, eliminatedAtHand: null }));
+  const smallBlind = Math.max(1, Math.round(config.buyIn / 200)), bigBlind = Math.max(2, Math.round(config.buyIn / 100));
+  const game = { status: "playing", mode: config.mode, tableMode: config.tableMode, buyIn: config.buyIn, baseSmallBlind: smallBlind, baseBigBlind: bigBlind, smallBlind, bigBlind, blindLevel: 1, handsPerLevel: SNG_HANDS_PER_LEVEL, nextBlindHand: config.tableMode === "sng" ? SNG_HANDS_PER_LEVEL + 1 : null, handNumber: 0, handType: null, dealerIndex: -1, street: "waiting", board: [], pot: 0, currentBet: 0, lastRaise: 0, raiseLocked: [], actorIndex: null, deadline: null, deck: [], log: [], showdown: null, tournamentWinner: null, random };
   startHand({ players, game }, now); return game;
 }
 function postBlind(player, amount) { const paid = Math.min(player.chips, amount); player.chips -= paid; player.bet += paid; player.contributed += paid; if (!player.chips) player.allIn = true; return paid; }
 function startHand(room, now = Date.now()) {
   const game = room.game;
+  if (game.tableMode === "sng") {
+    room.players.forEach((p) => { if (p.chips <= 0) { p.eliminated = true; p.eliminatedAtHand ??= game.handNumber; } });
+    const survivors = room.players.filter((p) => p.chips > 0);
+    if (survivors.length <= 1) {
+      const winner = survivors[0] || [...room.players].sort((a, b) => b.chips - a.chips)[0];
+      game.status = "finished"; game.street = "tournament-end"; game.actorIndex = null; game.deadline = null;
+      game.tournamentWinner = winner ? { id: winner.id, name: winner.name, chips: winner.chips } : null;
+      if (winner) game.log.unshift(`🏆 ${winner.name}赢得本场SNG锦标赛`);
+      return;
+    }
+  }
   const seats = activeSeats(room);
   if (seats.length < 2) { game.street = "waiting"; game.actorIndex = null; game.deadline = null; return; }
-  game.handNumber += 1; game.handType = gameType(game); game.board = []; game.deck = shuffle(deck(), game.random); game.pot = 0; game.currentBet = 0; game.lastRaise = game.bigBlind; game.raiseLocked = []; game.showdown = null;
-  room.players.forEach((p) => Object.assign(p, { hole: [], shownCards: [], folded: p.chips <= 0 || p.sittingOut, allIn: false, bet: 0, contributed: 0, acted: false, lastAction: "" }));
+  game.handNumber += 1;
+  if (game.tableMode === "sng") {
+    const levelIndex = Math.min(SNG_BLIND_MULTIPLIERS.length - 1, Math.floor((game.handNumber - 1) / SNG_HANDS_PER_LEVEL));
+    const multiplier = SNG_BLIND_MULTIPLIERS[levelIndex];
+    game.blindLevel = levelIndex + 1; game.smallBlind = game.baseSmallBlind * multiplier; game.bigBlind = game.baseBigBlind * multiplier;
+    game.nextBlindHand = levelIndex < SNG_BLIND_MULTIPLIERS.length - 1 ? (levelIndex + 1) * SNG_HANDS_PER_LEVEL + 1 : null;
+  }
+  game.handType = gameType(game); game.board = []; game.deck = shuffle(deck(), game.random); game.pot = 0; game.currentBet = 0; game.lastRaise = game.bigBlind; game.raiseLocked = []; game.showdown = null;
+  room.players.forEach((p) => Object.assign(p, { hole: [], shownCards: [], folded: p.chips <= 0 || p.sittingOut || p.connected === false, allIn: false, bet: 0, contributed: 0, acted: false, lastAction: p.eliminated ? "已淘汰" : "" }));
   game.dealerIndex = nextIndex(room, game.dealerIndex, (p) => !p.folded);
   const headsUp = seats.length === 2;
   const sb = headsUp ? game.dealerIndex : nextIndex(room, game.dealerIndex, (p) => !p.folded);
@@ -41,7 +66,7 @@ function startHand(room, now = Date.now()) {
   room.players[sb].lastAction = `小盲 ${room.players[sb].bet}`; room.players[bb].lastAction = `大盲 ${room.players[bb].bet}`;
   game.currentBet = Math.max(room.players[sb].bet, room.players[bb].bet); refreshPot(room); game.street = "preflop";
   game.actorIndex = headsUp ? sb : nextIndex(room, bb, (p) => !p.folded && !p.allIn); game.deadline = now + TURN_MS;
-  game.log.unshift(`第${game.handNumber}手 · ${game.handType === "holdem" ? "无限注德州" : "底池限注奥马哈"}`); game.log = game.log.slice(0, 30);
+  game.log.unshift(`${game.tableMode === "sng" ? `SNG第${game.blindLevel}级 · 盲注${game.smallBlind}/${game.bigBlind} · ` : ""}第${game.handNumber}手 · ${game.handType === "holdem" ? "无限注德州" : "底池限注奥马哈"}`); game.log = game.log.slice(0, 30);
 }
 function contenders(room) { return room.players.filter((p) => !p.folded && p.hole?.length); }
 function refreshPot(room) { room.game.pot = room.players.reduce((sum, p) => sum + (p.contributed || 0), 0); }
@@ -111,8 +136,8 @@ function handleReconnect(room, player, now = Date.now()) {
   }
   return true;
 }
-function requestRebuy(room, playerId) { const p = room.players.find((x) => x.id === playerId); if (!p) throw new Error("找不到玩家"); p.rebuyRequest = true; }
-function approveRebuy(room, hostId, payload) { if (room.hostId !== hostId) throw new Error("只有房主可以审批补码"); const p = room.players.find((x) => x.id === payload.playerId); const amount = Math.round(Number(payload.amount)); if (!p?.rebuyRequest) throw new Error("该玩家没有补码申请"); if (!Number.isFinite(amount) || amount < 1 || amount > 1_000_000) throw new Error("补码数量无效"); p.chips += amount; p.timeCards = EXTENSION_CARDS; p.rebuyRequest = false; p.sittingOut = false; }
+function requestRebuy(room, playerId) { if (room.game?.tableMode === "sng") throw new Error("SNG锦标赛不能补码"); const p = room.players.find((x) => x.id === playerId); if (!p) throw new Error("找不到玩家"); p.rebuyRequest = true; }
+function approveRebuy(room, hostId, payload) { if (room.game?.tableMode === "sng") throw new Error("SNG锦标赛不能补码"); if (room.hostId !== hostId) throw new Error("只有房主可以审批补码"); const p = room.players.find((x) => x.id === payload.playerId); const amount = Math.round(Number(payload.amount)); if (!p?.rebuyRequest) throw new Error("该玩家没有补码申请"); if (!Number.isFinite(amount) || amount < 1 || amount > 1_000_000) throw new Error("补码数量无效"); p.chips += amount; p.timeCards = EXTENSION_CARDS; p.rebuyRequest = false; p.sittingOut = false; }
 function revealCards(room, playerId, payload = {}) {
   const game = room.game; const p = room.players.find((x) => x.id === playerId);
   if (!p?.hole?.length) throw new Error("你当前没有可以展示的底牌");
@@ -121,9 +146,9 @@ function revealCards(room, playerId, payload = {}) {
   if (indexes.some((i) => !Number.isInteger(i) || i < 0 || i >= p.hole.length)) throw new Error("请选择要展示的牌");
   p.shownCards = [...new Set([...(p.shownCards || []), ...indexes])].sort((a, b) => a - b);
 }
-function tick(room, now = Date.now()) { const g = room.game; if (!g) return false; if (g.street === "waiting") { if (activeSeats(room).length >= 2) { startHand(room, now); return true; } return false; } if (g.street === "showdown" && now >= g.deadline) { startHand(room, now); return true; } if (g.actorIndex != null && now >= g.deadline) { const p = room.players[g.actorIndex]; const legal = legalActions(room, p.id); act(room, p.id, { type: legal.canCheck ? "check" : "fold" }, now); return true; } return false; }
+function tick(room, now = Date.now()) { const g = room.game; if (!g || g.status === "finished") return false; if (g.street === "waiting") { if (activeSeats(room).length >= 2) { startHand(room, now); return true; } return false; } if (g.street === "showdown" && now >= g.deadline) { startHand(room, now); return true; } if (g.actorIndex != null && now >= g.deadline) { const p = room.players[g.actorIndex]; const legal = legalActions(room, p.id); act(room, p.id, { type: legal.canCheck ? "check" : "fold" }, now); return true; } return false; }
 function publicRoom(room, viewerId) {
   const g = room.game; const cardShowdown = g?.street === "showdown" && g.showdown?.reason === "cards";
   return { code: room.code, hostId: room.hostId, settings: room.settings || defaults(), players: room.players.map(({ token:_t, hole, ...p }) => ({ ...p, hole: (hole || []).map((card, i) => p.id === viewerId || (cardShowdown && !p.folded) || (p.shownCards || []).includes(i) ? card : null) })), game: g ? { ...g, random:undefined, deck:undefined, legal:legalActions(room, viewerId) } : null };
 }
-module.exports = { TURN_MS, EXTENSION_CARDS, DISCONNECT_GRACE_MS, RECONNECT_GRACE_MS, MODES, defaults, configure, createGame, act, useTimeCard, requestRebuy, approveRebuy, revealCards, handleDisconnect, handleReconnect, tick, publicRoom, startHand, legalActions };
+module.exports = { TURN_MS, EXTENSION_CARDS, DISCONNECT_GRACE_MS, RECONNECT_GRACE_MS, MODES, TABLE_MODES, SNG_HANDS_PER_LEVEL, SNG_BLIND_MULTIPLIERS, defaults, configure, createGame, act, useTimeCard, requestRebuy, approveRebuy, revealCards, handleDisconnect, handleReconnect, tick, publicRoom, startHand, legalActions };

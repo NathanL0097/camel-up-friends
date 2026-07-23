@@ -1,6 +1,6 @@
 const rules = require("./rules");
 const definition = {
-  id:"poker-night", title:"扑克之夜", icon:"♠️", description:"无限注德州与底池限注奥马哈综合现金桌。", clientScript:"/games/poker-night.js", minPlayers:2, maxPlayers:9, minimumToStart:2, status:"prototype",
+  id:"poker-night", title:"扑克之夜", icon:"♠️", description:"无限注德州、底池限注奥马哈现金桌与SNG锦标赛。", clientScript:"/games/poker-night.js", minPlayers:2, maxPlayers:9, minimumToStart:2, status:"prototype",
   defaultSettings:rules.defaults, configure:rules.configure,
   onReconnect:(room,player)=>rules.handleReconnect(room,player),
   onDisconnect:(room,player,now)=>rules.handleDisconnect(room,player,now),
