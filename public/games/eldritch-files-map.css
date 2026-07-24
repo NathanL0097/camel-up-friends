@@ -1,0 +1,40 @@
+/* 地图驱动版：地点卡按坐标铺开，连接线同时代表真实规则路径。 */
+.ef-board{grid-template-columns:minmax(720px,1fr) 280px;max-width:1380px}
+.map-title{display:flex;align-items:end;justify-content:space-between;padding:0 14px}
+.route-legend{display:flex;gap:12px;color:#a99b80;font-size:9px}
+.route-legend span{display:flex;align-items:center;gap:5px}
+.route-legend i{display:inline-block;width:28px;height:3px;background:#d8af5e;box-shadow:0 0 9px #e7b653}
+.route-legend span:last-child i{background:#4c4a43;box-shadow:none}
+.location-web{position:relative;display:block;min-height:650px;margin-top:6px;padding:0;border:1px solid #4b4232;border-radius:24px;background:radial-gradient(circle at 50% 55%,#273432 0,#121b1c 48%,#070c0d 100%);box-shadow:inset 0 0 80px #000,0 18px 45px #0008;overflow:hidden}
+.location-web:before{content:"";position:absolute;inset:0;opacity:.14;background:repeating-linear-gradient(25deg,transparent 0 38px,#c9a769 39px 40px),repeating-linear-gradient(115deg,transparent 0 58px,#8d7650 59px 60px);pointer-events:none}
+.location-web>svg{position:absolute;z-index:1;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.location-web>svg line{vector-effect:non-scaling-stroke;stroke-width:4;stroke-linecap:round}
+.location-web>svg line.open{stroke:#d6ad5b;filter:drop-shadow(0 0 5px #d8a848);stroke-dasharray:10 8;animation:routeFlow 1.3s linear infinite}
+.location-web>svg line.sealed{stroke:#4e4b43;stroke-width:2;stroke-dasharray:3 9;opacity:.5}
+@keyframes routeFlow{to{stroke-dashoffset:-18}}
+.location-card{position:absolute;z-index:3;left:calc(var(--x)*1%);top:calc(var(--y)*1%);transform:translate(-50%,-50%);box-sizing:border-box;width:190px;min-height:132px;padding:10px 11px 28px;border:2px solid #6d5c3e;border-radius:10px;background:linear-gradient(155deg,#283432 0,#12191a 68%);box-shadow:0 14px 28px #000c,inset 0 0 28px #0008;transition:filter .25s,border-color .25s,box-shadow .25s,transform .25s}
+.location-card:before{content:"";position:absolute;inset:5px;border:1px solid #a58b5838;border-radius:6px;pointer-events:none}
+.location-card:hover{transform:translate(-50%,-50%) translateY(-3px)}
+.location-card.you-here{border-color:#f1c568;box-shadow:0 0 0 3px #f1c56835,0 0 32px #e6b44d66,0 14px 28px #000c}
+.location-card.you-here:after{content:"当前位置";position:absolute;left:50%;top:-12px;transform:translateX(-50%);padding:2px 10px;border-radius:12px;background:#e7bd65;color:#242017;font:800 8px sans-serif;white-space:nowrap}
+.location-card.locked{filter:grayscale(1) brightness(.48);opacity:.72;border-style:dashed}
+.location-card.reachable{cursor:pointer;border-color:#72e0bd;box-shadow:0 0 0 3px #72e0bd2e,0 0 35px #4ff1bc88,0 14px 28px #000c;animation:reachablePulse 1.1s ease-in-out infinite alternate}
+@keyframes reachablePulse{to{transform:translate(-50%,-50%) scale(1.035)}}
+.location-card.arrival{animation:locationArrival .8s ease-out}
+@keyframes locationArrival{0%{filter:brightness(2);box-shadow:0 0 70px #f1c568}100%{}}
+.location-card h4{font-size:15px}.location-card p{min-height:28px;margin:6px 0;font-size:8px}.location-card>small{font-size:8px}
+.loc-art{font-size:36px}.clue-pips{font-size:11px}
+.move-here{position:absolute;z-index:4;left:8px;right:8px;bottom:4px;padding:3px;border-radius:6px;background:#4a9e83;color:#effff7;text-align:center;font:800 8px sans-serif}
+.occupants{z-index:5;bottom:-12px;justify-content:center}
+.occupants i,.occupants button{width:31px;height:31px;background:#152321;box-shadow:0 5px 12px #000}
+.occupants .token-arrive{animation:tokenArrive .75s cubic-bezier(.2,1.7,.4,1)}
+@keyframes tokenArrive{0%{transform:translateY(-45px) scale(.2);opacity:0}70%{transform:translateY(4px) scale(1.2)}100%{transform:none;opacity:1}}
+.route-prompt{position:absolute;z-index:2;left:50%;bottom:8px;transform:translateX(-50%);padding:5px 14px;border:1px solid #66593e;border-radius:18px;background:#0b1112dd;color:#b7a887;font-size:9px;white-space:nowrap}
+.choosing-route .route-prompt{border-color:#63bd9f;color:#8ce5c8;box-shadow:0 0 18px #54c39d55}
+.action-console{grid-template-columns:repeat(4,1fr)}
+.action-console>b{grid-column:1/5}
+.action-console button.selected{border-color:#71d8b7;background:#315f52;color:#fff;box-shadow:0 0 14px #55cba455}
+.route-event{position:fixed;z-index:200;left:50%;top:92px;transform:translateX(-50%);display:flex;align-items:center;gap:12px;width:min(520px,80vw);padding:12px 18px;border:1px solid #b99451;border-radius:12px;background:#111a1af2;box-shadow:0 15px 45px #000b,0 0 24px #c69a4433;animation:routeNotice 1.9s both}
+.route-event>span{font-size:30px}.route-event b,.route-event small{display:block}.route-event b{color:#e7ca88}.route-event small{margin-top:3px;color:#a9b3a8}
+@keyframes routeNotice{0%{opacity:0;transform:translate(-50%,-18px)}12%,78%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-8px)}}
+@media(max-width:850px){.ef-board{width:1160px;grid-template-columns:860px 270px}.location-web{min-height:650px}.location-card{width:175px}}

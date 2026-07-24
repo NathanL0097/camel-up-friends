@@ -5,12 +5,14 @@ const INVESTIGATORS=[
  {id:"veteran",name:"露丝·凯恩",title:"退役探员",icon:"🧥",will:2,intellect:2,combat:5,agility:3,health:9,sanity:5,ability:"每轮第一次攻击造成额外1点伤害。"}
 ];
 const LOCATIONS={
- foyer:{id:"foyer",name:"黑荆宅邸门厅",icon:"🕯️",shroud:2,clues:1,connections:["study","garden"],text:"雨水沿着画像的眼眶缓慢流下。"},
- study:{id:"study",name:"封闭书房",icon:"📚",shroud:3,clues:2,connections:["foyer","archive"],text:"书架之后传来规律的敲击声。"},
- garden:{id:"garden",name:"枯死温室",icon:"🥀",shroud:2,clues:2,connections:["foyer","cellar"],text:"没有根的藤蔓缠住了玻璃。"},
- archive:{id:"archive",name:"家族档案室",icon:"🗄️",shroud:4,clues:2,connections:["study","tower"],lockedAct:2,text:"失踪者的姓名全用同一种墨水写成。"},
- cellar:{id:"cellar",name:"潮湿地下室",icon:"⛓️",shroud:3,clues:2,connections:["garden","tower"],lockedAct:2,text:"地板之下有某种东西正在呼吸。"},
- tower:{id:"tower",name:"无窗塔楼",icon:"🌘",shroud:5,clues:3,connections:["archive","cellar"],lockedAct:3,text:"月光从不存在的窗户照了进来。"}
+ foyer:{id:"foyer",name:"黑荆宅邸门厅",icon:"🕯️",shroud:2,clues:1,x:50,y:83,connections:["study","garden","hall"],text:"雨水沿着画像的眼眶缓慢流下。"},
+ study:{id:"study",name:"封闭书房",icon:"📚",shroud:3,clues:2,x:18,y:65,connections:["foyer","hall","archive"],text:"书架之后传来规律的敲击声。"},
+ garden:{id:"garden",name:"枯死温室",icon:"🥀",shroud:2,clues:2,x:82,y:65,connections:["foyer","hall","cellar"],text:"没有根的藤蔓缠住了玻璃。"},
+ hall:{id:"hall",name:"回声长廊",icon:"🖼️",shroud:3,clues:1,x:50,y:52,connections:["foyer","study","garden","chapel"],text:"每扇门都映出不同年代的宅邸。"},
+ archive:{id:"archive",name:"家族档案室",icon:"🗄️",shroud:4,clues:2,x:16,y:30,connections:["study","chapel"],lockedAct:2,text:"失踪者的姓名全用同一种墨水写成。"},
+ cellar:{id:"cellar",name:"潮湿地下室",icon:"⛓️",shroud:3,clues:2,x:84,y:30,connections:["garden","chapel"],lockedAct:2,text:"地板之下有某种东西正在呼吸。"},
+ chapel:{id:"chapel",name:"倒悬礼拜堂",icon:"⛪",shroud:4,clues:2,x:50,y:25,connections:["hall","archive","cellar","tower"],lockedAct:2,text:"长椅朝向一座背对众人的祭坛。"},
+ tower:{id:"tower",name:"无窗塔楼",icon:"🌘",shroud:5,clues:3,x:50,y:9,connections:["chapel"],lockedAct:3,text:"月光从不存在的窗户照了进来。"}
 };
 const PLAYER_CARDS=[
  {id:"lens",name:"黄铜放大镜",type:"asset",cost:2,stat:"intellect",bonus:1,icon:"🔍",text:"调查时学识+1。"},
