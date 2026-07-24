@@ -58,7 +58,7 @@ function startHand(room, now = Date.now()) {
     game.blindLevel = levelIndex + 1; game.smallBlind = game.baseSmallBlind * multiplier; game.bigBlind = game.baseBigBlind * multiplier;
     game.nextBlindHand = levelIndex < SNG_BLIND_MULTIPLIERS.length - 1 ? (levelIndex + 1) * SNG_HANDS_PER_LEVEL + 1 : null;
   }
-  game.handType = gameType(game); game.board = []; game.deck = shuffle(deck(), game.random); game.pot = 0; game.currentBet = 0; game.lastRaise = game.bigBlind; game.raiseLocked = []; game.showdown = null;
+  game.handType = gameType(game); game.board = []; game.deck = shuffle(deck(), game.random); game.pot = 0; game.currentBet = 0; game.lastRaise = game.bigBlind; game.raiseLocked = []; game.showdown = null; game.runoutFromStreet = null;
   room.players.forEach((p) => Object.assign(p, { hole: [], shownCards: [], folded: p.chips <= 0 || p.sittingOut || p.connected === false, allIn: false, bet: 0, contributed: 0, acted: false, lastAction: p.eliminated ? "已淘汰" : "" }));
   game.dealerIndex = nextIndex(room, game.dealerIndex, (p) => !p.folded);
   const headsUp = seats.length === 2;
@@ -83,16 +83,16 @@ function showdown(room, now = Date.now()) {
   for (const level of levels) { const contributors = room.players.filter((p) => p.contributed >= level); const amount = (level - previous) * contributors.length; const eligible = evaluated.filter(({ player }) => player.contributed >= level); if (!eligible.length) continue; const best = eligible.reduce((top, item) => compare(item.result.score, top.result.score) > 0 ? item : top, eligible[0]); const winners = eligible.filter((item) => compare(item.result.score, best.result.score) === 0); const share = Math.floor(amount / winners.length); let odd = amount - share * winners.length; for (const item of winners) { winnings.set(item.player.id, (winnings.get(item.player.id) || 0) + share + (odd-- > 0 ? 1 : 0)); } previous = level; }
   for (const [id, amount] of winnings) room.players.find((p) => p.id === id).chips += amount;
   game.showdown = { reason: "cards", winners: [...winnings].map(([id, amount]) => ({ id, amount, hand: evaluated.find((x) => x.player.id === id).result.name })), hands: evaluated.map(({ player, result }) => ({ id: player.id, cards: player.hole, hand: result.name })) };
-  game.street = "showdown"; game.actorIndex = null; game.deadline = now + 8000;
+  game.street = "showdown"; game.actorIndex = null; game.deadline = now + (game.runoutFromStreet === "preflop" ? 13_000 : 8000);
 }
 function advanceStreet(room, now) {
-  const game = room.game; room.players.forEach((p) => { p.bet = 0; p.acted = false; }); game.currentBet = 0; game.lastRaise = game.bigBlind; game.raiseLocked = [];
+  const game = room.game,fromStreet=game.street; room.players.forEach((p) => { p.bet = 0; p.acted = false; }); game.currentBet = 0; game.lastRaise = game.bigBlind; game.raiseLocked = [];
   if (game.street === "preflop") { game.board.push(game.deck.pop(), game.deck.pop(), game.deck.pop()); game.street = "flop"; }
   else if (game.street === "flop") { game.board.push(game.deck.pop()); game.street = "turn"; }
   else if (game.street === "turn") { game.board.push(game.deck.pop()); game.street = "river"; }
   else { showdown(room, now); return; }
   const possible = contenders(room).filter((p) => !p.allIn);
-  if (possible.length <= 1) { if (game.board.length < 5) while (game.board.length < 5) game.board.push(game.deck.pop()); showdown(room, now); return; }
+  if (possible.length <= 1) { if (game.board.length < 5) { game.runoutFromStreet = fromStreet; while (game.board.length < 5) game.board.push(game.deck.pop()); } showdown(room, now); return; }
   game.actorIndex = nextIndex(room, game.dealerIndex, (p) => !p.folded && !p.allIn); game.deadline = now + TURN_MS;
 }
 function continueHand(room, fromIndex, now = Date.now()) {

@@ -1,0 +1,13 @@
+/* 翻牌前全下：翻牌、转牌、河牌按街分段揭示，保留跑牌悬念。 */
+.community-cards.slow-allin-runout{gap:11px}
+.community-cards .allin-runout.runout-flop-0{--board-delay:.25s}
+.community-cards .allin-runout.runout-flop-1{--board-delay:.62s}
+.community-cards .allin-runout.runout-flop-2{--board-delay:.99s}
+.community-cards .allin-runout.runout-turn{--board-delay:3.05s}
+.community-cards .river-peek.allin-runout.runout-river{animation:riverLand .72s cubic-bezier(.18,.75,.2,1.08) 5.35s both}
+.community-cards .river-peek.allin-runout.runout-river:after{animation:riverPeel 2.8s cubic-bezier(.2,.55,.22,1) 6.05s both}
+.allin-showdown-delay{animation:showdownAfterRunout 9.05s both}
+@keyframes showdownAfterRunout{
+  0%,97%{opacity:0;visibility:hidden;transform:translateY(8px) scale(.96)}
+  100%{opacity:1;visibility:visible;transform:none}
+}
