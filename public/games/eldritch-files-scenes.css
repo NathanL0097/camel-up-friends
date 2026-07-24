@@ -1,0 +1,59 @@
+/* 场景探索版：当前地点成为主画面，平面图退居辅助导航。 */
+#eldritchFiles .ef-board{grid-template-columns:minmax(0,1fr) 286px;max-width:1480px}
+#eldritchFiles #locationMap{min-width:0}
+.scene-shell{display:grid;gap:10px}
+.scene-toolbar{display:flex;align-items:end;justify-content:space-between;padding:0 8px}
+.scene-toolbar small{color:#9f8658;font-size:8px;letter-spacing:3px}
+.scene-toolbar h3{margin:1px 0 0;color:#ead5a5;font:700 27px Georgia,serif}
+.scene-toolbar button{padding:8px 13px;border:1px solid #77613d;border-radius:20px;background:#101a1bdc;color:#dec58d;font-size:9px;box-shadow:0 8px 20px #0008}
+.scene-toolbar button:hover{border-color:#d2ad62;background:#223132}
+.location-scene{position:relative;isolation:isolate;min-height:clamp(320px,36vw,465px);overflow:hidden;border:1px solid #8f7548;border-radius:20px;background-color:#101617;background-image:url("/assets/eldritch/blackthorn-manor-scenes.png");background-repeat:no-repeat;background-size:auto 400%;box-shadow:inset 0 0 85px #000b,0 22px 55px #000b}
+.location-scene:before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(180deg,#03101108 0,#02060725 42%,#020606e6 100%),linear-gradient(90deg,#000a 0,transparent 25%,transparent 75%,#000a 100%);pointer-events:none}
+.location-scene:after{content:"";position:absolute;z-index:1;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 5px #d4b36a0b,inset 0 0 85px #000b;pointer-events:none}
+.scene-foyer{background-position:left 0}
+.scene-study{background-position:right 0}
+.scene-garden{background-position:left 33.333%}
+.scene-hall{background-position:right 33.333%}
+.scene-archive{background-position:left 66.666%}
+.scene-cellar{background-position:right 66.666%}
+.scene-chapel{background-position:left 100%}
+.scene-tower{background-position:right 100%}
+.scene-entering{animation:enterLocation 1.35s cubic-bezier(.18,.8,.24,1)}
+@keyframes enterLocation{0%{opacity:.15;filter:blur(9px) brightness(.42);transform:scale(1.075)}38%{opacity:1;filter:blur(2px) brightness(1.25)}100%{filter:none;transform:none}}
+.scene-atmosphere{position:absolute;z-index:0;inset:0;overflow:hidden;pointer-events:none}
+.scene-atmosphere:before{content:"";position:absolute;left:-20%;right:-20%;top:-16%;height:55%;background:radial-gradient(ellipse at center,#d9b86624,transparent 62%);animation:sceneGlow 4.5s ease-in-out infinite alternate}
+.scene-atmosphere i{position:absolute;width:3px;height:3px;border-radius:50%;background:#f5d890;box-shadow:0 0 8px 2px #e8b856;opacity:0;animation:dustFloat 6s linear infinite}
+.scene-atmosphere i:nth-child(1){left:17%;top:68%;animation-delay:.2s}.scene-atmosphere i:nth-child(2){left:42%;top:78%;animation-delay:1.8s}.scene-atmosphere i:nth-child(3){left:68%;top:65%;animation-delay:3.1s}.scene-atmosphere i:nth-child(4){left:84%;top:75%;animation-delay:4.4s}
+@keyframes sceneGlow{to{transform:translateX(8%);opacity:.55}}
+@keyframes dustFloat{0%{opacity:0;transform:translateY(20px)}20%,70%{opacity:.7}100%{opacity:0;transform:translate(24px,-120px)}}
+.scene-location-plate{position:absolute;z-index:4;left:18px;top:18px;display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:10px;min-width:310px;padding:8px 11px;border:1px solid #b4955b88;border-radius:12px;background:linear-gradient(110deg,#081011e8,#121b1cb8);box-shadow:0 12px 35px #000b;backdrop-filter:blur(8px)}
+.scene-location-plate>span{display:grid;place-items:center;width:42px;height:42px;border:1px solid #9e8150;border-radius:50%;background:#0d1718;font-size:24px;box-shadow:0 0 17px #c69c443d}
+.scene-location-plate small,.scene-location-plate b{display:block}.scene-location-plate small{color:#a69778;font:8px sans-serif;letter-spacing:1px}.scene-location-plate b{margin-top:2px;color:#f1dba9;font:700 17px Georgia,serif}.scene-location-plate em{padding:5px 9px;border-radius:12px;background:#d8ad5830;color:#f2cd7b;font:800 11px sans-serif}
+.scene-presence{position:absolute;z-index:5;right:18px;top:18px;display:flex;gap:7px}
+.scene-presence span,.scene-presence button{display:flex;align-items:center;gap:6px;min-width:70px;padding:5px 9px;border:1px solid #796744;border-radius:18px;background:#0b1213d9;color:#e4d4b3;box-shadow:0 8px 20px #000a;backdrop-filter:blur(7px)}
+.scene-presence button{cursor:pointer;border-color:#8d4b45;background:#241313e8}.scene-presence i{font-size:20px;font-style:normal}.scene-presence b{font-size:8px}
+.scene-exits{position:absolute;z-index:5;left:18px;right:18px;top:112px;display:flex;align-items:end;justify-content:center;gap:10px}
+.scene-exit{position:relative;display:grid;grid-template-columns:30px 1fr;grid-template-rows:auto auto;align-items:center;min-width:155px;padding:8px 11px;border:1px solid #594e3b;border-radius:9px;background:linear-gradient(145deg,#11191ae8,#070b0ce8);color:#9f9684;text-align:left;box-shadow:0 11px 24px #000b;backdrop-filter:blur(7px);transition:.25s}
+.scene-exit>span{grid-row:1/3;font-size:22px}.scene-exit small,.scene-exit b{display:block}.scene-exit small{font-size:7px;letter-spacing:1px}.scene-exit b{color:#d7c7a4;font:700 11px Georgia,serif}.scene-exit em{position:absolute;right:7px;top:-9px;padding:2px 7px;border-radius:9px;background:#66c7a5;color:#08241b;font:800 7px sans-serif}
+.scene-exit.can-enter{cursor:pointer;border-color:#75d6b4;background:linear-gradient(145deg,#193a34e8,#091514e8);box-shadow:0 0 0 2px #70d4b02c,0 0 25px #4bd0a760,0 11px 24px #000b;animation:doorPulse 1.25s ease-in-out infinite alternate}
+.scene-exit.can-enter:hover{transform:translateY(-7px) scale(1.025);background:#24564a}.scene-exit.sealed{filter:grayscale(1);opacity:.58}
+@keyframes doorPulse{to{box-shadow:0 0 0 3px #70d4b03d,0 0 38px #4bd0a78c,0 11px 24px #000b}}
+.scene-lore{position:absolute;z-index:4;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:13px 20px;background:linear-gradient(90deg,#050909f2,#111a1acc,#050909f2);border-top:1px solid #967d4d55;backdrop-filter:blur(7px)}
+.scene-lore p{margin:0;color:#dacba8;font:italic 12px Georgia,serif}.scene-lore small{color:#85bda9;font:8px sans-serif;white-space:nowrap}
+.manor-map{max-height:0;overflow:hidden;opacity:0;transform:translateY(-10px);transition:max-height .55s ease,opacity .35s,transform .45s}
+.manor-map.open{max-height:590px;opacity:1;transform:none}
+.manor-map .map-title{padding:6px 12px 0}.manor-map .map-title h3{font-size:20px}
+.manor-map .location-web{min-height:470px;margin-top:4px}
+.manor-map .location-card{width:155px;min-height:100px;padding:7px 9px 20px}
+.manor-map .location-card h4{margin:1px 0;font-size:12px}.manor-map .location-card p{min-height:18px;margin:3px 0;font-size:7px}.manor-map .location-card>small{font-size:7px}.manor-map .loc-art{font-size:27px}.manor-map .occupants i,.manor-map .occupants button{width:25px;height:25px}.manor-map .move-here{font-size:7px}
+@media(max-width:1000px){
+ #eldritchFiles .ef-board{width:1180px;grid-template-columns:870px 280px}
+ .location-scene{min-height:355px}
+}
+@media(max-width:680px){
+ .scene-toolbar h3{font-size:21px}
+ .scene-toolbar button{padding:7px 10px}
+ .scene-location-plate{min-width:260px}
+ .scene-exits{gap:6px}
+ .scene-exit{min-width:130px}
+}
