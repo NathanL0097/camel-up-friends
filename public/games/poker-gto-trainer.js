@@ -5,7 +5,7 @@
     raise67:"加注 2/3池",bet33:"下注 1/3池",bet50:"下注 1/2池",bet67:"下注 2/3池",
     bet100:"满池下注",allin:"ALL IN"
   };
-  const BET_FRACTIONS={bet33:1/3,bet50:1/2,bet67:2/3,bet100:1};
+  const BET_FRACTIONS={bet33:1/3,bet50:1/2,bet67:2/3,bet100:1,raise50:1/2,raise67:2/3};
   const node=(street,board,pot,stack,villain,options,concept)=>({street,board,pot,stack,villain,options,concept});
   const option=(action,freq,loss,reason)=>({action,freq,loss,reason});
   const LINES=[
@@ -196,6 +196,10 @@
     const minimumLoss=Math.min(...node.options.map(item=>item.loss)),actions=node.options.filter(item=>item.loss<=minimumLoss+.05).sort((a,b)=>b.freq-a.freq),primary=actions[0];
     return{actions,primary,label:actions.map(item=>`${actionLabel(item.action,node)} ${item.freq}%`).join(" / ")};
   }
+  function shouldEndHand(action,node){
+    const result=scoreOption(action,node.options),solution=optimalSolution(node);
+    return action==="fold"&&solution.primary.action==="fold"&&result.loss<=.05;
+  }
   function validateLines(lines=LINES){
     const errors=[];
     for(const line of lines)for(const [nodeIndex,spot] of line.nodes.entries()){
@@ -221,9 +225,140 @@
     const swap=card=>card?`${card[0]}${map[card[1]]}`:card;
     return{...line,sourceId:line.id,variantIndex,instanceId:`${line.id}-v${variantIndex}`,hand:line.hand.map(swap),nodes:line.nodes.map(spot=>({...spot,board:spot.board.map(swap),options:spot.options.map(item=>({...item}))}))};
   }
+  const RANKS="23456789TJQKA",POSITIONS=["UTG","HJ","CO","BTN","SB","BB"],STACKS=[20,25,30,35,40,50,60],PROCEDURAL_COMBINATIONS=2809475760;
+  function seededRandom(seed){
+    let value=(seed||Date.now())>>>0;
+    return()=>{value=(value*1664525+1013904223)>>>0;return value/4294967296;};
+  }
+  function shuffledDeck(random){
+    const deck=[];for(const rank of RANKS)for(const suit of ["s","h","d","c"])deck.push(`${rank}${suit}`);
+    for(let i=deck.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}return deck;
+  }
+  function preflopStrength(cards){
+    const values=cards.map(card=>RANKS.indexOf(card[0])+2).sort((a,b)=>b-a),[high,low]=values,pair=high===low,suited=cards[0][1]===cards[1][1],gap=high-low;
+    if(pair)return Math.min(100,38+high*4.35);
+    let score=high*4.25+low*1.45+(suited?7:0)+(gap===1?6:gap===2?3:0)-Math.max(0,gap-3)*2.4;
+    if(high===14)score+=5;if(high>=12&&low>=10)score+=5;
+    return Math.max(5,Math.min(99,score));
+  }
+  function fiveCategory(cards){
+    const values=cards.map(card=>RANKS.indexOf(card[0])+2),counts={};for(const value of values)counts[value]=(counts[value]||0)+1;
+    const groups=Object.values(counts).sort((a,b)=>b-a),flush=cards.every(card=>card[1]===cards[0][1]),unique=[...new Set(values)];
+    if(unique.includes(14))unique.push(1);unique.sort((a,b)=>a-b);
+    let straight=false;for(let i=0;i<=unique.length-5;i++)if(unique[i+4]-unique[i]===4)straight=true;
+    if(straight&&flush)return 8;if(groups[0]===4)return 7;if(groups[0]===3&&groups[1]===2)return 6;if(flush)return 5;if(straight)return 4;if(groups[0]===3)return 3;if(groups[0]===2&&groups[1]===2)return 2;if(groups[0]===2)return 1;return 0;
+  }
+  function combinations(items,size,start=0,prefix=[],result=[]){
+    if(prefix.length===size){result.push(prefix);return result;}
+    for(let i=start;i<=items.length-(size-prefix.length);i++)combinations(items,size,i+1,[...prefix,items[i]],result);
+    return result;
+  }
+  function handFeatures(hole,board){
+    const cards=[...hole,...board],category=cards.length>=5?Math.max(...combinations(cards,5).map(fiveCategory)):0,boardValues=board.map(card=>RANKS.indexOf(card[0])+2);
+    const holeValues=hole.map(card=>RANKS.indexOf(card[0])+2),topBoard=Math.max(...boardValues),pairWithBoard=holeValues.some(value=>boardValues.includes(value)),overpair=holeValues[0]===holeValues[1]&&holeValues[0]>topBoard;
+    const suitCounts={};for(const card of cards)suitCounts[card[1]]=(suitCounts[card[1]]||0)+1;
+    const flushDraw=board.length<5&&Object.values(suitCounts).some(count=>count===4);
+    const unique=[...new Set(cards.map(card=>RANKS.indexOf(card[0])+2))];if(unique.includes(14))unique.push(1);
+    let straightDraw=false;for(let low=1;low<=10;low++){const hits=[0,1,2,3,4].filter(offset=>unique.includes(low+offset)).length;if(hits===4)straightDraw=true;}
+    const made=category>=1,draw=flushDraw||straightDraw;
+    return{category,pairWithBoard,overpair,flushDraw,straightDraw,made,draw,label:["高牌","一对","两对","三条","顺子","同花","葫芦","四条","同花顺"][category]};
+  }
+  function normalizedOptions(rows){
+    const total=rows.reduce((sum,row)=>sum+row[1],0),normalized=rows.map(row=>[row[0],Math.round(row[1]*100/total),row[2],row[3]]);
+    normalized[0][1]+=100-normalized.reduce((sum,row)=>sum+row[1],0);
+    const best=Math.min(...normalized.map(row=>row[2]));
+    return normalized.map(row=>option(row[0],row[1],Math.max(0,row[2]-best),row[3]));
+  }
+  function preflopNode(hole,heroPosition,opponents,multiway,stage,stack,facingRaise){
+    const strength=preflopStrength(hole),icm=stage!=="常规阶段",positionBonus={UTG:-7,HJ:-4,CO:0,BTN:5,SB:-2,BB:3}[heroPosition]||0;
+    const threshold=(facingRaise?60:47)+(multiway?6:0)+(icm?3:0)-positionBonus;
+    if(!facingRaise){
+      const villain=heroPosition==="BB"?"SB（小盲）跛入，行动到你":"前面全部弃牌，行动到你";
+      if(strength<threshold-8)return node("preflop",[],1.5,stack,villain,normalizedOptions([
+        ["fold",86,0,"这手牌低于当前位置的无抽水锦标赛开池阈值，弃牌保存筹码是最高EV选择。"],["open25",14,.42,"过宽开池会被身后的继续范围针对。"],["allin",0,5.5,"当前有效筹码不适合用弱牌直接推入。"]
+      ]),"动态开池范围");
+      if(strength<threshold+8)return node("preflop",[],1.5,stack,villain,normalizedOptions([
+        ["open25",66,0,"牌力接近开池边界，位置与盲注死钱使小尺寸开池优于弃牌。"],["fold",34,.06,"边缘组合可以混合弃牌控制波动。"],["allin",0,4.8,"非短码环境无需直接全下。"]
+      ]),"动态开池范围");
+      return node("preflop",[],1.5,stack,villain,normalizedOptions([
+        ["open25",94,0,"这手牌明显高于当前位置的开池阈值，应以标准小尺寸建立底池。"],["fold",6,1.35,"强牌弃牌会放弃过多筹码EV。"],["allin",0,Math.max(1.8,stack/10),"直接全下会迫使大量被支配牌弃牌。"]
+      ]),"动态开池范围");
+    }
+    const raiser=opponents[0],caller=opponents[1],villain=multiway?`${raiser}开池2.3BB，${caller}跟注，行动到你`:`${raiser}开池2.3BB，行动到你`;
+    if(strength<threshold-10)return node("preflop",[],multiway?7.3:4,Math.max(1,stack-2.3),villain,normalizedOptions([
+      ["fold",88,0,`面对${multiway?"开池加跟注的两套":"开池"}范围，这手牌的权益与可实现性不足，弃牌是最高EV选择。`],["call",12,.48,"继续会在不利范围和位置下承担反向隐含赔率。"],["raise50",0,1.65,"缺少足够牌力与关键阻断，不适合作为再加注。"],["allin",0,5.8,"直接全下风险远高于可赢取的死钱。"]
+    ]),"动态对抗开池范围");
+    if(strength<threshold+12)return node("preflop",[],multiway?7.3:4,Math.max(1,stack-2.3),villain,normalizedOptions([
+      ["call",63,0,`牌力足够继续，但${multiway?"多人底池":"当前深度"}下以跟注保留较弱范围更稳健。`],["fold",22,.12,"在ICM或位置不利时可保留部分弃牌。"],["raise50",15,.08,"带阻断或可玩性的组合可以低频再加注。"],["allin",0,4.4,"尚未达到直接推入的牌力阈值。"]
+    ]),"动态对抗开池范围");
+    return node("preflop",[],multiway?7.3:4,Math.max(1,stack-2.3),villain,normalizedOptions([
+      ["raise50",58,0,"牌力位于强继续区间，再加注可以取值并争夺死钱。"],["call",42,.04,"平跟隐藏牌力并保留对手较弱范围同样合理。"],["fold",0,2.8,"强继续牌弃牌损失明显。"],["allin",0,Math.max(.4,(stack-20)/12),"除非进入短码区，否则直接全下会损失常规再加注价值。"]
+    ]),"动态对抗开池范围");
+  }
+  function postflopNode(street,hole,board,pot,stack,multiway,stage,random){
+    const features=handFeatures(hole,board),facingBet=random()<(multiway?.62:.54),largeBet=random()<.45,icm=stage!=="常规阶段",pressure=(multiway?1:0)+(largeBet?1:0)+(icm?1:0);
+    const make=(villain,rows,concept)=>node(street,board,pot,stack,villain,normalizedOptions(rows.filter(row=>!BET_FRACTIONS[row[0]]||BET_FRACTIONS[row[0]]*pot<=stack+.001)),concept);
+    if(facingBet){
+      const size=largeBet?"2/3池":"1/3池",villain=multiway?`第一名对手下注${size}，第二名对手跟注，行动到你`:`对手下注${size}，行动到你`;
+      if(features.category>=3)return make(villain,[
+        ["raise67",58,0,`${features.label}属于强价值区间，加注可向成牌与听牌收费。`],["call",37,.04,"跟注保留对手的诈唬和较弱价值牌。"],["allin",5,.15,"仅在较低SPR下少量直接推入。"],["fold",0,4.5,"强成牌面对该尺寸不能弃牌。"]
+      ],"动态强价值响应");
+      if(features.category===2||features.overpair||(features.category===1&&pressure<=1))return make(villain,[
+        ["call",72,0,`${features.label}${features.overpair?"或超对":""}具有足够摊牌价值，跟注优于把范围过度极化。`],["raise67",13,.12,"少量保护性加注可以混合。"],["fold",15,.2,"在多人、较大尺寸或ICM压力下可保留部分弃牌。"],["allin",0,2.8,"中等成牌不宜把全部后手投入。"]
+      ],"动态中等牌力防守");
+      if(features.draw)return make(villain,[
+        ["call",56,0,`${features.flushDraw?"同花":"顺子"}听牌拥有足够权益，跟注可以实现牌力。`],["raise67",29,.05,"高权益听牌可混合半诈唬加注制造弃牌率。"],["fold",15,.19,"在多人和较大下注下部分弱听牌需要放弃。"],["allin",0,2.2,"SPR尚高时无需直接推入。"]
+      ],"动态听牌赔率");
+      return make(villain,[
+        ["fold",82+pressure*3,0,`当前只有${features.label}且缺少强听牌，面对${multiway?"两套继续范围":"下注范围"}时弃牌是最高EV选择。`],["call",14,.54,"跟注缺少足够摊牌价值和改善张数。"],["raise67",4,.72,"没有关键阻断时诈唬加注频率应很低。"],["allin",0,4.9,"弱牌直接全下会承担过高风险。"]
+      ],"动态弃牌阈值");
+    }
+    const villain=multiway?"两名对手都过牌，行动到你":"对手过牌，行动到你";
+    if(features.category>=3)return make(villain,[
+      ["bet67",62,0,`${features.label}位于强价值区间，较大尺寸能向一对、两对和听牌取值。`],["bet100",20,.04,"极化满池可以低频混合。"],["check",18,.08,"少量过牌保护范围并诱导后续诈唬。"],["allin",0,Math.max(.25,stack>pot?1.2:.08),"只有低SPR时才应直接全下。"]
+    ],"动态价值下注");
+    if(features.category>=1)return make(villain,[
+      ["check",55+pressure*5,0,`${features.label}具有摊牌价值，但${multiway?"多人范围":"当前牌面"}使控池成为主要策略。`],["bet33",40-pressure*5,.04,"小注可以薄取值并拒绝高牌免费实现权益。"],["bet67",5,.35,"较大尺寸会让更差牌过多弃牌。"],["bet100",0,.9,"中等成牌不适合满池极化。"]
+    ],"动态摊牌价值");
+    if(features.draw)return make(villain,[
+      ["bet67",43,0,"听牌可以用中大尺寸半诈唬，同时保留足够被跟注后的权益。"],["check",38,.03,"过牌实现权益也是核心混合策略。"],["bet33",19,.08,"小注可低成本攻击对手空气范围。"],["allin",0,2.6,"高SPR下直接推入会放大波动。"]
+    ],"动态半诈唬");
+    return make(villain,[
+      ["check",71,0,"缺少成牌、听牌和关键阻断时，过牌放弃是最高频策略。"],["bet33",29,.09,"部分范围小注诈唬可攻击对手的无牌组合。"],["bet67",0,.58,"弱空气牌不需要用大尺寸过度冒险。"],["allin",0,4.7,"直接全下不具备合理风险回报。"]
+    ],"动态空气牌策略");
+  }
+  function generateHand(random,index){
+    const deck=shuffledDeck(random),hole=deck.splice(0,2),runout=deck.splice(0,5),multiway=random()<.36,heroPosition=POSITIONS[Math.floor(random()*POSITIONS.length)],heroIndex=POSITIONS.indexOf(heroPosition);
+    const earlier=POSITIONS.slice(0,heroIndex),facingRaise=earlier.length>0&&random()<.68;
+    let opponents;
+    if(facingRaise){
+      const eligibleRaisers=multiway?earlier.filter(position=>POSITIONS.some(other=>other!==heroPosition&&POSITIONS.indexOf(other)>POSITIONS.indexOf(position))):earlier;
+      const raiser=eligibleRaisers[Math.floor(random()*eligibleRaisers.length)],callers=POSITIONS.filter(position=>position!==heroPosition&&position!==raiser&&POSITIONS.indexOf(position)>POSITIONS.indexOf(raiser));
+      opponents=[raiser];if(multiway)opponents.push(callers[Math.floor(random()*callers.length)]);
+    }else{
+      const available=POSITIONS.filter(position=>position!==heroPosition),preferred=available.filter(position=>POSITIONS.indexOf(position)>heroIndex);
+      opponents=heroPosition==="BB"?["SB",...seededShuffle(available.filter(position=>position!=="SB"),Math.floor(random()*0xffffffff)).slice(0,multiway?1:0)]:seededShuffle(preferred.length>=2||!multiway?preferred:available,Math.floor(random()*0xffffffff)).slice(0,multiway?2:1);
+      if(opponents.length<(multiway?2:1))opponents.push(...available.filter(position=>!opponents.includes(position)).slice(0,(multiway?2:1)-opponents.length));
+    }
+    const stage=random()<.58?"常规阶段":random()<.68?"泡沫期":"决赛桌",stack=STACKS[Math.floor(random()*STACKS.length)],icm=stage==="常规阶段"?"筹码EV":stage==="泡沫期"?"ICM中等压力":"ICM高压";
+    const preflop=preflopNode(hole,heroPosition,opponents,multiway,stage,stack,facingRaise),flopPot=multiway?9.2:5.5+Math.floor(random()*4),flopStack=Math.max(4,preflop.stack-2.5);
+    const nodes=[
+      preflop,
+      postflopNode("flop",hole,runout.slice(0,3),flopPot,flopStack,multiway,stage,random),
+      postflopNode("turn",hole,runout.slice(0,4),Number((flopPot*1.75).toFixed(1)),Math.max(3,flopStack-flopPot*.38),multiway,stage,random),
+      postflopNode("river",hole,runout,Number((flopPot*3).toFixed(1)),Math.max(2,flopStack-flopPot*1.05),multiway,stage,random)
+    ];
+    const signature=[...hole,...runout,heroPosition,...opponents,stack,stage].join("-");
+    return{id:`live-${index}`,sourceId:"procedural",generatorVersion:2,instanceId:signature,title:`实时随机牌局 · ${hole[0][0]}${hole[1][0]}`,position:`${heroPosition} 对 ${opponents.join("、")}`,heroPosition,opponents,potType:multiway?"三人底池":"单挑底池",stage,context:`${stack}BB · ${icm} · 无抽水`,hand:hole,nodes};
+  }
   function buildSession(length=50,seed=Date.now()){
     const count=[50,75,100].includes(Number(length))?Number(length):50;
-    const catalog=LINES.flatMap(line=>SUIT_PERMUTATIONS.map((_permutation,index)=>variantLine(line,index))),hands=seededShuffle(catalog,seed).slice(0,count);
+    const random=seededRandom(seed),hands=[],seen=new Set();
+    while(hands.length<count){
+      const hand=generateHand(random,hands.length+1);
+      if(seen.has(hand.instanceId))continue;
+      seen.add(hand.instanceId);hands.push(hand);
+    }
     return{length:count,hands,index:0,nodeIndex:0,records:[],startedAt:Date.now(),finished:false};
   }
   function summarize(session){
@@ -242,7 +377,7 @@
   }
   function intro(){
     ensureRoot();const el=document.getElementById("gtoTrainer");el.classList.remove("hidden");
-    el.innerHTML=`<div class="gto-shell intro"><button class="gto-close" data-gto-close>×</button><div class="gto-hero"><span>TOURNAMENT GTO LAB · BETA</span><h1>锦标赛单人训练场</h1><p>零抽水 · 单挑与三人底池 · ChipEV / ICM</p></div><div class="gto-intro-grid"><article><b>${LINES.length*SUIT_PERMUTATIONS.length}</b><h3>无重复手牌变体</h3><p>每场50–100手从完整题库抽取，同一训练不会重复牌面。</p></article><article><b>2–3P</b><h3>单挑与三人底池</h3><p>同时训练两套对手范围、夹心位置和多人权益实现。</p></article><article><b>GTO</b><h3>最优解拆解</h3><p>作答后先解释最优策略为什么成立，再显示你的EV偏差。</p></article></div><div class="gto-length"><strong>本次训练手数</strong>${[50,75,100].map(n=>`<button data-length="${n}" class="${n===selectedLength?"active":""}">${n}<small>手</small></button>`).join("")}</div><div class="gto-disclaimer">本模式仅训练零抽水锦标赛。题库包含 ${LINES.length} 类基础战略模型、${LINES.length*SUIT_PERMUTATIONS.length} 个无重复同构手牌以及 ${LINES.length*SUIT_PERMUTATIONS.length*4} 个逐街决策节点，覆盖常规ChipEV、泡沫期与决赛桌ICM。真实最优策略仍会随奖励结构、全桌筹码、范围和下注树改变。</div><button class="gto-start">开始训练</button></div>`;
+    el.innerHTML=`<div class="gto-shell intro"><button class="gto-close" data-gto-close>×</button><div class="gto-hero"><span>TOURNAMENT GTO LAB · LIVE ENGINE</span><h1>锦标赛单人训练场</h1><p>零抽水 · 单挑与三人底池 · ChipEV / ICM</p></div><div class="gto-intro-grid"><article><b>28亿+</b><h3>程序化随机牌局</h3><p>私牌和完整公共牌从真实52张牌实时生成，不再抽取固定题目。</p></article><article><b>2–3P</b><h3>动态比赛条件</h3><p>位置、筹码深度、对手人数、下注线和ICM阶段共同改变策略。</p></article><article><b>FOLD</b><h3>正确弃牌即结束</h3><p>最优解为弃牌并选对后立即进入下一手，不强制演到河牌。</p></article></div><div class="gto-length"><strong>本次训练手数</strong>${[50,75,100].map(n=>`<button data-length="${n}" class="${n===selectedLength?"active":""}">${n}<small>手</small></button>`).join("")}</div><div class="gto-disclaimer">这是基于牌力、范围、位置、底池赔率、SPR、多人惩罚与ICM压力的可解释近似GTO引擎，不是预先写好答案的题库，也不冒充商业求解器的实时精确解。真实精确GTO仍需固定所有玩家范围、下注树和奖励结构后进行大型求解。</div><button class="gto-start">开始实时训练</button></div>`;
     el.querySelector("[data-gto-close]").onclick=close;el.querySelectorAll("[data-length]").forEach(button=>button.onclick=()=>{selectedLength=Number(button.dataset.length);intro();});el.querySelector(".gto-start").onclick=()=>{state=buildSession(selectedLength);answered=false;renderSpot();};
   }
   function current(){const hand=state.hands[state.index];return{hand,node:hand.nodes[state.nodeIndex]};}
@@ -257,14 +392,16 @@
   function answer(action){
     if(answered)return;answered=true;const {hand,node}=current(),result=scoreOption(action,node.options);currentResult=result;
     const solution=optimalSolution(node),primary=solution.primary,optimalLabel=solution.label;
-    state.records.push({handNumber:state.index+1,handId:hand.instanceId,sourceId:hand.sourceId||hand.id,variantIndex:hand.variantIndex||0,title:hand.title,position:hand.position,potType:hand.potType||"单挑底池",stage:hand.stage,context:hand.context,hole:[...hand.hand],board:[...node.board],street:node.street,concept:node.concept,villain:node.villain,choice:action,choiceLabel:actionLabel(action,node),score:result.score,grade:result.grade,loss:result.loss,reason:result.reason,optimalLabel,optimalReason:primary.reason,options:node.options.map(item=>({...item,label:actionLabel(item.action,node)}))});
+    const correctFold=shouldEndHand(action,node);
+    state.records.push({handNumber:state.index+1,handId:hand.instanceId,sourceId:hand.sourceId||hand.id,variantIndex:hand.variantIndex||0,title:hand.title,position:hand.position,potType:hand.potType||"单挑底池",stage:hand.stage,context:hand.context,hole:[...hand.hand],board:[...node.board],street:node.street,concept:node.concept,villain:node.villain,choice:action,choiceLabel:actionLabel(action,node),score:result.score,grade:result.grade,loss:result.loss,reason:result.reason,optimalLabel,optimalReason:primary.reason,terminal:correctFold?"optimal-fold":null,handSnapshot:{...hand,nodes:[{...node,options:node.options.map(item=>({...item}))}]},options:node.options.map(item=>({...item,label:actionLabel(item.action,node)}))});
     const feedback=document.getElementById("gtoFeedback");feedback.innerHTML=`<div class="gto-grade grade-${result.score>=90?"good":result.score>=62?"ok":"bad"}"><strong>+${result.score}</strong><div><b>${result.grade}</b><small>你的行动损失 ${result.loss.toFixed(2)}</small></div></div><div class="gto-optimal"><small>最优策略</small><b>${optimalLabel}</b><p>${primary.reason}</p></div><div class="gto-mix">${node.options.map(item=>`<div class="${item.action===action?"chosen":""}"><span>${actionLabel(item.action,node)}</span><i><em style="width:${item.freq}%"></em></i><b>${item.freq}%</b><small>损失 ${item.loss.toFixed(2)}</small></div>`).join("")}</div><div class="gto-note">黄色行代表你的选择；上方解释始终针对最优策略，而不是替错误选择找理由。ICM场景按相对锦标赛EV衡量。</div>`;
     document.querySelectorAll(".gto-actions button").forEach(button=>{button.disabled=true;if(button.dataset.action===action)button.classList.add("selected");});
-    document.getElementById("gtoNext").classList.remove("hidden");
+    const nextButton=document.getElementById("gtoNext");nextButton.textContent=correctFold?"正确弃牌 · 下一手 →":"下一决策 →";nextButton.dataset.endHand=correctFold?"true":"false";nextButton.classList.remove("hidden");
   }
   function next(){
     const hand=state.hands[state.index];
-    if(state.nodeIndex<hand.nodes.length-1)state.nodeIndex++;
+    const endHand=document.getElementById("gtoNext")?.dataset.endHand==="true";
+    if(!endHand&&state.nodeIndex<hand.nodes.length-1)state.nodeIndex++;
     else{state.index++;state.nodeIndex=0;}
     if(state.index>=state.length)finish(false);else renderSpot();
   }
@@ -278,10 +415,9 @@
     const el=document.getElementById("gtoReview");el.innerHTML=`<div class="gto-review-card"><button data-close-review>×</button><span>第${item.handNumber}手 · ${item.potType} · ${item.position} · ${item.stage}</span><h3>${item.title} / ${STREETS[item.street]}</h3><div class="gto-review-cards">${item.hole.map(cardHtml).join("")}<i>｜</i>${item.board.map(cardHtml).join("")}</div><p><b>锦标赛环境：</b>${item.context}</p><p><b>局面：</b>${item.villain}</p><p><b>你的行动：</b>${item.choiceLabel}，模型EV损失 ${item.loss.toFixed(2)}。</p><div class="gto-optimal review"><small>最优策略</small><b>${item.optimalLabel}</b><p>${item.optimalReason}</p></div><div class="gto-mix">${item.options.map(option=>`<div><span>${option.label}</span><i><em style="width:${option.freq}%"></em></i><b>${option.freq}%</b><small>损失 ${option.loss.toFixed(2)}</small></div>`).join("")}</div></div>`;el.querySelector("[data-close-review]").onclick=()=>el.innerHTML="";
   }
   function retry(mistakes){
-    const lookup=new Map(LINES.map(line=>[line.id,line])),hands=[];
-    for(const item of mistakes){const line=lookup.get(item.sourceId);if(!line)continue;const variant=variantLine(line,item.variantIndex),source=variant.nodes.find(node=>node.street===item.street&&node.concept===item.concept);if(source)hands.push({...variant,instanceId:`retry-${hands.length}`,nodes:[source]});}
+    const hands=mistakes.map((item,index)=>item.handSnapshot?{...item.handSnapshot,instanceId:`retry-${index}`} : null).filter(Boolean);
     if(!hands.length)return;state={length:hands.length,hands,index:0,nodeIndex:0,records:[],startedAt:Date.now(),finished:false};renderSpot();
   }
   function close(){document.getElementById("gtoTrainer")?.classList.add("hidden");}
-  return{open:intro,close,scoreOption,actionLabel,optimalSolution,validateLines,buildSession,summarize,catalogSize:LINES.length*SUIT_PERMUTATIONS.length,ACTIONS,LINES};
+  return{open:intro,close,scoreOption,actionLabel,optimalSolution,shouldEndHand,validateLines,buildSession,summarize,generateHand,preflopStrength,handFeatures,proceduralCombinations:PROCEDURAL_COMBINATIONS,catalogSize:PROCEDURAL_COMBINATIONS,ACTIONS,LINES};
 });
