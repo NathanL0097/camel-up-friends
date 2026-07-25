@@ -5,6 +5,7 @@
     raise67:"加注 2/3池",bet33:"下注 1/3池",bet50:"下注 1/2池",bet67:"下注 2/3池",
     bet100:"满池下注",allin:"ALL IN"
   };
+  const BET_FRACTIONS={bet33:1/3,bet50:1/2,bet67:2/3,bet100:1};
   const node=(street,board,pot,stack,villain,options,concept)=>({street,board,pot,stack,villain,options,concept});
   const option=(action,freq,loss,reason)=>({action,freq,loss,reason});
   const LINES=[
@@ -47,7 +48,7 @@
         option("bet67",52,0,"继续施压中等Kx和口袋对。"),option("check",48,.04,"实现坚果听牌权益也合理。"),option("bet33",0,.34,"尺寸太小，弃牌率不足。"),option("allin",0,1.8,"仍未到必须推入的SPR。")
       ],"转牌持续施压"),
       node("river",["Ks","7s","2d","Jc","3h"],70,25,"听牌落空，对手过牌",[
-        option("allin",39,0,"A高阻断强K与部分跟注牌，是合适极化诈唬。"),option("check",61,.09,"并非所有组合都要诈唬，放弃有较高频率。"),option("bet50",0,.53,"中尺寸难以代表极强价值。"),option("bet100",0,.18,"满池诈唬可用但压力略不足。")
+        option("allin",39,0,"后手仅25BB，唯一合法的进攻尺寸是全下；A高阻断强K与部分跟注牌。"),option("check",61,.09,"并非所有组合都要诈唬，放弃有较高频率。")
       ],"阻断牌诈唬选择")
     ]},
     {id:"sb-99",title:"中口袋对控池",position:"SB 对 BB",stage:"泡沫期",context:"25BB · ICM中等压力 · 无抽水",hand:["9d","9c"],nodes:[
@@ -75,7 +76,7 @@
         option("bet67",58,0,"K是范围优势牌，适合继续施压。"),option("check",42,.05,"保留权益并避免被加注也合理。"),option("bet33",0,.27,"小尺寸对一对和听牌压力不足。"),option("allin",0,2.5,"全下风险与收益不匹配。")
       ],"范围牌上的第二枪"),
       node("river",["8c","5d","2c","Kh","9s"],30,22.5,"河牌成顺，对手再次过牌",[
-        option("bet100",54,0,"成顺后以极化满池争取最大价值。"),option("bet67",34,.03,"中大尺寸也能稳定取值。"),option("allin",12,.08,"低频超池全下可接受。"),option("check",0,2.7,"强成牌过牌损失大量价值。")
+        option("allin",68,0,"后手22.5BB小于30BB底池，全下就是最大合法价值尺寸。"),option("bet67",32,.03,"下注20BB仍能稳定取值，也保留少量筹码。"),option("check",0,2.7,"强成牌过牌损失大量价值。")
       ],"河牌坚果价值")
     ]},
     {id:"bb-ako",title:"3-bet底池防守",position:"BB 对 CO",stage:"泡沫期",context:"40BB · ICM轻度压力 · 无抽水",hand:["Ac","Kd"],nodes:[
@@ -86,10 +87,10 @@
         option("bet33",56,0,"干燥J高面保有范围优势，可小注。"),option("check",44,.03,"AK高张也需进入过牌范围。"),option("bet67",0,.43,"空气牌不需要用大尺寸。"),option("allin",0,7.8,"没有理由推入剩余筹码。")
       ],"3-bet底池范围小注"),
       node("turn",["Jd","7s","3h","Ah"],28,26,"翻牌小注被跟，转牌击中A，对手等待",[
-        option("bet50",63,0,"顶对顶踢脚继续中尺寸取值。"),option("check",37,.04,"控池并保护过牌范围可接受。"),option("bet100",0,.39,"大注会使目标范围过窄。"),option("allin",0,2.6,"SPR仍不适合直接推入。")
+        option("bet50",63,0,"顶对顶踢脚继续中尺寸取值。"),option("check",37,.04,"控池并保护过牌范围可接受。"),option("allin",0,2.6,"SPR仍不适合直接推入。")
       ],"转牌顶对取值"),
       node("river",["Jd","7s","3h","Ah","8c"],56,12,"对手跟注后河牌过牌",[
-        option("bet50",62,0,"从AQ、AT与Jx获取薄价值。"),option("check",38,.06,"控制底池同样保留频率。"),option("bet100",0,.52,"满池很难被更差牌支付。"),option("allin",0,1.8,"过度极化会孤立自己。")
+        option("allin",62,0,"后手只剩12BB，任何价值下注都等同全下，可从AQ、AT与部分Jx获取价值。"),option("check",38,.06,"控制底池并诱导摊牌同样保留频率。")
       ],"河牌薄价值")
     ]},
     {id:"btn-jt",title:"河牌抓诈",position:"BTN 对 BB",stage:"决赛桌",context:"30BB · ICM中等压力 · 无抽水",hand:["Jh","Th"],nodes:[
@@ -128,6 +129,24 @@
     const score=loss<=.05?100:loss<=.15?90:loss<=.35?78:loss<=.7?62:loss<=1.25?45:loss<=2.5?25:0;
     const grade=loss<=.05?"最佳/等价":loss<=.35?"可以接受":loss<=1.25?"偏差":"严重错误";
     return{...selected,score,grade};
+  }
+  function actionLabel(action,node){
+    if(action==="allin")return`ALL IN · ${node.stack.toFixed(1)}BB`;
+    const fraction=BET_FRACTIONS[action];
+    if(fraction)return`${ACTIONS[action]} · ${(node.pot*fraction).toFixed(1)}BB`;
+    return ACTIONS[action];
+  }
+  function validateLines(lines=LINES){
+    const errors=[];
+    for(const line of lines)for(const [nodeIndex,spot] of line.nodes.entries()){
+      const total=spot.options.reduce((sum,item)=>sum+item.freq,0);
+      if(Math.abs(total-100)>.001)errors.push(`${line.id}#${nodeIndex+1} 频率合计${total}%`);
+      for(const item of spot.options){
+        const fraction=BET_FRACTIONS[item.action];
+        if(fraction&&spot.pot*fraction>spot.stack+.001)errors.push(`${line.id}#${nodeIndex+1} ${item.action}需要${(spot.pot*fraction).toFixed(1)}BB但仅剩${spot.stack.toFixed(1)}BB`);
+      }
+    }
+    return errors;
   }
   function seededShuffle(items,seed){
     let value=(seed||Date.now())>>>0;const random=()=>{value=(value*1664525+1013904223)>>>0;return value/4294967296;};
@@ -168,13 +187,14 @@
   function renderSpot(){
     const {hand,node}=current(),el=document.getElementById("gtoTrainer"),progress=((state.index+(state.nodeIndex/hand.nodes.length))/state.length)*100;
     answered=false;currentResult=null;
-    el.innerHTML=`<div class="gto-shell session"><header><div><span>TOURNAMENT GTO LAB</span><b>第 ${state.index+1} / ${state.length} 手</b><small>${hand.stage} · ${hand.context}</small></div><div class="gto-progress"><i style="width:${progress}%"></i></div><button data-finish>提前生成报告</button><button class="gto-close" data-gto-close>×</button></header><main><section class="gto-table"><div class="gto-villain"><i>AI</i><b>基准对手</b><span>${node.stack.toFixed(1)} BB</span></div><div class="gto-speech">${node.villain}</div><div class="gto-pot"><small>POT</small><b>${node.pot.toFixed(1)}</b><span>BB</span></div><div class="gto-board">${node.board.map(cardHtml).join("")||'<em>翻牌前</em>'}</div><div class="gto-hero-seat"><span>你的手牌 · ${hand.position}</span><div>${hand.hand.map(cardHtml).join("")}</div><small>${hand.context} · 有效筹码 ${node.stack.toFixed(1)} BB</small></div></section><aside class="gto-coach"><span>DECISION ${state.nodeIndex+1}/${hand.nodes.length}</span><h2>${STREETS[node.street]}怎么行动？</h2><p>${node.concept}</p><div class="gto-live-score"><small>当前训练分</small><b>${state.records.length?Math.round(state.records.reduce((s,r)=>s+r.score,0)/state.records.length):"--"}</b></div><div id="gtoFeedback"><div class="gto-thinking">先独立判断，行动后显示策略频率和EV反馈。</div></div></aside></main><footer><div class="gto-actions">${node.options.map(item=>`<button data-action="${item.action}">${ACTIONS[item.action]}</button>`).join("")}</div><button id="gtoNext" class="hidden">下一决策 →</button></footer></div>`;
+    const heroPosition=hand.position.split(" 对 ")[0],villainPosition=hand.position.split(" 对 ")[1]||"—";
+    el.innerHTML=`<div class="gto-shell session"><header><div><span>TOURNAMENT GTO LAB</span><b>第 ${state.index+1} / ${state.length} 手</b><small>${hand.stage} · ${hand.context}</small></div><div class="gto-progress"><i style="width:${progress}%"></i></div><button data-finish>提前生成报告</button><button class="gto-close" data-gto-close>×</button></header><main><section class="gto-table"><div class="gto-villain"><i>AI</i><b>基准对手 · ${villainPosition}</b><span>${node.stack.toFixed(1)} BB</span></div><div class="gto-speech">${node.villain}</div><div class="gto-pot"><small>POT</small><b>${node.pot.toFixed(1)}</b><span>BB</span></div><div class="gto-board">${node.board.map(cardHtml).join("")||'<em>翻牌前</em>'}</div><div class="gto-hero-seat"><div class="gto-position-badge"><small>你的位置</small><b>${heroPosition}</b></div><span>你的手牌</span><div class="gto-hole-cards">${hand.hand.map(cardHtml).join("")}</div><small>${hand.context} · 有效筹码 ${node.stack.toFixed(1)} BB</small></div></section><aside class="gto-coach"><span>DECISION ${state.nodeIndex+1}/${hand.nodes.length}</span><h2>${STREETS[node.street]}怎么行动？</h2><p>${node.concept}</p><div class="gto-live-score"><small>当前训练分</small><b>${state.records.length?Math.round(state.records.reduce((s,r)=>s+r.score,0)/state.records.length):"--"}</b></div><div id="gtoFeedback"><div class="gto-thinking">先独立判断，行动后显示策略频率和EV反馈。</div></div></aside></main><footer><div class="gto-actions">${node.options.map(item=>`<button data-action="${item.action}">${actionLabel(item.action,node)}</button>`).join("")}</div><button id="gtoNext" class="hidden">下一决策 →</button></footer></div>`;
     el.querySelector("[data-gto-close]").onclick=close;el.querySelector("[data-finish]").onclick=()=>finish(true);el.querySelectorAll("[data-action]").forEach(button=>button.onclick=()=>answer(button.dataset.action));el.querySelector("#gtoNext").onclick=next;
   }
   function answer(action){
     if(answered)return;answered=true;const {hand,node}=current(),result=scoreOption(action,node.options);currentResult=result;
-    state.records.push({handNumber:state.index+1,handId:hand.instanceId,title:hand.title,position:hand.position,stage:hand.stage,context:hand.context,hole:[...hand.hand],board:[...node.board],street:node.street,concept:node.concept,villain:node.villain,choice:action,choiceLabel:ACTIONS[action],score:result.score,grade:result.grade,loss:result.loss,reason:result.reason,options:node.options.map(item=>({...item,label:ACTIONS[item.action]}))});
-    const feedback=document.getElementById("gtoFeedback");feedback.innerHTML=`<div class="gto-grade grade-${result.score>=90?"good":result.score>=62?"ok":"bad"}"><strong>+${result.score}</strong><div><b>${result.grade}</b><small>模型EV损失 ${result.loss.toFixed(2)}</small></div></div><p>${result.reason}</p><div class="gto-mix">${node.options.map(item=>`<div class="${item.action===action?"chosen":""}"><span>${ACTIONS[item.action]}</span><i><em style="width:${item.freq}%"></em></i><b>${item.freq}%</b><small>损失 ${item.loss.toFixed(2)}</small></div>`).join("")}</div><div class="gto-note">频率接近但EV相同的行动属于混合策略，不按“猜中最高频”机械扣分。ICM场景按相对锦标赛EV衡量，不换算成现金。</div>`;
+    state.records.push({handNumber:state.index+1,handId:hand.instanceId,title:hand.title,position:hand.position,stage:hand.stage,context:hand.context,hole:[...hand.hand],board:[...node.board],street:node.street,concept:node.concept,villain:node.villain,choice:action,choiceLabel:actionLabel(action,node),score:result.score,grade:result.grade,loss:result.loss,reason:result.reason,options:node.options.map(item=>({...item,label:actionLabel(item.action,node)}))});
+    const feedback=document.getElementById("gtoFeedback");feedback.innerHTML=`<div class="gto-grade grade-${result.score>=90?"good":result.score>=62?"ok":"bad"}"><strong>+${result.score}</strong><div><b>${result.grade}</b><small>模型EV损失 ${result.loss.toFixed(2)}</small></div></div><p>${result.reason}</p><div class="gto-mix">${node.options.map(item=>`<div class="${item.action===action?"chosen":""}"><span>${actionLabel(item.action,node)}</span><i><em style="width:${item.freq}%"></em></i><b>${item.freq}%</b><small>损失 ${item.loss.toFixed(2)}</small></div>`).join("")}</div><div class="gto-note">频率接近但EV相同的行动属于混合策略，不按“猜中最高频”机械扣分。ICM场景按相对锦标赛EV衡量，不换算成现金。</div>`;
     document.querySelectorAll(".gto-actions button").forEach(button=>{button.disabled=true;if(button.dataset.action===action)button.classList.add("selected");});
     document.getElementById("gtoNext").classList.remove("hidden");
   }
@@ -199,5 +219,5 @@
     if(!hands.length)return;state={length:hands.length,hands,index:0,nodeIndex:0,records:[],startedAt:Date.now(),finished:false};renderSpot();
   }
   function close(){document.getElementById("gtoTrainer")?.classList.add("hidden");}
-  return{open:intro,close,scoreOption,buildSession,summarize,ACTIONS,LINES};
+  return{open:intro,close,scoreOption,actionLabel,validateLines,buildSession,summarize,ACTIONS,LINES};
 });
