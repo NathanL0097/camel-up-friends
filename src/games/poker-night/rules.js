@@ -145,7 +145,8 @@ function approveRebuy(room, hostId, payload) { if (room.game?.tableMode === "sng
 function revealCards(room, playerId, payload = {}) {
   const game = room.game; const p = room.players.find((x) => x.id === playerId);
   if (!p?.hole?.length) throw new Error("你当前没有可以展示的底牌");
-  if (game.street !== "showdown" || game.showdown?.reason !== "fold") throw new Error("只有弃牌结束后可以自行亮牌");
+  const cashAllInRunout = game.tableMode === "cash" && game.showdown?.reason === "cards" && Boolean(game.runoutFromStreet);
+  if (game.street !== "showdown" || (game.showdown?.reason !== "fold" && !cashAllInRunout)) throw new Error("当前不能自行亮牌");
   const indexes = payload.all ? p.hole.map((_card, i) => i) : [Math.round(Number(payload.index))];
   if (indexes.some((i) => !Number.isInteger(i) || i < 0 || i >= p.hole.length)) throw new Error("请选择要展示的牌");
   p.shownCards = [...new Set([...(p.shownCards || []), ...indexes])].sort((a, b) => a - b);
@@ -153,6 +154,17 @@ function revealCards(room, playerId, payload = {}) {
 function tick(room, now = Date.now()) { const g = room.game; if (!g || g.status === "finished") return false; if (g.street === "waiting") { if (activeSeats(room).length >= 2) { startHand(room, now); return true; } return false; } if (g.street === "showdown" && now >= g.deadline) { startHand(room, now); return true; } if (g.actorIndex != null && now >= g.deadline) { const p = room.players[g.actorIndex]; const legal = legalActions(room, p.id); act(room, p.id, { type: legal.canCheck ? "check" : "fold" }, now); return true; } return false; }
 function publicRoom(room, viewerId) {
   const g = room.game; const cardShowdown = g?.street === "showdown" && g.showdown?.reason === "cards";
-  return { code: room.code, hostId: room.hostId, settings: room.settings || defaults(), players: room.players.map(({ token:_t, hole, ...p }) => ({ ...p, hole: (hole || []).map((card, i) => p.id === viewerId || (cardShowdown && !p.folded) || (p.shownCards || []).includes(i) ? card : null) })), game: g ? { ...g, random:undefined, deck:undefined, legal:legalActions(room, viewerId) } : null };
+  const cashAllInRunout = cardShowdown && g.tableMode === "cash" && Boolean(g.runoutFromStreet);
+  const visibleCard = (player, index) => player.id === viewerId || (cardShowdown && !cashAllInRunout && !player.folded) || (player.shownCards || []).includes(index);
+  const players = room.players.map(({ token:_t, hole, ...p }) => ({ ...p, hole: (hole || []).map((card, i) => visibleCard(p, i) ? card : null) }));
+  let publicGame = null;
+  if (g) {
+    const publicShowdown = g.showdown ? { ...g.showdown, hands: (g.showdown.hands || []).map((hand) => {
+      const player = room.players.find((p) => p.id === hand.id);
+      return { ...hand, cards: (hand.cards || []).map((card, i) => player && visibleCard(player, i) ? card : null) };
+    }) } : null;
+    publicGame = { ...g, showdown: publicShowdown, random:undefined, deck:undefined, legal:legalActions(room, viewerId) };
+  }
+  return { code: room.code, hostId: room.hostId, settings: room.settings || defaults(), players, game: publicGame };
 }
 module.exports = { TURN_MS, EXTENSION_CARDS, DISCONNECT_GRACE_MS, RECONNECT_GRACE_MS, MODES, TABLE_MODES, SNG_HANDS_PER_LEVEL, SNG_BLIND_MULTIPLIERS, defaults, configure, createGame, act, useTimeCard, requestRebuy, approveRebuy, revealCards, handleDisconnect, handleReconnect, tick, publicRoom, startHand, legalActions };
