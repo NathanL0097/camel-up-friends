@@ -5,11 +5,13 @@ const { createServer } = require("node:http");
 const { Server } = require("socket.io");
 const { DEFAULT_GAME_ID, getGame, listGames } = require("./src/games");
 const { createRoomService } = require("./src/platform/room-service");
+const { createSocketPresence } = require("./src/platform/socket-presence");
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server);
 const rooms = new Map();
+const socketPresence = createSocketPresence();
 const PORT = Number(process.env.PORT || 3000);
 
 app.use(express.static(path.join(__dirname, "public")));
@@ -23,6 +25,17 @@ function code() {
 }
 
 const roomService = createRoomService({ rooms, getGame, makeCode: code, makeId: () => crypto.randomUUID() });
+function trackPlayerSocket(socket, room, player) {
+  socketPresence.track(socket.id, room, player);
+  socket.data = { roomCode: room.code, playerId: player.id };
+}
+function untrackPlayerSocket(socket) {
+  const { roomCode, playerId } = socket.data || {};
+  return socketPresence.untrack(socket.id, roomCode, playerId);
+}
+function syncRoomConnections(room) {
+  socketPresence.sync(room);
+}
 
 function sendRoom(room) {
   for (const client of io.sockets.sockets.values()) {
@@ -48,7 +61,7 @@ io.on("connection", (socket) => {
     try {
       const { room, player } = roomService.createRoom({ name, playerToken, gameId });
       socket.join(room.code);
-      socket.data = { roomCode: room.code, playerId: player.id };
+      trackPlayerSocket(socket, room, player);
       ack({ ok: true, code: room.code, playerId: player.id, playerToken: player.token });
       sendRoom(room);
     } catch (error) { replyError(socket, error); ack({ ok: false, error: error.message }); }
@@ -58,7 +71,7 @@ io.on("connection", (socket) => {
     try {
       const { room, player } = roomService.joinRoom({ rawCode, name, playerToken });
       socket.join(room.code);
-      socket.data = { roomCode: room.code, playerId: player.id };
+      trackPlayerSocket(socket, room, player);
       ack({ ok: true, code: room.code, playerId: player.id, playerToken: player.token });
       sendRoom(room);
     } catch (error) { replyError(socket, error); ack({ ok: false, error: error.message }); }
@@ -95,6 +108,7 @@ io.on("connection", (socket) => {
     try {
       const room = rooms.get(socket.data.roomCode);
       if (!room) throw new Error("房间已经关闭");
+      syncRoomConnections(room);
       handler(room, socket.data.playerId, payload);
       sendRoom(room);
     } catch (error) { replyError(socket, error); }
@@ -109,8 +123,9 @@ io.on("connection", (socket) => {
     const room = rooms.get(socket.data.roomCode);
     const player = room?.players.find((item) => item.id === socket.data.playerId);
     if (player) {
-      player.connected = false;
-      getGame(room.gameId).onDisconnect?.(room, player, Date.now());
+      const remainingConnections = untrackPlayerSocket(socket);
+      player.connected = remainingConnections > 0;
+      if (!remainingConnections) getGame(room.gameId).onDisconnect?.(room, player, Date.now());
       sendRoom(room);
     }
   });

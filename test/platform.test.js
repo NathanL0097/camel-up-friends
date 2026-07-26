@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { DEFAULT_GAME_ID, getGame, listGames } = require("../src/games");
 const { createRoomService } = require("../src/platform/room-service");
+const { createSocketPresence } = require("../src/platform/socket-presence");
 
 function service() {
   const rooms = new Map();
@@ -70,4 +71,18 @@ test("平台用统一动作入口分发到独立游戏模块", () => {
   assert.equal(room.game.legBets[0].playerId, player.id);
   assert.equal(room.game.legBets[0].value, 5);
   assert.throws(() => roomService.applyGameAction(room, player.id, "missing"), /不支持/);
+});
+
+test("刷新重连时旧连接断开不会把新连接误判为离线", () => {
+  const presence = createSocketPresence();
+  const player = { id: "p1", connected: false };
+  const room = { code: "ABC234", players: [player] };
+  presence.track("old-socket", room, player);
+  presence.track("new-socket", room, player);
+  assert.equal(presence.untrack("old-socket", room.code, player.id), 1);
+  presence.sync(room);
+  assert.equal(player.connected, true);
+  assert.equal(presence.untrack("new-socket", room.code, player.id), 0);
+  presence.sync(room);
+  assert.equal(player.connected, false);
 });

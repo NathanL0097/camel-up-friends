@@ -275,7 +275,13 @@ function publicRoom(room, viewerId) {
       const player = room.players.find((p) => p.id === hand.id);
       return { ...hand, cards: (hand.cards || []).map((card, i) => player && visibleCard(player, i) ? card : null) };
     }) } : null;
-    publicGame = { ...g, showdown: publicShowdown, random:undefined, deck:undefined, legal:legalActions(room, viewerId) };
+    const viewer = room.players.find((p) => p.id === viewerId);
+    let currentHandName = "等待翻牌";
+    if (viewer?.hole?.length && g.board?.length >= 3 && !viewer.folded) {
+      const result = g.handType === "omaha" ? bestOmaha(viewer.hole, g.board) : bestHoldem(viewer.hole, g.board);
+      currentHandName = result?.name || "尚未成牌";
+    } else if (viewer?.folded) currentHandName = "本手已弃牌";
+    publicGame = { ...g, showdown: publicShowdown, currentHandName, random:undefined, deck:undefined, legal:legalActions(room, viewerId) };
   }
   return { code: room.code, hostId: room.hostId, settings: room.settings || defaults(), players, game: publicGame };
 }
