@@ -38,6 +38,28 @@ function createGame(players, settings = {}, random = Math.random, now = Date.now
   startHand({ players, game }, now); return game;
 }
 function postBlind(player, amount) { const paid = Math.min(player.chips, amount); player.chips -= paid; player.bet += paid; player.contributed += paid; if (!player.chips) player.allIn = true; return paid; }
+function assignPositions(room, inHandIndexes) {
+  const { game, players } = room;
+  players.forEach((p) => { p.positionLabel = ""; });
+  const count = inHandIndexes.length;
+  if (!count || game.dealerIndex == null) return;
+  const afterDealer = {
+    2: ["BB"],
+    3: ["SB", "BB"],
+    4: ["SB", "BB", "CO"],
+    5: ["SB", "BB", "UTG", "CO"],
+    6: ["SB", "BB", "UTG", "HJ", "CO"],
+    7: ["SB", "BB", "UTG", "UTG+1", "HJ", "CO"],
+    8: ["SB", "BB", "UTG", "UTG+1", "MP", "HJ", "CO"],
+    9: ["SB", "BB", "UTG", "UTG+1", "MP", "MP+1", "HJ", "CO"]
+  }[count] || [];
+  players[game.dealerIndex].positionLabel = count === 2 ? "BTN·SB" : "BTN";
+  let index = game.dealerIndex;
+  for (const label of afterDealer) {
+    index = nextIndex(room, index, (_p, i) => inHandIndexes.includes(i));
+    if (index != null) players[index].positionLabel = label;
+  }
+}
 function setSngBlindLevel(game, level, now) {
   const levelIndex = Math.min(SNG_BLIND_MULTIPLIERS.length - 1, Math.max(0, level - 1));
   game.blindLevel = levelIndex + 1;
@@ -92,6 +114,7 @@ function startHand(room, now = Date.now()) {
   game.handType = gameType(game); game.board = []; game.deck = shuffle(deck(), game.random); game.pot = 0; game.currentBet = 0; game.lastRaise = game.bigBlind; game.raiseLocked = []; game.showdown = null; game.runoutFromStreet = null;
   room.players.forEach((p) => Object.assign(p, { hole: [], shownCards: [], folded: p.chips <= 0 || p.sittingOut || p.connected === false, allIn: false, bet: 0, contributed: 0, acted: false, lastAction: p.eliminated ? "已淘汰" : "" }));
   game.dealerIndex = nextIndex(room, game.dealerIndex, (p) => !p.folded);
+  assignPositions(room, room.players.map((_p, i) => i).filter((i) => !room.players[i].folded));
   const headsUp = seats.length === 2;
   const sb = headsUp ? game.dealerIndex : nextIndex(room, game.dealerIndex, (p) => !p.folded);
   const bb = nextIndex(room, sb, (p) => !p.folded);
@@ -195,14 +218,34 @@ function recover(room, playerId, now = Date.now()) {
   if (!room.players.some((p) => p.id === playerId)) throw new Error("找不到玩家");
   if (!game || game.status === "finished") throw new Error("当前没有可恢复的牌局");
   game.lastRecoveryAt = now;
-  if (["showdown", "break"].includes(game.street) && (!game.deadline || now >= game.deadline)) { startHand(room, now); return true; }
-  if (game.street === "waiting" && activeSeats(room).length >= 2) { startHand(room, now); return true; }
+  if (game.street === "showdown") {
+    const minimumDisplay = game.runoutFromStreet === "preflop" ? 12_000 : 4_000;
+    const readyAt = game.showdownStartedAt ? game.showdownStartedAt + minimumDisplay : 0;
+    if (!game.deadline || now >= game.deadline || now >= readyAt) {
+      game.lastRecoveryMessage = "结算完成，正在安全发出下一手";
+      startHand(room, now);
+      return true;
+    }
+    game.lastRecoveryMessage = `结算动画仍在播放，${Math.max(1, Math.ceil((readyAt - now) / 1000))}秒后可进入下一手`;
+    return false;
+  }
+  if (game.street === "break") {
+    if (!game.deadline || now >= game.deadline) { game.lastRecoveryMessage = "休息结束，正在发出下一手"; startHand(room, now); return true; }
+    game.lastRecoveryMessage = "SNG仍在休息时间，牌局进程正常";
+    return false;
+  }
+  if (game.street === "waiting") {
+    if (activeSeats(room).length >= 2) { game.lastRecoveryMessage = "玩家状态已恢复，正在发出下一手"; startHand(room, now); return true; }
+    game.lastRecoveryMessage = "仍需至少两位在线且有筹码的玩家才能发牌";
+    return false;
+  }
   if (["preflop", "flop", "turn", "river"].includes(game.street)) {
     const actor = room.players[game.actorIndex];
     const legal = actor ? legalActions(room, actor.id) : null;
-    if (!legal) { repairHand(room, Number.isInteger(game.actorIndex) ? game.actorIndex : game.dealerIndex, now); return true; }
-    if (!game.deadline) { game.deadline = now + TURN_MS; return true; }
-    if (now >= game.deadline) return tick(room, now);
+    if (!legal) { game.lastRecoveryMessage = "检测到行动状态停滞，已自动修复"; repairHand(room, Number.isInteger(game.actorIndex) ? game.actorIndex : game.dealerIndex, now); return true; }
+    if (!game.deadline) { game.lastRecoveryMessage = `已恢复${actor.name}的行动计时`; game.deadline = now + TURN_MS; return true; }
+    if (now >= game.deadline) { game.lastRecoveryMessage = "行动计时已经到期，正在自动推进"; return tick(room, now); }
+    game.lastRecoveryMessage = `牌局正常，正在等待${actor.name}行动`;
   }
   return false;
 }
