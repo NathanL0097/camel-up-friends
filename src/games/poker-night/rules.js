@@ -5,8 +5,10 @@ const DISCONNECT_GRACE_MS = 10_000;
 const RECONNECT_GRACE_MS = 15_000;
 const MODES = ["holdem", "omaha", "mixed"];
 const TABLE_MODES = ["cash", "sng"];
-const SNG_HANDS_PER_LEVEL = 5;
-const SNG_BLIND_MULTIPLIERS = [1, 2, 3, 5, 8, 12, 20, 30, 50, 80, 120];
+const SNG_LEVEL_MS = 8 * 60_000;
+const SNG_BREAK_MS = 15 * 60_000;
+const SNG_BREAK_AFTER_LEVELS = [5, 15, 20];
+const SNG_BLIND_MULTIPLIERS = [1, 2, 3, 5, 8, 12, 20, 30, 50, 80, 120, 160, 220, 300, 400, 550, 750, 1000, 1400, 2000, 3000];
 
 function shuffle(items, random = Math.random) { const out = [...items]; for (let i = out.length - 1; i > 0; i -= 1) { const j = Math.floor(random() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; } return out; }
 function defaults() { return { mode: "holdem", tableMode: "cash", buyIn: 1000, smallBlind: 5, bigBlind: 10 }; }
@@ -32,10 +34,44 @@ function createGame(players, settings = {}, random = Math.random, now = Date.now
   if (config.tableMode === "sng") config.mode = "holdem";
   players.forEach((p) => Object.assign(p, { chips: config.buyIn, timeCards: EXTENSION_CARDS, rebuyRequest: false, sittingOut: false, eliminated: false, eliminatedAtHand: null }));
   const smallBlind = Math.max(1, Math.round(config.smallBlind)), bigBlind = Math.max(smallBlind + 1, Math.round(config.bigBlind));
-  const game = { status: "playing", mode: config.mode, tableMode: config.tableMode, buyIn: config.buyIn, baseSmallBlind: smallBlind, baseBigBlind: bigBlind, smallBlind, bigBlind, blindLevel: 1, handsPerLevel: SNG_HANDS_PER_LEVEL, nextBlindHand: config.tableMode === "sng" ? SNG_HANDS_PER_LEVEL + 1 : null, handNumber: 0, handType: null, dealerIndex: -1, street: "waiting", board: [], pot: 0, currentBet: 0, lastRaise: 0, raiseLocked: [], actorIndex: null, deadline: null, deck: [], log: [], showdown: null, tournamentWinner: null, random };
+  const game = { status: "playing", mode: config.mode, tableMode: config.tableMode, buyIn: config.buyIn, baseSmallBlind: smallBlind, baseBigBlind: bigBlind, smallBlind, bigBlind, blindLevel: 1, blindLevelStartedAt: config.tableMode === "sng" ? now : null, nextBlindAt: config.tableMode === "sng" ? now + SNG_LEVEL_MS : null, breakEndsAt: null, handNumber: 0, handType: null, dealerIndex: -1, street: "waiting", board: [], pot: 0, currentBet: 0, lastRaise: 0, raiseLocked: [], actorIndex: null, deadline: null, deck: [], log: [], showdown: null, tournamentWinner: null, random };
   startHand({ players, game }, now); return game;
 }
 function postBlind(player, amount) { const paid = Math.min(player.chips, amount); player.chips -= paid; player.bet += paid; player.contributed += paid; if (!player.chips) player.allIn = true; return paid; }
+function setSngBlindLevel(game, level, now) {
+  const levelIndex = Math.min(SNG_BLIND_MULTIPLIERS.length - 1, Math.max(0, level - 1));
+  game.blindLevel = levelIndex + 1;
+  game.smallBlind = game.baseSmallBlind * SNG_BLIND_MULTIPLIERS[levelIndex];
+  game.bigBlind = game.baseBigBlind * SNG_BLIND_MULTIPLIERS[levelIndex];
+  game.blindLevelStartedAt = now;
+  game.nextBlindAt = levelIndex < SNG_BLIND_MULTIPLIERS.length - 1 ? now + SNG_LEVEL_MS : null;
+}
+function prepareSngNextHand(room, now) {
+  const game = room.game;
+  if (game.tableMode !== "sng") return true;
+  if (game.breakEndsAt) {
+    if (now < game.breakEndsAt) {
+      game.street = "break"; game.actorIndex = null; game.deadline = game.breakEndsAt;
+      return false;
+    }
+    game.breakEndsAt = null;
+    setSngBlindLevel(game, game.blindLevel + 1, now);
+    game.log.unshift(`休息结束 · SNG第${game.blindLevel}级 · 盲注${game.smallBlind}/${game.bigBlind}`);
+    return true;
+  }
+  if (game.nextBlindAt && now >= game.nextBlindAt) {
+    if (SNG_BREAK_AFTER_LEVELS.includes(game.blindLevel)) {
+      game.breakEndsAt = now + SNG_BREAK_MS; game.nextBlindAt = null; game.street = "break"; game.actorIndex = null; game.deadline = game.breakEndsAt;
+      game.board = []; game.pot = 0; game.currentBet = 0; game.showdown = null; game.runoutFromStreet = null;
+      room.players.forEach((p) => Object.assign(p, { hole: [], shownCards: [], bet: 0, contributed: 0, acted: false, allIn: false, lastAction: p.eliminated ? "已淘汰" : "休息中" }));
+      game.log.unshift(`☕ 第${game.blindLevel}级结束 · 休息15分钟`);
+      return false;
+    }
+    setSngBlindLevel(game, game.blindLevel + 1, now);
+    game.log.unshift(`⬆️ SNG升至第${game.blindLevel}级 · 盲注${game.smallBlind}/${game.bigBlind}`);
+  }
+  return true;
+}
 function startHand(room, now = Date.now()) {
   const game = room.game;
   if (game.tableMode === "sng") {
@@ -48,16 +84,11 @@ function startHand(room, now = Date.now()) {
       if (winner) game.log.unshift(`🏆 ${winner.name}赢得本场SNG锦标赛`);
       return;
     }
+    if (!prepareSngNextHand(room, now)) { game.log = game.log.slice(0, 30); return; }
   }
   const seats = activeSeats(room);
   if (seats.length < 2) { game.street = "waiting"; game.actorIndex = null; game.deadline = null; return; }
   game.handNumber += 1;
-  if (game.tableMode === "sng") {
-    const levelIndex = Math.min(SNG_BLIND_MULTIPLIERS.length - 1, Math.floor((game.handNumber - 1) / SNG_HANDS_PER_LEVEL));
-    const multiplier = SNG_BLIND_MULTIPLIERS[levelIndex];
-    game.blindLevel = levelIndex + 1; game.smallBlind = game.baseSmallBlind * multiplier; game.bigBlind = game.baseBigBlind * multiplier;
-    game.nextBlindHand = levelIndex < SNG_BLIND_MULTIPLIERS.length - 1 ? (levelIndex + 1) * SNG_HANDS_PER_LEVEL + 1 : null;
-  }
   game.handType = gameType(game); game.board = []; game.deck = shuffle(deck(), game.random); game.pot = 0; game.currentBet = 0; game.lastRaise = game.bigBlind; game.raiseLocked = []; game.showdown = null; game.runoutFromStreet = null;
   room.players.forEach((p) => Object.assign(p, { hole: [], shownCards: [], folded: p.chips <= 0 || p.sittingOut || p.connected === false, allIn: false, bet: 0, contributed: 0, acted: false, lastAction: p.eliminated ? "已淘汰" : "" }));
   game.dealerIndex = nextIndex(room, game.dealerIndex, (p) => !p.folded);
@@ -75,7 +106,7 @@ function startHand(room, now = Date.now()) {
 function contenders(room) { return room.players.filter((p) => !p.folded && p.hole?.length); }
 function refreshPot(room) { room.game.pot = room.players.reduce((sum, p) => sum + (p.contributed || 0), 0); }
 function roundDone(room) { const live = contenders(room).filter((p) => !p.allIn); return live.length === 0 || live.every((p) => p.acted && p.bet === room.game.currentBet); }
-function awardSingle(room, winner, now = Date.now()) { refreshPot(room); winner.chips += room.game.pot; room.game.showdown = { reason: "fold", winners: [{ id: winner.id, amount: room.game.pot, hand: "其他玩家弃牌" }], hands: [] }; room.game.street = "showdown"; room.game.actorIndex = null; room.game.deadline = now + 8000; }
+function awardSingle(room, winner, now = Date.now()) { refreshPot(room); winner.chips += room.game.pot; room.game.showdown = { reason: "fold", winners: [{ id: winner.id, amount: room.game.pot, hand: "其他玩家弃牌" }], hands: [] }; room.game.street = "showdown"; room.game.actorIndex = null; room.game.showdownStartedAt = now; room.game.deadline = now + 8000; }
 function showdown(room, now = Date.now()) {
   const game = room.game; refreshPot(room); const live = contenders(room);
   const evaluated = live.map((p) => ({ player: p, result: game.handType === "omaha" ? bestOmaha(p.hole, game.board) : bestHoldem(p.hole, game.board) }));
@@ -83,7 +114,7 @@ function showdown(room, now = Date.now()) {
   for (const level of levels) { const contributors = room.players.filter((p) => p.contributed >= level); const amount = (level - previous) * contributors.length; const eligible = evaluated.filter(({ player }) => player.contributed >= level); if (!eligible.length) continue; const best = eligible.reduce((top, item) => compare(item.result.score, top.result.score) > 0 ? item : top, eligible[0]); const winners = eligible.filter((item) => compare(item.result.score, best.result.score) === 0); const share = Math.floor(amount / winners.length); let odd = amount - share * winners.length; for (const item of winners) { winnings.set(item.player.id, (winnings.get(item.player.id) || 0) + share + (odd-- > 0 ? 1 : 0)); } previous = level; }
   for (const [id, amount] of winnings) room.players.find((p) => p.id === id).chips += amount;
   game.showdown = { reason: "cards", winners: [...winnings].map(([id, amount]) => ({ id, amount, hand: evaluated.find((x) => x.player.id === id).result.name })), hands: evaluated.map(({ player, result }) => ({ id: player.id, cards: player.hole, hand: result.name })) };
-  game.street = "showdown"; game.actorIndex = null; game.deadline = now + (game.runoutFromStreet === "preflop" ? 13_000 : 8000);
+  game.street = "showdown"; game.actorIndex = null; game.showdownStartedAt = now; game.deadline = now + (game.runoutFromStreet === "preflop" ? 13_000 : 8000);
 }
 function advanceStreet(room, now) {
   const game = room.game,fromStreet=game.street; room.players.forEach((p) => { p.bet = 0; p.acted = false; }); game.currentBet = 0; game.lastRaise = game.bigBlind; game.raiseLocked = [];
@@ -99,6 +130,14 @@ function continueHand(room, fromIndex, now = Date.now()) {
   const live = contenders(room); if (live.length === 1) { awardSingle(room, live[0], now); return; }
   if (roundDone(room)) { advanceStreet(room, now); return; }
   room.game.actorIndex = nextIndex(room, fromIndex, (p) => !p.folded && !p.allIn); room.game.deadline = now + TURN_MS;
+}
+function repairHand(room, fromIndex, now = Date.now()) {
+  const live = contenders(room);
+  if (live.length === 1) { awardSingle(room, live[0], now); return; }
+  if (roundDone(room)) { advanceStreet(room, now); return; }
+  const pending = nextIndex(room, fromIndex, (p) => !p.folded && !p.allIn && (!p.acted || p.bet !== room.game.currentBet));
+  if (pending == null) { advanceStreet(room, now); return; }
+  room.game.actorIndex = pending; room.game.deadline = now + TURN_MS;
 }
 function legalActions(room, playerId) {
   const game = room.game; const index = room.players.findIndex((p) => p.id === playerId); const p = room.players[index]; if (!p || index !== game.actorIndex || !["preflop", "flop", "turn", "river"].includes(game.street)) return null;
@@ -151,7 +190,37 @@ function revealCards(room, playerId, payload = {}) {
   if (indexes.some((i) => !Number.isInteger(i) || i < 0 || i >= p.hole.length)) throw new Error("请选择要展示的牌");
   p.shownCards = [...new Set([...(p.shownCards || []), ...indexes])].sort((a, b) => a - b);
 }
-function tick(room, now = Date.now()) { const g = room.game; if (!g || g.status === "finished") return false; if (g.street === "waiting") { if (activeSeats(room).length >= 2) { startHand(room, now); return true; } return false; } if (g.street === "showdown" && now >= g.deadline) { startHand(room, now); return true; } if (g.actorIndex != null && now >= g.deadline) { const p = room.players[g.actorIndex]; const legal = legalActions(room, p.id); act(room, p.id, { type: legal.canCheck ? "check" : "fold" }, now); return true; } return false; }
+function recover(room, playerId, now = Date.now()) {
+  const game = room.game;
+  if (!room.players.some((p) => p.id === playerId)) throw new Error("找不到玩家");
+  if (!game || game.status === "finished") throw new Error("当前没有可恢复的牌局");
+  game.lastRecoveryAt = now;
+  if (["showdown", "break"].includes(game.street) && (!game.deadline || now >= game.deadline)) { startHand(room, now); return true; }
+  if (game.street === "waiting" && activeSeats(room).length >= 2) { startHand(room, now); return true; }
+  if (["preflop", "flop", "turn", "river"].includes(game.street)) {
+    const actor = room.players[game.actorIndex];
+    const legal = actor ? legalActions(room, actor.id) : null;
+    if (!legal) { repairHand(room, Number.isInteger(game.actorIndex) ? game.actorIndex : game.dealerIndex, now); return true; }
+    if (!game.deadline) { game.deadline = now + TURN_MS; return true; }
+    if (now >= game.deadline) return tick(room, now);
+  }
+  return false;
+}
+function tick(room, now = Date.now()) {
+  const g = room.game;
+  if (!g || g.status === "finished") return false;
+  if (g.street === "waiting") { if (activeSeats(room).length >= 2) { startHand(room, now); return true; } return false; }
+  if (g.street === "break") { if (!g.deadline || now >= g.deadline) { startHand(room, now); return true; } return false; }
+  if (g.street === "showdown") { if (!g.deadline || now >= g.deadline) { startHand(room, now); return true; } return false; }
+  if (["preflop", "flop", "turn", "river"].includes(g.street)) {
+    const p = room.players[g.actorIndex];
+    const legal = p ? legalActions(room, p.id) : null;
+    if (!legal) { repairHand(room, Number.isInteger(g.actorIndex) ? g.actorIndex : g.dealerIndex, now); return true; }
+    if (!g.deadline) { g.deadline = now + TURN_MS; return true; }
+    if (now >= g.deadline) { act(room, p.id, { type: legal.canCheck ? "check" : "fold" }, now); return true; }
+  }
+  return false;
+}
 function publicRoom(room, viewerId) {
   const g = room.game; const cardShowdown = g?.street === "showdown" && g.showdown?.reason === "cards";
   const cashAllInRunout = cardShowdown && g.tableMode === "cash" && Boolean(g.runoutFromStreet);
@@ -167,4 +236,4 @@ function publicRoom(room, viewerId) {
   }
   return { code: room.code, hostId: room.hostId, settings: room.settings || defaults(), players, game: publicGame };
 }
-module.exports = { TURN_MS, EXTENSION_CARDS, DISCONNECT_GRACE_MS, RECONNECT_GRACE_MS, MODES, TABLE_MODES, SNG_HANDS_PER_LEVEL, SNG_BLIND_MULTIPLIERS, defaults, configure, createGame, act, useTimeCard, requestRebuy, approveRebuy, revealCards, handleDisconnect, handleReconnect, tick, publicRoom, startHand, legalActions };
+module.exports = { TURN_MS, EXTENSION_CARDS, DISCONNECT_GRACE_MS, RECONNECT_GRACE_MS, SNG_LEVEL_MS, SNG_BREAK_MS, SNG_BREAK_AFTER_LEVELS, MODES, TABLE_MODES, SNG_BLIND_MULTIPLIERS, defaults, configure, createGame, act, useTimeCard, requestRebuy, approveRebuy, revealCards, recover, handleDisconnect, handleReconnect, tick, publicRoom, startHand, legalActions };

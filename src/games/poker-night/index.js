@@ -5,6 +5,6 @@ const definition = {
   onReconnect:(room,player)=>rules.handleReconnect(room,player),
   onDisconnect:(room,player,now)=>rules.handleDisconnect(room,player,now),
   createGame:(players,settings)=>rules.createGame(players,settings), publicRoom:rules.publicRoom, tick:rules.tick,
-  actions:{ act:(r,id,p)=>rules.act(r,id,p), time:(r,id)=>rules.useTimeCard(r,id), rebuy:(r,id)=>rules.requestRebuy(r,id), approve:(r,id,p)=>rules.approveRebuy(r,id,p), reveal:(r,id,p)=>rules.revealCards(r,id,p) }
+  actions:{ act:(r,id,p)=>rules.act(r,id,p), time:(r,id)=>rules.useTimeCard(r,id), rebuy:(r,id)=>rules.requestRebuy(r,id), approve:(r,id,p)=>rules.approveRebuy(r,id,p), reveal:(r,id,p)=>rules.revealCards(r,id,p), recover:(r,id)=>rules.recover(r,id) }
 };
 module.exports={definition,rules};
