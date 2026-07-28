@@ -1,6 +1,7 @@
 const RANKS = ["A", "K", "Q"];
 const TURN_MS = 30_000;
-const SHOT_MS = 4_800;
+const VERDICT_MS = 3_600;
+const SHOT_MS = 6_000;
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const randomInt = (random, max) => Math.floor(random() * max);
@@ -56,6 +57,8 @@ function startRound(game, preferredStarterId = null, now = Date.now()) {
   game.lastChallenge = null;
   game.mustChallenge = false;
   game.roulette = null;
+  game.pendingRoulette = null;
+  game.verdictAt = null;
   const deck = makeDeck(alive.length, game.random);
   const dealCount = alive.length * 5;
   let devilIndex = deck.slice(0, dealCount).findIndex((card) => card.rank === game.tableRank);
@@ -93,6 +96,8 @@ function createGame(players, _settings = {}, random = Math.random) {
     mustChallenge: false,
     pileCount: 0,
     roulette: null,
+    pendingRoulette: null,
+    verdictAt: null,
     winnerId: null,
     eventSeq: 0,
     lastEvent: null,
@@ -153,30 +158,53 @@ function beginRoulette(game, victims, starterId, now) {
     nextAt: now,
     starterId
   };
-  const first = game.roulette.remaining.shift();
-  applyShot(game, first, now);
+  while (game.roulette.remaining.length) {
+    const first = game.roulette.remaining.shift();
+    if (seat(game, first).alive) {
+      applyShot(game, first, now);
+      return;
+    }
+  }
+  if (living(game).length <= 1) finish(game);
+  else startRound(game, starterId, now);
 }
 function challenge(room, playerId, _payload = {}, now = Date.now()) {
   const game = room.game;
-  const challenger = active(game, playerId);
+  if (game.status !== "playing") throw new Error("本局已经结束");
+  if (game.phase !== "play") throw new Error("质疑已经进入判定");
+  const challenger = seat(game, playerId);
+  if (!challenger.alive) throw new Error("你已经离开牌桌");
   const play = game.previousPlay;
   if (!play) throw new Error("现在没有可以质疑的出牌");
+  if (play.playerId === challenger.playerId) throw new Error("不能质疑自己刚打出的牌");
   const accused = seat(game, play.playerId);
+  const isCrossChallenge = game.players[game.currentIndex]?.playerId !== challenger.playerId;
   const devil = play.cards.length === 1 && play.cards[0].rank === "DEVIL";
   const truthful = !devil && play.cards.every((card) => card.rank === game.tableRank || card.rank === "JOKER");
   let victims;
   if (devil) victims = living(game).filter((player) => player.playerId !== accused.playerId && player.hand.length > 0).map((player) => player.playerId);
-  else victims = [truthful ? challenger.playerId : accused.playerId];
+  else if (truthful) victims = Array(isCrossChallenge ? 2 : 1).fill(challenger.playerId);
+  else victims = [accused.playerId];
   game.lastChallenge = {
     challengerId: challenger.playerId,
+    challengerName: challenger.playerName,
     accusedId: accused.playerId,
+    accusedName: accused.playerName,
     cards: clone(play.cards),
     truthful,
-    devil
+    devil,
+    isCrossChallenge,
+    shotsOwed: devil ? victims.length : truthful ? victims.length : 1
   };
   challenger.lastAction = `质疑 ${accused.playerName}`;
-  emit(game, devil ? "devil" : truthful ? "truth" : "lie", devil ? "恶魔降临" : truthful ? "质疑失败" : "谎言被揭穿", devil ? `${accused.playerName}打出了恶魔牌，其他人都要接受惩罚。` : truthful ? `${accused.playerName}说的是实话，${challenger.playerName}接受左轮判定。` : `${accused.playerName}的谎言被抓住，他必须扣动扳机。`);
-  beginRoulette(game, victims, victims[0] || challenger.playerId, now);
+  const truthfulDetail = isCrossChallenge
+    ? `${accused.playerName}说的是实话。${challenger.playerName}跨位质疑错误，必须连续扣动两次扳机！`
+    : `${accused.playerName}说的是实话，${challenger.playerName}接受一次左轮判定。`;
+  emit(game, devil ? "devil" : truthful ? "truth" : "lie", devil ? "恶魔降临" : truthful ? "质疑错误" : "质疑正确", devil ? `${accused.playerName}打出了恶魔牌，其他人都要接受惩罚。` : truthful ? truthfulDetail : `${accused.playerName}的谎言被${challenger.playerName}抓住，他必须扣动扳机。`);
+  game.phase = "verdict";
+  game.deadline = null;
+  game.verdictAt = now + VERDICT_MS;
+  game.pendingRoulette = { victims, starterId: victims[0] || challenger.playerId };
 }
 function finish(game) {
   const winner = living(game)[0];
@@ -190,7 +218,17 @@ function finish(game) {
 function tick(room, now = Date.now()) {
   const game = room.game;
   if (!game || game.status !== "playing") return false;
+  if (game.phase === "verdict" && game.pendingRoulette && now >= game.verdictAt) {
+    const pending = game.pendingRoulette;
+    game.pendingRoulette = null;
+    game.verdictAt = null;
+    beginRoulette(game, pending.victims, pending.starterId, now);
+    return true;
+  }
   if (game.phase === "roulette" && game.roulette && now >= game.roulette.nextAt) {
+    while (game.roulette.remaining.length && !seat(game, game.roulette.remaining[0]).alive) {
+      game.roulette.remaining.shift();
+    }
     if (game.roulette.remaining.length) {
       const next = game.roulette.remaining.shift();
       applyShot(game, next, now);
@@ -224,6 +262,7 @@ function publicRoom(room, viewerId) {
     mustChallenge: source.mustChallenge,
     pileCount: source.pileCount,
     roulette: clone(source.roulette),
+    verdictAt: source.verdictAt,
     winnerId: source.winnerId,
     eventSeq: source.eventSeq,
     lastEvent: clone(source.lastEvent),
@@ -240,10 +279,22 @@ function publicRoom(room, viewerId) {
     }))
   };
   game.you = game.seats.find((player) => player.playerId === viewerId);
-  game.legal = source.status === "playing" && source.phase === "play" && source.players[source.currentIndex]?.playerId === viewerId
-    ? { canPlay: !source.mustChallenge, canChallenge: Boolean(source.previousPlay), mustChallenge: source.mustChallenge }
+  const viewer = source.players.find((player) => player.playerId === viewerId);
+  const isCurrent = source.players[source.currentIndex]?.playerId === viewerId;
+  const canChallenge = source.status === "playing"
+    && source.phase === "play"
+    && Boolean(viewer?.alive)
+    && Boolean(source.previousPlay)
+    && source.previousPlay.playerId !== viewerId;
+  game.legal = source.status === "playing" && source.phase === "play" && viewer?.alive
+    ? {
+        canPlay: isCurrent && !source.mustChallenge,
+        canChallenge,
+        mustChallenge: isCurrent && source.mustChallenge,
+        isCrossChallenge: canChallenge && !isCurrent
+      }
     : null;
   return { ...base, game };
 }
 
-module.exports = { createGame, play, challenge, tick, publicRoom, startRound, RANKS, TURN_MS, SHOT_MS };
+module.exports = { createGame, play, challenge, tick, publicRoom, startRound, RANKS, TURN_MS, VERDICT_MS, SHOT_MS };

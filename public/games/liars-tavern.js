@@ -1,12 +1,12 @@
 window.GameClientFactories=window.GameClientFactories||{};
 window.GameClientFactories["liars-tavern"]=({socket,$,show,escapeHtml,getMyId,copyInvite})=>{
-  let selected=[],lastRound=0,lastShotKey="",soundOn=true,audio=null;
+  let selected=[],lastRound=0,lastShotKey="",lastVerdictKey="",soundOn=true,audio=null;
   const act=(action,payload={})=>socket.emit("game:action",{action,payload});
   const rankName=rank=>rank==="A"?"A":rank==="K"?"K":rank==="Q"?"Q":rank==="JOKER"?"万能牌":"恶魔牌";
   const rankSymbol=rank=>rank==="JOKER"?"★":rank==="DEVIL"?"♆":rank;
   const faces=["🦊","🐺","🦉","🐗","🐍","🦝"];
   function rules(){
-    $("rulesDialog").innerHTML=`<button id="closeRules" class="close-button">×</button><div class="liar-rules"><small>LIAR'S TAVERN</small><h2>😈 骗子酒馆</h2><ol><li>每轮随机指定A、K或Q作为桌面牌，每人获得5张私人手牌。</li><li>轮到你时盖着打出1–3张，并声称它们都是桌面牌；万能牌可以当作任何桌面牌。</li><li>下家可以继续出牌，也可以喊“骗子”质疑上家。若上家说谎，上家开枪；若上家诚实，质疑者开枪。</li><li>恶魔牌只能单独打出。它被质疑时，除出牌者外仍有手牌的存活玩家都要依次接受左轮判定。</li><li>每人的六发弹仓中随机固定一颗实弹。空膛后危险越来越高，中弹即淘汰，最后存活者获胜。</li><li>如果有人出空手牌，下家必须质疑该次出牌，不能继续盖牌。</li></ol><p>每次行动限时30秒；超时会自动出一张牌，已有可质疑出牌时则自动质疑。</p></div>`;$("closeRules").onclick=()=>$("rulesDialog").close();
+    $("rulesDialog").innerHTML=`<button id="closeRules" class="close-button">×</button><div class="liar-rules"><small>LIAR'S TAVERN</small><h2>😈 骗子酒馆</h2><ol><li>每轮随机指定A、K或Q作为桌面牌，每人获得5张私人手牌。</li><li>轮到你时盖着打出1–3张，并声称它们都是桌面牌；万能牌可以当作任何桌面牌。</li><li>最近一次盖牌后，除出牌者外的任意存活玩家都可以喊“骗子”。若出牌者说谎，出牌者开枪；若出牌者诚实，质疑者开枪。</li><li>如果不是当前行动位的玩家跨位质疑，质疑错误时要连续开两枪；质疑正确仍由说谎者开一枪。</li><li>恶魔牌只能单独打出。它被质疑时，除出牌者外仍有手牌的存活玩家都要依次接受左轮判定。</li><li>每人的六发弹仓中随机固定一颗实弹。空膛后危险越来越高，中弹即淘汰，最后存活者获胜。</li><li>如果有人出空手牌，当前行动位不能继续盖牌，但任意符合条件的玩家仍可发起质疑。</li></ol><p>每次行动限时30秒；超时会自动出一张牌，已有可质疑出牌时则由当前行动位自动质疑。</p></div>`;$("closeRules").onclick=()=>$("rulesDialog").close();
   }
   function renderLobby(){
     rules();
@@ -52,18 +52,37 @@ window.GameClientFactories["liars-tavern"]=({socket,$,show,escapeHtml,getMyId,co
   function renderHand(room,newRound){
     const g=room.game,you=g.you,legal=g.legal,seconds=g.deadline?Math.max(0,Math.ceil((g.deadline-Date.now())/1000)):0;
     selected=selected.filter(id=>you.hand.some(card=>card.uid===id));
-    $("liarHandDock").innerHTML=`<div class="hand-owner"><small>你的手牌</small><b>${escapeHtml(you.playerName)}</b><span>${you.alive?`左轮已扣动 ${you.shots}/6 次`:"你已经出局，只能旁观"}</span></div><div class="liar-hand ${newRound?"dealing":""}">${you.hand.map((item,index)=>card(item,Boolean(legal?.canPlay),index)).join("")||'<div class="empty-hand">手牌已空 · 等待质疑</div>'}</div><div class="liar-actions"><div class="liar-clock ${seconds<=7?"urgent":""}"><small>THINK</small><b>${seconds}</b><em>SEC</em></div><button id="playLiarCards" ${legal?.canPlay&&selected.length?"":"disabled"}>盖下 ${selected.length||""} 张</button><button id="callLiar" class="${legal?.mustChallenge?"forced":""}" ${legal?.canChallenge?"":"disabled"}>骗子！开他</button><small>${legal?legal.mustChallenge?"上家已经出空手牌，你只能质疑":legal.canChallenge?"选择1–3张继续，或质疑上家":"选择1–3张牌盖下":"等待其他玩家行动…"}</small></div>`;
+    const challengeLabel=legal?.isCrossChallenge?"跨位质疑 · 错则两枪":"骗子！质疑他";
+    const actionHint=legal?.mustChallenge?"上家已经出空手牌，你只能质疑":legal?.isCrossChallenge?"你可以抢先质疑，但错了要连续开两枪":legal?.canChallenge&&legal?.canPlay?"选择1–3张继续，或质疑上家":legal?.canChallenge?"现在也可以质疑最近一次出牌":legal?.canPlay?"选择1–3张牌盖下":"等待其他玩家行动…";
+    $("liarHandDock").innerHTML=`<div class="hand-owner"><small>你的手牌</small><b>${escapeHtml(you.playerName)}</b><span>${you.alive?`左轮已扣动 ${you.shots}/6 次`:"你已经出局，只能旁观"}</span></div><div class="liar-hand ${newRound?"dealing":""}">${you.hand.map((item,index)=>card(item,Boolean(legal?.canPlay),index)).join("")||'<div class="empty-hand">手牌已空 · 等待质疑</div>'}</div><div class="liar-actions"><div class="liar-clock ${seconds<=7?"urgent":""}"><small>THINK</small><b>${seconds}</b><em>SEC</em></div><button id="playLiarCards" ${legal?.canPlay&&selected.length?"":"disabled"}>盖下 ${selected.length||""} 张</button><button id="callLiar" class="${legal?.mustChallenge?"forced":""} ${legal?.isCrossChallenge?"cross":""}" ${legal?.canChallenge?"":"disabled"}>${challengeLabel}</button><small>${actionHint}</small></div>`;
     document.querySelectorAll("[data-card-id]").forEach(button=>button.onclick=()=>{const id=button.dataset.cardId,item=you.hand.find(card=>card.uid===id);if(!item||!legal?.canPlay)return;if(selected.includes(id))selected=selected.filter(cardId=>cardId!==id);else if(item.rank==="DEVIL")selected=[id];else{selected=selected.filter(cardId=>you.hand.find(card=>card.uid===cardId)?.rank!=="DEVIL");if(selected.length<3)selected.push(id);}renderHand(room,false);});
     $("playLiarCards").onclick=()=>{if(!selected.length)return;act("play",{cardIds:selected});selected=[];};
     $("callLiar").onclick=()=>act("challenge");
   }
   function renderRoulette(room){
-    const g=room.game,current=g.roulette?.current;
+    const g=room.game,challenge=g.lastChallenge,current=g.roulette?.current;
+    if(g.phase==="verdict"&&challenge){
+      const key=`${g.round}-${challenge.challengerId}-${challenge.accusedId}`;
+      if(key!==lastVerdictKey){lastVerdictKey=key;tone(challenge.truthful?155:520,.16,.12,"sawtooth",.06);tone(challenge.truthful?110:680,.22,.42,"triangle",.045);}
+      const headline=challenge.devil?"恶魔降临！":challenge.truthful?"质疑错误！":"质疑正确！";
+      const sentence=challenge.devil
+        ? `${escapeHtml(challenge.accusedName)}打出了恶魔牌`
+        : challenge.truthful
+          ? `${escapeHtml(challenge.challengerName)}错怪了${escapeHtml(challenge.accusedName)}`
+          : `${escapeHtml(challenge.challengerName)}抓住了${escapeHtml(challenge.accusedName)}的谎言`;
+      const punishment=challenge.devil
+        ? "除出牌者外，其他玩家依次接受左轮判定"
+        : challenge.truthful
+          ? `${escapeHtml(challenge.challengerName)}将${challenge.shotsOwed===2?"连续开 2 枪":"开 1 枪"}`
+          : `${escapeHtml(challenge.accusedName)}将开 1 枪`;
+      $("rouletteOverlay").innerHTML=`<div class="verdict-scene ${challenge.devil?"devil":challenge.truthful?"wrong":"correct"}"><div class="verdict-stamp"><small>CHALLENGE VERDICT</small><h2>${headline}</h2><p>${sentence}</p><strong>${punishment}</strong>${challenge.isCrossChallenge&&challenge.truthful?'<em>跨位质疑错误 · 双枪惩罚</em>':""}<div class="verdict-cards">${challenge.cards.map((item,index)=>card({...item,uid:`verdict-${index}`})).join("")}</div><span>左轮判定即将开始</span></div></div>`;
+      return;
+    }
     if(!current){$("rouletteOverlay").innerHTML="";return;}
     const target=g.seats.find(seat=>seat.playerId===current.playerId),key=`${g.roulette.id}-${current.playerId}-${current.shot}`;
     if(key!==lastShotKey){lastShotKey=key;shotSound(current.bullet);}
     const remaining=Math.max(1,7-current.shot);
-    $("rouletteOverlay").innerHTML=`<div class="roulette-scene ${current.bullet?"live":"blank"}"><div class="roulette-curtain"></div><div class="roulette-target"><i>${current.bullet?"☠":faces[room.players.findIndex(player=>player.id===current.playerId)%faces.length]}</i><small>轮到</small><b>${escapeHtml(target?.playerName||"玩家")}</b><span>第 ${current.shot} 次扣动扳机 · 命中概率 1/${remaining}</span></div><div class="revolver"><div class="barrel"></div><div class="cylinder">${Array.from({length:6},(_,i)=>`<i class="${i===current.shot-1?"current":""}"></i>`).join("")}</div><div class="hammer"></div><div class="trigger"></div><div class="grip"></div><div class="muzzle-flash">砰！</div></div><div class="roulette-result"><b>${current.bullet?"实弹！":"咔哒——空膛"}</b><small>${current.bullet?"这张椅子永远空下来了":"命运暂时放过了他"}</small></div></div>`;
+    $("rouletteOverlay").innerHTML=`<div class="roulette-scene ${current.bullet?"live":"blank"}"><div class="roulette-curtain"></div><div class="roulette-target"><i>${current.bullet?"☠":faces[room.players.findIndex(player=>player.id===current.playerId)%faces.length]}</i><small>正在开枪</small><b>${escapeHtml(target?.playerName||"玩家")}</b><span>第 ${current.shot} 次扣动扳机 · 命中概率 1/${remaining}</span></div><div class="revolver"><div class="barrel"></div><div class="cylinder">${Array.from({length:6},(_,i)=>`<i class="${i===current.shot-1?"current":""}"></i>`).join("")}</div><div class="hammer"></div><div class="trigger"></div><div class="grip"></div><div class="muzzle-flash">砰！</div></div><div class="roulette-result"><small>${escapeHtml(target?.playerName||"玩家")}的左轮结果</small><b>${current.bullet?"实弹！":"咔哒——空膛"}</b><em>${current.bullet?"这张椅子永远空下来了":"命运暂时放过了他"}</em></div></div>`;
   }
   function renderResult(room){
     const g=room.game,winner=g.seats.find(seat=>seat.playerId===g.winnerId);
@@ -72,7 +91,7 @@ window.GameClientFactories["liars-tavern"]=({socket,$,show,escapeHtml,getMyId,co
   }
   function renderGame(room){
     show("game");mount();const g=room.game,newRound=g.round!==lastRound;if(newRound){lastRound=g.round;selected=[];lastShotKey="";tone(420,.07);tone(290,.08,.09);}
-    $("liarCode").textContent=room.code;$("liarRound").innerHTML=`<small>ROUND</small><b>${g.round}</b><span>${g.phase==="play"?"谎言阶段":g.phase==="roulette"?"命运判定":"本局结束"}</span>`;
+    $("liarCode").textContent=room.code;$("liarRound").innerHTML=`<small>ROUND</small><b>${g.round}</b><span>${g.phase==="play"?"谎言阶段":g.phase==="verdict"?"质疑揭晓":g.phase==="roulette"?"命运判定":"本局结束"}</span>`;
     renderSeats(room);renderCenter(room);renderHand(room,newRound);renderRoulette(room);renderResult(room);$("liarLog").innerHTML=`<b>酒馆低语</b>${g.log.slice(0,6).map(item=>`<p>${escapeHtml(item)}</p>`).join("")}`;
   }
   setInterval(()=>{const el=document.querySelector(".liar-clock b"),deadline=window.__liarDeadline;if(el&&deadline)el.textContent=Math.max(0,Math.ceil((deadline-Date.now())/1000));},250);
