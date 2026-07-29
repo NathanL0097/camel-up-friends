@@ -18,7 +18,8 @@ const definition = {
     ready: (room, id) => rules.ready(room, id),
     place: (room, id, payload) => rules.place(room, id, payload),
     "start-reroll": (room, id) => rules.startReroll(room, id),
-    "submit-reroll": (room, id, payload) => rules.submitReroll(room, id, payload)
+    "submit-reroll": (room, id, payload) => rules.submitReroll(room, id, payload),
+    "continue-flight": (room, id) => rules.continueFlight(room, id)
   }
 };
 

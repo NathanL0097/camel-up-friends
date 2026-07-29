@@ -27,6 +27,44 @@ test("大厅提供八个机场并保存房主选择的目的地", () => {
   assert.equal(r.game.maxRounds, 8);
 });
 
+test("安全着陆后房主可以保留房间与岗位飞往下一机场", () => {
+  const r = room();
+  const previousRoles = structuredClone(r.game.roleByPlayer);
+  r.game.status = "finished";
+  r.game.phase = "finished";
+  r.game.result = "landed";
+  rules.continueFlight(r, "captain");
+  assert.equal(r.game.airport.id, "lhr");
+  assert.deepEqual(r.game.roleByPlayer, previousRoles);
+  assert.deepEqual(r.players.map((player) => player.id), ["captain", "first"]);
+  assert.deepEqual(r.settings.completedAirports, ["yul"]);
+  assert.equal(r.game.status, "playing");
+  assert.equal(r.game.phase, "briefing");
+  assert.equal(rules.publicRoom(r, "first").game.nextAirport.id, "hnd");
+});
+
+test("只有房主能在安全着陆后进入下一机场且失败时不能跳站", () => {
+  const r = room();
+  r.game.status = "finished";
+  r.game.phase = "finished";
+  r.game.result = "landed";
+  assert.throws(() => rules.continueFlight(r, "first"), /只有房主/);
+  r.game.result = "failed";
+  assert.throws(() => rules.continueFlight(r, "captain"), /安全着陆/);
+  assert.equal(r.game.airport.id, "yul");
+});
+
+test("完成最后一座机场后连续航程会回到第一座机场", () => {
+  const r = { code: "SKY777", hostId: "captain", players: structuredClone(players), settings: { hostRole: "pilot", airportId: "sin" }, game: null };
+  r.game = rules.createGame(r.players, r.settings, () => 0.42);
+  r.game.status = "finished";
+  r.game.phase = "finished";
+  r.game.result = "landed";
+  rules.continueFlight(r, "captain");
+  assert.equal(r.game.airport.id, "yul");
+  assert.deepEqual(r.settings.completedAirports, ["sin"]);
+});
+
 test("突发事件会按机场配置影响当前轮并公开给双方", () => {
   const r = { code: "SKY777", hostId: "captain", players: structuredClone(players), settings: { hostRole: "pilot", airportId: "sin" }, game: null };
   r.game = rules.createGame(r.players, r.settings, () => 0);

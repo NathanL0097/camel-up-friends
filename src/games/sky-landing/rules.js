@@ -9,6 +9,7 @@ const AIRPORTS = {
   cpt: { id: "cpt", code: "CPT", name: "开普敦", runway: "19", difficulty: "山风", altitude: 7000, airportIndex: 7, traffic: [0, 0, 1, 1, 2, 2, 2, 1], rerollMarkers: [3000], eventChance: 0.75, events: ["crosswind-left", "crosswind-right", "tailwind"] },
   sin: { id: "sin", code: "SIN", name: "新加坡樟宜", runway: "20C", difficulty: "雷雨", altitude: 6000, airportIndex: 6, traffic: [0, 1, 1, 2, 2, 3, 1], rerollMarkers: [3000, 1000], eventChance: 0.7, events: ["traffic", "headwind", "tailwind"] }
 };
+const AIRPORT_ORDER = Object.keys(AIRPORTS);
 const EVENTS = {
   headwind: { id: "headwind", icon: "🌬", name: "强劲逆风", detail: "本轮引擎合计点数 −1", speedModifier: -1 },
   tailwind: { id: "tailwind", icon: "💨", name: "突发顺风", detail: "本轮引擎合计点数 +1", speedModifier: 1 },
@@ -47,6 +48,10 @@ function record(game, type, details = {}) { game.eventSeq += 1; game.lastEvent =
 function cleanPlayers(room) { return room.players.map(({ token: _token, ...player }) => player); }
 
 function defaults() { return { hostRole: "pilot", airportId: "yul" }; }
+function nextAirportAfter(airportId) {
+  const index = AIRPORT_ORDER.indexOf(airportId);
+  return AIRPORTS[AIRPORT_ORDER[(index < 0 ? 0 : index + 1) % AIRPORT_ORDER.length]];
+}
 function configure(room, playerId, payload = {}) {
   if (room.hostId !== playerId) throw new Error("只有房主可以选择座位");
   if (room.game) throw new Error("航班开始后不能更换座位");
@@ -112,6 +117,22 @@ function succeed(room) {
   const game = room.game;
   game.status = "finished"; game.phase = "finished"; game.actorId = null; game.result = "landed";
   game.log.unshift("安全着陆！客舱响起掌声。"); record(game, "landed", { round: game.round });
+}
+
+function continueFlight(room, playerId) {
+  const game = room.game;
+  if (room.hostId !== playerId) throw new Error("只有房主可以选择下一站");
+  if (!game || game.status !== "finished" || game.result !== "landed") throw new Error("安全着陆后才能飞往下一站");
+  const nextAirport = nextAirportAfter(game.airport.id);
+  const completedAirports = [...new Set([...(room.settings.completedAirports || []), game.airport.id])];
+  room.settings = { ...room.settings, airportId: nextAirport.id, completedAirports };
+  room.game = createGame(room.players, room.settings);
+  room.game.log.unshift(`机组完成转场准备，下一站：${nextAirport.code} ${nextAirport.name}。`);
+  record(room.game, "journey-continued", {
+    fromAirportId: game.airport.id,
+    airportId: nextAirport.id,
+    completedAirports: [...completedAirports]
+  });
 }
 
 function ready(room, playerId) {
@@ -274,10 +295,11 @@ function endRound(room) {
 function publicRoom(room, viewerId) {
   const players = cleanPlayers(room);
   if (!room.game) return { code: room.code, hostId: room.hostId, players, settings: room.settings, game: null };
-  const game = room.game, myHand = game.hands[viewerId] || [];
+  const game = room.game, myHand = game.hands[viewerId] || [], nextAirport = nextAirportAfter(game.airport.id);
   return { code: room.code, hostId: room.hostId, players, settings: room.settings, game: {
     status: game.status, phase: game.phase, round: game.round, altitude: game.altitude, finalRound: game.finalRound,
-    airport: game.airport, maxAltitude: game.maxAltitude, maxRounds: game.maxRounds, activeEvent: game.activeEvent, eventHistory: game.eventHistory.slice(0, 8), speedModifier: game.speedModifier, axisModifier: game.axisModifier,
+    airport: game.airport, nextAirport: { id: nextAirport.id, code: nextAirport.code, name: nextAirport.name, runway: nextAirport.runway, difficulty: nextAirport.difficulty },
+    completedAirports: [...(room.settings.completedAirports || [])], maxAltitude: game.maxAltitude, maxRounds: game.maxRounds, activeEvent: game.activeEvent, eventHistory: game.eventHistory.slice(0, 8), speedModifier: game.speedModifier, axisModifier: game.axisModifier,
     roleByPlayer: game.roleByPlayer, playerByRole: game.playerByRole, actorId: game.actorId, ready: [...game.ready],
     myDice: myHand.map((die) => ({ ...die })), diceCounts: Object.fromEntries(Object.keys(game.roleByPlayer).map((id) => [id, game.hands[id]?.length || 0])),
     placements: game.placements, axis: game.axis, approachPosition: game.approachPosition, airportIndex: game.airportIndex, traffic: [...game.traffic],
@@ -288,4 +310,4 @@ function publicRoom(room, viewerId) {
   }};
 }
 
-module.exports = { defaults, configure, createGame, ready, place, startReroll, submitReroll, publicRoom, SLOT_DEFS, ROLES, AIRPORTS, EVENTS, endRound };
+module.exports = { defaults, configure, createGame, ready, place, startReroll, submitReroll, continueFlight, publicRoom, SLOT_DEFS, ROLES, AIRPORTS, AIRPORT_ORDER, EVENTS, endRound };
