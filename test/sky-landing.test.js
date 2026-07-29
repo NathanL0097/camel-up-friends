@@ -7,6 +7,7 @@ const room = (random = () => 0.42) => ({ code: "SKY777", hostId: "captain", play
 function roll(r) { rules.ready(r, "captain"); rules.ready(r, "first"); }
 function setHand(game, role, values) { const id = game.playerByRole[role]; game.hands[id] = values.map((value, i) => ({ id: `${game.round}-${role}-test-${i}`, value })); }
 function put(r, role, index, slotId, coffeeDelta = 0) { const id = r.game.playerByRole[role], die = r.game.hands[id][index]; rules.place(r, id, { dieId: die.id, slotId, coffeeDelta }); }
+function confirmReview(r) { rules.finishReview(r, "captain"); rules.finishReview(r, "first"); }
 
 test("房主可选择岗位且航班严格分配一名机长和一名副驾驶", () => {
   const r = room();
@@ -112,8 +113,10 @@ test("侧风与顺逆风修正会进入轴线和引擎结算", () => {
 test("轴线按双方骰差倾斜且达到红色极限立即尾旋失败", () => {
   const r = room(); roll(r); setHand(r.game, "pilot", [1, 2, 2, 2]); setHand(r.game, "copilot", [4, 2, 2, 2]);
   put(r, "pilot", 0, "axis-pilot"); put(r, "copilot", 0, "axis-copilot");
+  assert.equal(r.game.phase, "review");
+  assert.match(r.game.review.reason, /尾旋/);
+  confirmReview(r);
   assert.equal(r.game.status, "finished");
-  assert.match(r.game.failureReason, /尾旋/);
 });
 
 test("引擎合计依据气动标记推进零一或两格并检查空中碰撞", () => {
@@ -124,7 +127,7 @@ test("引擎合计依据气动标记推进零一或两格并检查空中碰撞",
   r.game.traffic[1] = 1; r.game.hands[r.game.playerByRole.pilot][0].value = 6; r.game.hands[r.game.playerByRole.copilot][0].value = 6;
   r.game.placements["engine-pilot"] = null; r.game.placements["engine-copilot"] = null; r.game.actorId = r.game.playerByRole.pilot;
   put(r, "pilot", 0, "engine-pilot"); put(r, "copilot", 0, "engine-copilot");
-  assert.match(r.game.failureReason, /碰撞/);
+  assert.match(r.game.review.reason, /碰撞/);
 });
 
 test("无线电按相对距离清除一架飞机", () => {
@@ -181,6 +184,73 @@ test("可按基础规则完整飞行七轮并满足全部条件安全着陆", ()
       const role = r.game.roleByPlayer[r.game.actorId], [target] = queues[role][used[role]++];
       put(r, role, 0, target);
     }
+    if (r.game.phase === "review") confirmReview(r);
   }
   assert.equal(r.game.result, "landed"); assert.equal(r.game.round, 7); assert.equal(r.game.approachPosition, 6);
+});
+
+test("最后一颗骰子后保留驾驶舱，双方查看完毕才进入下一轮", () => {
+  const r = room(() => 0.4); r.game.traffic.fill(0); roll(r);
+  setHand(r.game, "pilot", [3, 2, 1, 2]); setHand(r.game, "copilot", [3, 3, 1, 2]);
+  for (const [role, target] of [
+    ["pilot", "axis-pilot"], ["copilot", "axis-copilot"],
+    ["pilot", "engine-pilot"], ["copilot", "engine-copilot"],
+    ["pilot", "gear-0"], ["copilot", "flap-0"],
+    ["pilot", "coffee-0"], ["copilot", "coffee-1"]
+  ]) put(r, role, 0, target);
+  assert.equal(r.game.phase, "review");
+  assert.equal(r.game.round, 1);
+  rules.finishReview(r, "captain");
+  assert.equal(r.game.phase, "review");
+  rules.finishReview(r, "first");
+  assert.equal(r.game.phase, "briefing");
+  assert.equal(r.game.round, 2);
+});
+
+test("大厅可选择全模块与滑翔方案，低能见度仅公开两颗骰子", () => {
+  const r = { code: "SKY777", hostId: "captain", players: structuredClone(players), settings: rules.defaults(), game: null };
+  rules.configure(r, "captain", { modulePreset: "complete" });
+  r.game = rules.createGame(r.players, r.settings, () => 0.9);
+  assert.equal(r.game.modules.iceBrakes, true);
+  assert.equal(r.game.modules.alarms, true);
+  assert.equal(r.game.altitude, 5000);
+  roll(r);
+  assert.equal(rules.publicRoom(r, "captain").game.myDice.length, 2);
+  r.game = null; rules.configure(r, "captain", { modulePreset: "glider" });
+  r.game = rules.createGame(r.players, r.settings, () => 0.9); roll(r);
+  assert.equal(r.game.hands.captain.length, 3);
+  assert.equal(r.game.modules.engineOut, true);
+});
+
+test("进阶协同引擎同点会补充复骰标记", () => {
+  const settings = { ...rules.defaults(), modulePreset: "advanced" };
+  const r = { code: "SKY777", hostId: "captain", players: structuredClone(players), settings, game: rules.createGame(players, settings, () => 0.9) };
+  r.game.traffic.fill(0); r.game.rerolls = 0; r.game.wind = 0; roll(r);
+  setHand(r.game, "pilot", [3, 4, 1, 1]); setHand(r.game, "copilot", [3, 4, 1, 1]);
+  put(r, "pilot", 0, "axis-pilot"); put(r, "copilot", 0, "axis-copilot");
+  put(r, "pilot", 0, "engine-pilot"); put(r, "copilot", 0, "engine-copilot");
+  assert.equal(r.game.rerolls, 1);
+  assert.match(r.game.log[0], /协同引擎/);
+});
+
+test("标准燃油未管理时每轮消耗6，警报会封锁故障区域", () => {
+  const settings = { ...rules.defaults(), modulePreset: "advanced" };
+  const r = { code: "SKY777", hostId: "captain", players: structuredClone(players), settings, game: rules.createGame(players, settings, () => 0.9) };
+  r.game.placements = { "axis-pilot": {}, "axis-copilot": {}, "engine-pilot": {}, "engine-copilot": {} };
+  rules.endRound(r);
+  assert.equal(r.game.fuel, 14);
+  r.game.phase = "placing"; r.game.actorId = r.game.playerByRole.pilot; r.game.activeAlarm = { area: "radio", name: "无线电故障", role: "pilot", value: 3 };
+  r.game.hands[r.game.playerByRole.pilot] = [{ id: "alarm-test", value: 3 }];
+  assert.throws(() => rules.place(r, r.game.playerByRole.pilot, { dieId: "alarm-test", slotId: "radio-pilot" }), /尚未复位/);
+});
+
+test("全模块实时挑战在60秒耗尽后进入可查看的失败复盘", () => {
+  const settings = { ...rules.defaults(), modulePreset: "complete" };
+  const r = { code: "SKY777", hostId: "captain", players: structuredClone(players), settings, game: rules.createGame(players, settings, () => 0.9) };
+  roll(r);
+  assert.ok(r.game.deadline > Date.now());
+  r.game.deadline = Date.now() - 1;
+  rules.checkTime(r, "captain");
+  assert.equal(r.game.phase, "review");
+  assert.match(r.game.review.reason, /60秒/);
 });

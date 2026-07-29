@@ -17,8 +17,10 @@ const definition = {
   actions: {
     ready: (room, id) => rules.ready(room, id),
     place: (room, id, payload) => rules.place(room, id, payload),
+    "check-time": (room, id) => rules.checkTime(room, id),
     "start-reroll": (room, id) => rules.startReroll(room, id),
     "submit-reroll": (room, id, payload) => rules.submitReroll(room, id, payload),
+    "finish-review": (room, id) => rules.finishReview(room, id),
     "continue-flight": (room, id) => rules.continueFlight(room, id)
   }
 };
