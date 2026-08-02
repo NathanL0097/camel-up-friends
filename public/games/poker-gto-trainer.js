@@ -371,7 +371,7 @@
     const weak=[...byStreet].sort((a,b)=>a.score-b.score)[0],weakStage=[...byStage].sort((a,b)=>a.score-b.score)[0];
     return{average,byStreet,byStage,mistakes,weak,weakStage,grade:average>=95?"GTO精英":average>=88?"稳定优秀":average>=78?"基础扎实":average>=65?"需要打磨":"建议系统复习"};
   }
-  function cardHtml(code){const red=code&&/[hd]/.test(code[1]);return`<i class="gto-card ${red?"red":""}"><b>${code?.[0]||"?"}</b><span>${SUITS[code?.[1]]||""}</span></i>`;}
+  function cardHtml(code){const red=code&&/[hd]/.test(code[1]),rank=code?.[0]==="T"?"10":code?.[0]||"?";return`<i class="gto-card ${red?"red":""}"><b>${rank}</b><span>${SUITS[code?.[1]]||""}</span></i>`;}
   let state=null,answered=false,currentResult=null,selectedLength=50;
   function ensureRoot(){
     if(document.getElementById("gtoTrainer"))return;

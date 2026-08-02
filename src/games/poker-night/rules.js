@@ -6,9 +6,10 @@ const RECONNECT_GRACE_MS = 15_000;
 const MODES = ["holdem", "omaha", "mixed"];
 const TABLE_MODES = ["cash", "sng"];
 const SNG_LEVEL_MS = 8 * 60_000;
-const SNG_BREAK_MS = 15 * 60_000;
-const SNG_BREAK_AFTER_LEVELS = [5, 15, 20];
-const SNG_BLIND_MULTIPLIERS = [1, 2, 3, 5, 8, 12, 20, 30, 50, 80, 120, 160, 220, 300, 400, 550, 750, 1000, 1400, 2000, 3000];
+const SNG_BREAK_MS = 30 * 60_000;
+const SNG_BREAK_BEFORE_LEVELS = [8, 17, 26];
+const SNG_BREAK_AFTER_LEVELS = SNG_BREAK_BEFORE_LEVELS.map((level) => level - 1);
+const SNG_BLIND_MULTIPLIERS = [1, 2, 3, 5, 8, 12, 20, 30, 50, 80, 120, 160, 220, 300, 400, 550, 750, 1000, 1400, 2000, 3000, 4000, 5500, 7500, 10_000, 15_000, 20_000, 30_000, 40_000, 60_000];
 
 function shuffle(items, random = Math.random) { const out = [...items]; for (let i = out.length - 1; i > 0; i -= 1) { const j = Math.floor(random() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; } return out; }
 function defaults() { return { mode: "holdem", tableMode: "cash", buyIn: 1000, smallBlind: 5, bigBlind: 10 }; }
@@ -86,7 +87,7 @@ function prepareSngNextHand(room, now) {
       game.breakEndsAt = now + SNG_BREAK_MS; game.nextBlindAt = null; game.street = "break"; game.actorIndex = null; game.deadline = game.breakEndsAt;
       game.board = []; game.pot = 0; game.currentBet = 0; game.showdown = null; game.runoutFromStreet = null;
       room.players.forEach((p) => Object.assign(p, { hole: [], shownCards: [], bet: 0, contributed: 0, acted: false, allIn: false, lastAction: p.eliminated ? "已淘汰" : "休息中" }));
-      game.log.unshift(`☕ 第${game.blindLevel}级结束 · 休息15分钟`);
+      game.log.unshift(`☕ 第${game.blindLevel + 1}级开始前 · 休息30分钟`);
       return false;
     }
     setSngBlindLevel(game, game.blindLevel + 1, now);
@@ -249,6 +250,14 @@ function recover(room, playerId, now = Date.now()) {
   }
   return false;
 }
+function endSngBreak(room, playerId, now = Date.now()) {
+  const game = room.game;
+  if (room.hostId !== playerId) throw new Error("只有房主可以提前结束休息");
+  if (!game || game.tableMode !== "sng" || game.street !== "break" || !game.breakEndsAt) throw new Error("当前不在SNG休息时间");
+  game.breakEndsAt = now; game.deadline = now;
+  game.log.unshift("房主提前结束休息，比赛立即恢复");
+  startHand(room, now);
+}
 function tick(room, now = Date.now()) {
   const g = room.game;
   if (!g || g.status === "finished") return false;
@@ -285,4 +294,4 @@ function publicRoom(room, viewerId) {
   }
   return { code: room.code, hostId: room.hostId, settings: room.settings || defaults(), players, game: publicGame };
 }
-module.exports = { TURN_MS, EXTENSION_CARDS, DISCONNECT_GRACE_MS, RECONNECT_GRACE_MS, SNG_LEVEL_MS, SNG_BREAK_MS, SNG_BREAK_AFTER_LEVELS, MODES, TABLE_MODES, SNG_BLIND_MULTIPLIERS, defaults, configure, createGame, act, useTimeCard, requestRebuy, approveRebuy, revealCards, recover, handleDisconnect, handleReconnect, tick, publicRoom, startHand, legalActions };
+module.exports = { TURN_MS, EXTENSION_CARDS, DISCONNECT_GRACE_MS, RECONNECT_GRACE_MS, SNG_LEVEL_MS, SNG_BREAK_MS, SNG_BREAK_BEFORE_LEVELS, SNG_BREAK_AFTER_LEVELS, MODES, TABLE_MODES, SNG_BLIND_MULTIPLIERS, defaults, configure, createGame, act, useTimeCard, requestRebuy, approveRebuy, revealCards, recover, endSngBreak, handleDisconnect, handleReconnect, tick, publicRoom, startHand, legalActions };
