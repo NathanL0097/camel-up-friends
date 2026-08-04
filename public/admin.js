@@ -4,6 +4,8 @@
   const content = document.getElementById("adminContent");
   const rows = document.getElementById("roomRows");
   const empty = document.getElementById("emptyRooms");
+  const auditRows = document.getElementById("auditRows");
+  const emptyAudit = document.getElementById("emptyAudit");
   const esc = (value) => { const div = document.createElement("div"); div.textContent = value ?? ""; return div.innerHTML; };
   async function load() {
     error.hidden = true;
@@ -23,6 +25,11 @@
         await fetch(`/api/admin/rooms/${button.dataset.closeRoom}/close`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
         load();
       });
+      const auditResponse = await fetch("/api/admin/audit?limit=200", { headers: { Authorization: `Bearer ${token}` } });
+      const auditData = await auditResponse.json();
+      const logs = auditData.logs || [];
+      emptyAudit.hidden = logs.length > 0;
+      auditRows.innerHTML = logs.map((log) => `<tr><td>${esc(new Date(log.occurred_at).toLocaleString("zh-CN"))}</td><td>${esc(log.actor_type)}</td><td>${esc(log.action)}</td><td>${esc(log.room_code || "—")}</td><td>${esc(log.ip_address || "—")}</td></tr>`).join("");
     } catch (loadError) {
       content.hidden = true;
       error.textContent = `${loadError.message}。请回到大厅重新使用管理员激活码。`;

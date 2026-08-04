@@ -7,6 +7,8 @@ const { DEFAULT_GAME_ID, getGame, listGames } = require("./src/games");
 const { createRoomService } = require("./src/platform/room-service");
 const { createSocketPresence } = require("./src/platform/socket-presence");
 const { createAccessService } = require("./src/platform/access-service");
+const { createDatabase } = require("./src/platform/database");
+const { createPersistentAccessService } = require("./src/platform/persistent-access-service");
 const { installRemoteQuestions, questionPackInfo, CHARACTER_IMAGE_QUERIES, CHILD_CHARACTER_IMAGE_URLS } = require("./src/games/quiz-arena/questions");
 
 const app = express();
@@ -16,7 +18,9 @@ const rooms = new Map();
 const socketPresence = createSocketPresence();
 const PORT = Number(process.env.PORT || 3000);
 const characterImageCache = new Map();
-const accessService = createAccessService();
+const database = createDatabase();
+const accessService = createPersistentAccessService({ database, fallback: createAccessService() });
+accessService.ready().then(() => console.log(database.enabled ? "Neon 数据库已连接，权限与审计日志已持久化" : "未配置 DATABASE_URL，暂时使用内存权限存储")).catch((error) => console.error(`数据库初始化失败：${error.message}`));
 
 async function resolveCharacterImage(imageKey) {
   const cached = characterImageCache.get(imageKey);
@@ -60,8 +64,15 @@ function adminToken(req) {
   const header = req.get("authorization") || "";
   return header.startsWith("Bearer ") ? header.slice(7) : "";
 }
-function requireAdmin(req, res, next) {
-  if (!accessService.adminValid(adminToken(req))) return res.status(403).json({ error: "需要管理员权限" });
+async function requireAdmin(req, res, next) {
+  const token = adminToken(req);
+  const grant = await accessService.status(token);
+  if (!grant.active || grant.role !== "admin") {
+    await accessService.audit({ actorType: "request", actorId: token ? "invalid-token" : "anonymous", action: "admin_access_denied", ip: req.ip, metadata: { method: req.method, path: req.path } });
+    return res.status(403).json({ error: "需要管理员权限" });
+  }
+  await accessService.audit({ actorType: "admin", actorId: grant.actorId || "admin-token", action: "admin_access", ip: req.ip, metadata: { method: req.method, path: req.path } });
+  req.adminActorId = grant.actorId || "admin-token";
   next();
 }
 app.get("/api/admin/overview", requireAdmin, (_req, res) => {
@@ -76,12 +87,16 @@ app.get("/api/admin/overview", requireAdmin, (_req, res) => {
   }));
   res.json({ rooms: overview, total: overview.length });
 });
+app.get("/api/admin/audit", requireAdmin, async (req, res) => {
+  res.json({ logs: await accessService.listAudit(req.query.limit) });
+});
 app.get("/admin", (_req, res) => res.sendFile(path.join(__dirname, "public", "admin.html")));
-app.post("/api/admin/rooms/:code/close", requireAdmin, (req, res) => {
+app.post("/api/admin/rooms/:code/close", requireAdmin, async (req, res) => {
   const code = String(req.params.code || "").toUpperCase();
   const room = rooms.get(code);
   if (!room) return res.status(404).json({ error: "房间不存在" });
   rooms.delete(code);
+  await accessService.audit({ actorType: "admin", actorId: req.adminActorId, action: "room_closed", roomCode: code, ip: req.ip, metadata: { reason: "administrator_action" } });
   for (const client of io.sockets.sockets.values()) {
     if (client.data.roomCode === code) {
       client.emit("game:error", "房间已被管理员关闭");
@@ -159,23 +174,28 @@ const gameTicker = setInterval(() => {
 gameTicker.unref();
 
 io.on("connection", (socket) => {
-  socket.on("access:status", ({ token } = {}, ack = () => {}) => {
-    ack(accessService.status(token));
+  socket.on("access:status", async ({ token } = {}, ack = () => {}) => {
+    const status = await accessService.status(token);
+    if (status.role === "admin") await accessService.audit({ actorType: "admin", actorId: status.actorId || "admin-token", action: "admin_login", ip: socket.handshake.address });
+    ack(status);
   });
 
-  socket.on("access:redeem", ({ code } = {}, ack = () => {}) => {
+  socket.on("access:redeem", async ({ code } = {}, ack = () => {}) => {
     try {
-      const grant = accessService.issue(code);
+      const grant = await accessService.issue(code);
+      await accessService.audit({ actorType: grant.role === "admin" ? "admin" : "tester", actorId: grant.actorId || (grant.role === "admin" ? "admin-token" : "tester-token"), action: grant.role === "admin" ? "admin_redeem" : "tester_redeem", ip: socket.handshake.address });
       ack({ ok: true, ...grant });
     } catch (error) {
+      await accessService.audit({ actorType: "request", actorId: "invalid-activation", action: "activation_failed", ip: socket.handshake.address, metadata: { codeLength: String(code || "").length } });
       ack({ ok: false, error: error.message });
     }
   });
 
-  socket.on("room:create", ({ name, playerToken, accessToken, gameId = DEFAULT_GAME_ID } = {}, ack = () => {}) => {
+  socket.on("room:create", async ({ name, playerToken, accessToken, gameId = DEFAULT_GAME_ID } = {}, ack = () => {}) => {
     try {
-      if (!accessService.valid(accessToken)) throw new Error("请先输入有效的内部激活码");
+      if (!(await accessService.valid(accessToken))) throw new Error("请先输入有效的内部激活码");
       const { room, player } = roomService.createRoom({ name, playerToken, gameId });
+      await accessService.audit({ actorType: "player", actorId: player.id, action: "room_created", roomCode: room.code, ip: socket.handshake.address, metadata: { gameId } });
       socket.join(room.code);
       trackPlayerSocket(socket, room, player);
       ack({ ok: true, code: room.code, playerId: player.id, playerToken: player.token });
@@ -183,10 +203,11 @@ io.on("connection", (socket) => {
     } catch (error) { replyError(socket, error); ack({ ok: false, error: error.message }); }
   });
 
-  socket.on("room:join", ({ code: rawCode, name, playerToken, accessToken } = {}, ack = () => {}) => {
+  socket.on("room:join", async ({ code: rawCode, name, playerToken, accessToken } = {}, ack = () => {}) => {
     try {
-      if (!accessService.valid(accessToken)) throw new Error("请先输入有效的内部激活码");
+      if (!(await accessService.valid(accessToken))) throw new Error("请先输入有效的内部激活码");
       const { room, player } = roomService.joinRoom({ rawCode, name, playerToken });
+      await accessService.audit({ actorType: "player", actorId: player.id, action: "room_joined", roomCode: room.code, ip: socket.handshake.address });
       socket.join(room.code);
       trackPlayerSocket(socket, room, player);
       ack({ ok: true, code: room.code, playerId: player.id, playerToken: player.token });

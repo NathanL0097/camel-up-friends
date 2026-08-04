@@ -60,3 +60,5 @@ function createAccessService({ durationMs = 30 * 60 * 60_000 } = {}) {
 }
 
 module.exports = { createAccessService };
+module.exports.CODE_HASHES = DEFAULT_CODE_HASHES;
+module.exports.ADMIN_CODE_HASHES = [...ADMIN_CODE_HASHES];

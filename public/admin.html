@@ -20,6 +20,8 @@
     <section id="adminContent" hidden>
       <div class="admin-summary"><div class="admin-stat"><small>当前房间</small><strong id="roomCount">0</strong></div><div class="admin-stat"><small>进行中的房间</small><strong id="activeCount">0</strong></div><div class="admin-stat"><small>在线玩家</small><strong id="playerCount">0</strong></div></div>
       <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>房间</th><th>游戏</th><th>房主</th><th>玩家</th><th>状态</th><th>操作</th></tr></thead><tbody id="roomRows"></tbody></table><div id="emptyRooms" class="admin-empty" hidden>当前没有房间</div></div>
+      <h2 style="margin:28px 0 10px;font-size:20px">安全审计日志</h2>
+      <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>时间</th><th>身份</th><th>动作</th><th>房间</th><th>来源</th></tr></thead><tbody id="auditRows"></tbody></table><div id="emptyAudit" class="admin-empty" hidden>暂无审计记录</div></div>
       <p class="admin-note">管理员后台只显示房间管理信息，不显示玩家的私人手牌、预测或其他隐藏信息。</p>
     </section>
   </main>
