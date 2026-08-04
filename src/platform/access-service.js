@@ -12,6 +12,7 @@ const DEFAULT_CODE_HASHES = [
   "ec06857f39546e72e8643efae99a11964733e69cf807792f96897dd4c407881a",
   "76fb85d31a1dd92f520264f573e07150c324c6c46041554842420da768381440"
 ];
+const ADMIN_CODE_HASH = "e4a3d83d6d5b9f0eca380b80310800b6f117d0f58663e9b68ae624838ca9e152";
 
 function digest(value) {
   return crypto.createHash("sha256").update(String(value).trim().toUpperCase()).digest("hex");
@@ -25,30 +26,34 @@ function createAccessService({ durationMs = 30 * 60 * 60_000 } = {}) {
 
   function issue(code) {
     const hash = digest(code);
-    if (!allowed.has(hash) || redeemed.has(hash)) throw new Error("激活码无效或已经使用");
+    const role = hash === ADMIN_CODE_HASH ? "admin" : "tester";
+    if ((!allowed.has(hash) && role !== "admin") || redeemed.has(hash)) throw new Error("激活码无效或已经使用");
     const token = crypto.randomBytes(32).toString("base64url");
     const expiresAt = Date.now() + durationMs;
     redeemed.add(hash);
-    grants.set(token, expiresAt);
-    return { token, expiresAt };
+    grants.set(token, { expiresAt, role });
+    return { token, expiresAt, role };
   }
 
-  function valid(token) {
+  function valid(token, requiredRole = null) {
     if (!token || !grants.has(token)) return false;
-    const expiresAt = grants.get(token);
-    if (expiresAt <= Date.now()) {
+    const grant = grants.get(token);
+    if (grant.expiresAt <= Date.now()) {
       grants.delete(token);
       return false;
     }
-    return true;
+    return !requiredRole || grant.role === requiredRole;
   }
 
   function status(token) {
-    if (!valid(token)) return { active: false, expiresAt: null };
-    return { active: true, expiresAt: grants.get(token) };
+    if (!valid(token)) return { active: false, expiresAt: null, role: null };
+    const grant = grants.get(token);
+    return { active: true, expiresAt: grant.expiresAt, role: grant.role };
   }
 
-  return { issue, valid, status, durationMs };
+  function adminValid(token) { return valid(token, "admin"); }
+
+  return { issue, valid, adminValid, status, durationMs };
 }
 
 module.exports = { createAccessService };

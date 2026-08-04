@@ -135,3 +135,12 @@ test("内部激活码只能兑换一次并提供三十小时服务器授权", ()
   assert.throws(() => access.issue("0579-47D1-4AF0-D07D"), /无效或已经使用/);
   assert.throws(() => access.issue("0000-0000-0000-0000"), /无效或已经使用/);
 });
+
+test("专属管理员激活码获得后台权限且普通激活码不能越权", () => {
+  const access = createAccessService();
+  const admin = access.issue("70A1-DDEB-9AE1-C41F");
+  const tester = access.issue("C73A-15CD-DB37-C700");
+  assert.equal(admin.role, "admin");
+  assert.equal(access.adminValid(admin.token), true);
+  assert.equal(access.adminValid(tester.token), false);
+});

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#172b2b" />
+  <title>管理员后台 · 好友桌游馆</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    body{min-height:100vh;padding:28px;background:linear-gradient(135deg,#f7edcf,#dcefe7);color:#172b2b}.admin-shell{max-width:1100px;margin:0 auto}.admin-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}.admin-head h1{margin:0;font-size:clamp(26px,4vw,42px)}.admin-head p{margin:6px 0 0;color:#58746e}.admin-actions{display:flex;gap:8px}.admin-actions button,.admin-actions a{padding:10px 14px;border:1px solid #1e5a5644;border-radius:10px;background:#fffaf0;color:#1e5a56;text-decoration:none;font-weight:800;cursor:pointer}.admin-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.admin-stat{padding:18px;border:1px solid #5a957b55;border-radius:16px;background:#ffffffb8;box-shadow:0 7px 0 #40695b18}.admin-stat small{display:block;color:#66827b;font-size:11px}.admin-stat strong{display:block;margin-top:4px;font-size:28px}.admin-table-wrap{overflow:auto;border:1px solid #5a957b55;border-radius:18px;background:#fffaf0;box-shadow:0 10px 30px #40695b1c}.admin-table{width:100%;border-collapse:collapse;min-width:700px}.admin-table th,.admin-table td{padding:13px 15px;border-bottom:1px solid #8ab7a044;text-align:left;font-size:13px}.admin-table th{color:#53746c;font-size:11px}.admin-table tr:last-child td{border-bottom:0}.admin-status{color:#188052;font-weight:800}.admin-status.offline{color:#aa6c52}.admin-close{padding:7px 9px;border:1px solid #ca6d5b66;border-radius:8px;background:#fff0eb;color:#a34d3e;cursor:pointer;font-weight:800}.admin-empty{padding:30px;text-align:center;color:#66827b}.admin-error{padding:18px;border-radius:14px;background:#fff0eb;color:#9f483b}.admin-note{margin-top:14px;color:#66827b;font-size:12px}@media(max-width:640px){body{padding:15px}.admin-head{align-items:flex-start;flex-direction:column}.admin-summary{grid-template-columns:1fr 1fr}.admin-stat:last-child{grid-column:1/-1}}
+  </style>
+</head>
+<body>
+  <main class="admin-shell">
+    <header class="admin-head">
+      <div><h1>管理员后台</h1><p>好友桌游馆 · 测试房间管理</p></div>
+      <div class="admin-actions"><button id="refreshButton" type="button">刷新数据</button><a href="/">返回大厅</a></div>
+    </header>
+    <section id="adminError" class="admin-error" hidden></section>
+    <section id="adminContent" hidden>
+      <div class="admin-summary"><div class="admin-stat"><small>当前房间</small><strong id="roomCount">0</strong></div><div class="admin-stat"><small>进行中的房间</small><strong id="activeCount">0</strong></div><div class="admin-stat"><small>在线玩家</small><strong id="playerCount">0</strong></div></div>
+      <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>房间</th><th>游戏</th><th>房主</th><th>玩家</th><th>状态</th><th>操作</th></tr></thead><tbody id="roomRows"></tbody></table><div id="emptyRooms" class="admin-empty" hidden>当前没有房间</div></div>
+      <p class="admin-note">管理员后台只显示房间管理信息，不显示玩家的私人手牌、预测或其他隐藏信息。</p>
+    </section>
+  </main>
+  <script src="/admin.js"></script>
+</body>
+</html>

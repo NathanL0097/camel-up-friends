@@ -6,6 +6,7 @@ let state = null;
 let selectedGameId = "camel-race";
 let accessToken = localStorage.getItem("tabletopAccessToken") || "";
 let accessExpiresAt = Number(localStorage.getItem("tabletopAccessExpiresAt") || 0);
+let accessRole = localStorage.getItem("tabletopAccessRole") || "tester";
 let accessReady = false;
 const gameClients = new Map();
 const gameCatalog = new Map([["camel-race", { id: "camel-race", clientScript: "/games/camel-race.js" }]]);
@@ -29,20 +30,24 @@ function roomUrl(code) { return `${location.origin}/room/${code}`; }
 function formatAccessExpiry(expiresAt) {
   return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(expiresAt));
 }
-function setAccessState(active, expiresAt = null) {
+function setAccessState(active, expiresAt = null, role = accessRole) {
   accessReady = active;
+  accessRole = role || "tester";
   if (active && expiresAt) {
     accessExpiresAt = expiresAt;
     localStorage.setItem("tabletopAccessExpiresAt", String(expiresAt));
   }
+  if (active) localStorage.setItem("tabletopAccessRole", accessRole);
   const panel = $("activationPanel");
   const status = $("activationStatus");
   const create = $("createButton");
   const join = $("joinButton");
+  const admin = $("adminButton");
   if (panel) panel.classList.toggle("active", active);
   if (status) status.textContent = active ? `测试权限有效至 ${formatAccessExpiry(accessExpiresAt)}` : "请输入激活码后开始使用";
   if (create) create.disabled = !active;
   if (join) join.disabled = !active;
+  if (admin) admin.classList.toggle("hidden", !(active && accessRole === "admin"));
 }
 function checkAccess() {
   return new Promise((resolve) => socket.emit("access:status", { token: accessToken }, (result = {}) => {
@@ -51,11 +56,12 @@ function checkAccess() {
       accessExpiresAt = 0;
       localStorage.removeItem("tabletopAccessToken");
       localStorage.removeItem("tabletopAccessExpiresAt");
+      localStorage.removeItem("tabletopAccessRole");
       setAccessState(false);
       resolve(false);
       return;
     }
-    setAccessState(true, result.expiresAt);
+    setAccessState(true, result.expiresAt, result.role);
     resolve(true);
   }));
 }
@@ -69,7 +75,7 @@ function redeemAccessCode() {
     if (!result.ok) return toast(result.error || "激活码无效");
     accessToken = result.token;
     localStorage.setItem("tabletopAccessToken", accessToken);
-    setAccessState(true, result.expiresAt);
+    setAccessState(true, result.expiresAt, result.role);
     input.value = "";
     toast("激活成功，测试权限已开启 30 小时");
   });
@@ -185,6 +191,7 @@ async function copyInvite() {
 
 $("activateButton").onclick = redeemAccessCode;
 $("activationCode").addEventListener("keydown", (event) => { if (event.key === "Enter") redeemAccessCode(); });
+$("adminButton").onclick = () => { location.href = "/admin"; };
 $("createButton").onclick = () => socket.emit("room:create", { name: name(), accessToken, playerToken: crypto.randomUUID(), gameId: selectedGameId }, (result) => {
   if (result?.ok) {
     saveIdentity(result);
@@ -227,5 +234,5 @@ socket.on("connect", async () => {
 });
 socket.on("disconnect", () => toast("连接中断，正在尝试重连…"));
 
-setAccessState(Boolean(accessToken && accessExpiresAt > Date.now()), accessExpiresAt || null);
+setAccessState(Boolean(accessToken && accessExpiresAt > Date.now()), accessExpiresAt || null, accessRole);
 loadGameCatalog();

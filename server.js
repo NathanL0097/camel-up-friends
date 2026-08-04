@@ -56,6 +56,40 @@ function characterImageFallback() {
 app.use(express.static(path.join(__dirname, "public")));
 app.get("/health", (_req, res) => res.json({ ok: true, rooms: rooms.size }));
 app.get("/api/games", (_req, res) => res.json({ games: listGames() }));
+function adminToken(req) {
+  const header = req.get("authorization") || "";
+  return header.startsWith("Bearer ") ? header.slice(7) : "";
+}
+function requireAdmin(req, res, next) {
+  if (!accessService.adminValid(adminToken(req))) return res.status(403).json({ error: "需要管理员权限" });
+  next();
+}
+app.get("/api/admin/overview", requireAdmin, (_req, res) => {
+  const overview = [...rooms.values()].map((room) => ({
+    code: room.code,
+    gameId: room.gameId,
+    title: getGame(room.gameId).title,
+    host: room.players.find((player) => player.id === room.hostId)?.name || "未知房主",
+    players: room.players.map((player) => ({ name: player.name, connected: Boolean(player.connected) })),
+    started: Boolean(room.game),
+    createdAt: room.createdAt || null
+  }));
+  res.json({ rooms: overview, total: overview.length });
+});
+app.get("/admin", (_req, res) => res.sendFile(path.join(__dirname, "public", "admin.html")));
+app.post("/api/admin/rooms/:code/close", requireAdmin, (req, res) => {
+  const code = String(req.params.code || "").toUpperCase();
+  const room = rooms.get(code);
+  if (!room) return res.status(404).json({ error: "房间不存在" });
+  rooms.delete(code);
+  for (const client of io.sockets.sockets.values()) {
+    if (client.data.roomCode === code) {
+      client.emit("game:error", "房间已被管理员关闭");
+      client.disconnect(true);
+    }
+  }
+  res.json({ ok: true });
+});
 app.get("/api/games/quiz-arena/question-pack", (_req, res) => res.json(questionPackInfo()));
 app.get("/api/games/quiz-arena/character-image/:imageKey", async (req, res) => {
   try {
