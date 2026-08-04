@@ -146,4 +146,5 @@ test("专属管理员激活码获得后台权限且普通激活码不能越权",
   assert.equal(secondAdmin.role, "admin");
   assert.equal(access.adminValid(admin.token), true);
   assert.equal(access.adminValid(tester.token), false);
+  assert.equal(access.issue("6153-C0C1-86F0-AF8B").role, "tester");
 });
