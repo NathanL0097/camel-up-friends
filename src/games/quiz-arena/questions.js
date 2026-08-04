@@ -22,7 +22,15 @@ const CHARACTER_IMAGE_QUERIES = {
 const CHILD_CHARACTER_IMAGE_URLS = {
   headson: "https://i0.hdslb.com/bfs/bangumi/image/62da3f13e9337b20e30322be27800625a9dfa5b8.jpg",
   tutu: "https://i0.hdslb.com/bfs/bangumi/image/a28c1aba5ea17b8fab4890e1b7a1af76f87872b7.png",
-  jiangliuer: "https://i0.hdslb.com/bfs/bangumi/image/713ce95614318de20eda1e75eb72a3bba19c1628.png"
+  jiangliuer: "https://i0.hdslb.com/bfs/bangumi/image/713ce95614318de20eda1e75eb72a3bba19c1628.png",
+  guangtouqiang: "https://i0.hdslb.com/bfs/bangumi/image/fb6ca695ef8e93ea8cd8fde26ecddd2278cb1d8b.png",
+  xiyangyang: "https://i0.hdslb.com/bfs/bangumi/image/4cd5d75b3ac57d30a114bbe21a9dacd4f7c2fa81.png",
+  zhuzhuxia: "https://i0.hdslb.com/bfs/bangumi/image/e9fe816c56bf0a9368a8b457bbf6bfe402bc6f83.png",
+  nezha: "https://i0.hdslb.com/bfs/bangumi/image/a9c49eeb3cbdb228c30b39881b54a3ce897c5a93.png",
+  hongmao: "https://i0.hdslb.com/bfs/bangumi/image/9a1bbe59a5e0d9f43a2136af00632dec93e32258.jpg",
+  wentian: "http://i0.hdslb.com/bfs/bangumi/image/8c2304bcb131ab9e330a777d69758f0405161b5f.png",
+  kaixinchaoren: "http://i0.hdslb.com/bfs/bangumi/image/2d5e8d7a0ddbbc3f43ce791fc7ab2089884f0816.png",
+  lucoguo: "https://i0.hdslb.com/bfs/bangumi/image/9a75a62616f37863b33a31d08e65e39144eda76c.png"
 };
 
 const CHARACTER_FACTS = [
@@ -86,6 +94,14 @@ const CHILD_CHARACTER_FACTS = [
   ["headson", "头太元", [], "“大头儿子”在后期衍生真人作品中使用过的姓名；老版动画中通常只称“大头儿子”。", "国产儿童动画"],
   ["tutu", "胡图图", [], "《大耳朵图图》的主角，平时大家多称他“图图”。", "国产儿童动画"],
   ["jiangliuer", "江流儿", [], "《围棋少年》中富有围棋天赋的主人公。", "国产儿童动画"],
+  ["guangtouqiang", "光头强", [], "《熊出没》中在森林里与熊大、熊二斗智斗勇的伐木队小老板。", "国产儿童动画"],
+  ["xiyangyang", "喜羊羊", [], "《喜羊羊与灰太狼》中机智勇敢的小羊。", "国产儿童动画"],
+  ["zhuzhuxia", "猪猪侠", [], "《猪猪侠》中喜欢吃棒棒糖、拥有超能力的主角。", "国产儿童动画"],
+  ["nezha", "哪吒", [], "《哪吒传奇》中手持火尖枪、脚踩风火轮的小英雄。", "国产儿童动画"],
+  ["hongmao", "虹猫", [], "《虹猫蓝兔七侠传》中的长虹剑传人。", "国产儿童动画"],
+  ["wentian", "问天", [], "《神兵小将》中与天晶兽并肩作战的少年。", "国产儿童动画"],
+  ["kaixinchaoren", "开心超人", [], "《开心宝贝》中活泼开朗的超人。", "国产儿童动画"],
+  ["lucoguo", "陆小果", [], "《果宝特攻》中使用蜜桃神剑的果宝战士。", "国产儿童动画"],
   ["takeshi", "刚田武", [], "《哆啦A梦》中绰号“胖虎”的角色。", "童年经典动画"],
   ["suneo", "骨川小夫", [], "《哆啦A梦》中大家常称“小夫”的角色。", "童年经典动画"],
   ["shizuka", "源静香", ["源静子"], "《哆啦A梦》中大雄的好朋友，中文常称“静香”。", "童年经典动画"],

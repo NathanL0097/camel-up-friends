@@ -13,7 +13,7 @@ function makeRoom(count = 3, settings = rules.defaultSettings(), random = () => 
 }
 
 test("本地基础题库提供3000多题并覆盖动漫和儿童动画角色等十七个领域", () => {
-  assert.equal(questions.LOCAL_QUESTIONS.length, 3064);
+  assert.equal(questions.LOCAL_QUESTIONS.length, 3072);
   assert.deepEqual([...new Set(questions.LOCAL_QUESTIONS.map((item) => item.category))], rules.CATEGORIES);
   assert.ok(questions.LOCAL_QUESTIONS.every((item) => item.prompt && item.answer && item.explanation));
   assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.kind === "judge").every((item) => item.options.length === 2));
@@ -22,7 +22,7 @@ test("本地基础题库提供3000多题并覆盖动漫和儿童动画角色等�
 
 test("儿童动画角色单独成类并支持猜完整姓名", () => {
   const childQuestions = questions.LOCAL_QUESTIONS.filter((item) => item.category === "儿童动画角色");
-  assert.equal(childQuestions.length, 10);
+  assert.equal(childQuestions.length, 18);
   assert.ok(childQuestions.every((item) => item.kind === "image-fill" && item.pack === "party"));
   assert.ok(childQuestions.some((item) => item.answer === "头太元" && item.explanation.includes("老版动画")));
   assert.ok(childQuestions.some((item) => item.answer === "胡图图"));
