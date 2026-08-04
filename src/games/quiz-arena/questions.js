@@ -1,4 +1,77 @@
-const CATEGORIES = ["生活常识", "历史", "地理", "科学", "科技", "体育", "影视", "音乐", "游戏", "美食", "文学艺术", "自然动物", "趣味冷知识", "网络文化", "时事政治"];
+const CATEGORIES = ["生活常识", "历史", "地理", "科学", "科技", "体育", "影视", "音乐", "游戏", "美食", "文学艺术", "自然动物", "趣味冷知识", "网络文化", "时事政治", "动漫角色"];
+
+const CHARACTER_IMAGE_QUERIES = {
+  naruto: "Naruto Uzumaki", sasuke: "Sasuke Uchiha", sakura: "Sakura Haruno", kakashi: "Kakashi Hatake",
+  luffy: "Monkey D. Luffy", zoro: "Roronoa Zoro", goku: "Goku Son", vegeta: "Vegeta",
+  usagi: "Usagi Tsukino", conan: "Conan Edogawa", tanjiro: "Tanjirou Kamado", nezuko: "Nezuko Kamado",
+  zenitsu: "Zenitsu Agatsuma", rengoku: "Kyoujurou Rengoku", gojo: "Satoru Gojou", yuji: "Yuuji Itadori",
+  megumi: "Megumi Fushiguro", nobara: "Nobara Kugisaki", anya: "Anya Forger", loid: "Loid Forger",
+  yor: "Yor Forger", eren: "Eren Yeager", mikasa: "Mikasa Ackerman", levi: "Levi",
+  light: "Light Yagami", lawliet: "L Lawliet", edward: "Edward Elric", alphonse: "Alphonse Elric",
+  kagome: "Kagome Higurashi", kazuto: "Kazuto Kirigaya", asuna: "Asuna Yuuki", shigeo: "Shigeo Kageyama",
+  reigen: "Arataka Reigen", violet: "Violet Evergarden", lelouch: "Lelouch Lamperouge", gintoki: "Gintoki Sakata",
+  shinpachi: "Shinpachi Shimura", jotaro: "Joutarou Kuujou", giorno: "Giorno Giovanna", shinji: "Shinji Ikari",
+  rei: "Rei Ayanami", asuka: "Asuka Langley Souryuu", ranma: "Ranma Saotome", akane: "Akane Tendo",
+  ichigo: "Ichigo Kurosaki", rukia: "Rukia Kuchiki", yusuke: "Yuusuke Urameshi", killua: "Killua Zoldyck",
+  pikachu: "Pikachu", doraemon: "Doraemon", totoro: "Totoro", chopper: "Tony Tony Chopper", happy: "Happy", korosensei: "Koro-sensei"
+};
+
+const CHARACTER_FACTS = [
+  ["naruto", "漩涡鸣人", [], "《火影忍者》的主角，第七班成员。"],
+  ["sasuke", "宇智波佐助", [], "《火影忍者》中宇智波一族的忍者。"],
+  ["sakura", "春野樱", [], "《火影忍者》第七班成员，擅长医疗忍术。"],
+  ["kakashi", "旗木卡卡西", [], "《火影忍者》第七班的指导上忍。"],
+  ["luffy", "蒙奇·D·路飞", ["蒙奇D路飞"], "《海贼王》中草帽海贼团船长。"],
+  ["zoro", "罗罗诺亚·索隆", ["罗罗诺亚索隆"], "《海贼王》中使用三刀流的剑士。"],
+  ["goku", "孙悟空", [], "《龙珠》的主要角色，来自赛亚人一族。"],
+  ["vegeta", "贝吉塔", [], "《龙珠》中的赛亚人王子。"],
+  ["usagi", "月野兔", [], "《美少女战士》的主角。"],
+  ["conan", "江户川柯南", [], "《名侦探柯南》中工藤新一缩小后的身份。"],
+  ["tanjiro", "灶门炭治郎", [], "《鬼灭之刃》的主角。"],
+  ["nezuko", "灶门祢豆子", ["灶门禰豆子"], "《鬼灭之刃》中炭治郎的妹妹。"],
+  ["zenitsu", "我妻善逸", [], "《鬼灭之刃》中使用雷之呼吸的剑士。"],
+  ["rengoku", "炼狱杏寿郎", [], "《鬼灭之刃》中的炎柱。"],
+  ["gojo", "五条悟", [], "《咒术回战》中的特级咒术师。"],
+  ["yuji", "虎杖悠仁", [], "《咒术回战》的主角。"],
+  ["megumi", "伏黑惠", [], "《咒术回战》中使用十种影法术的咒术师。"],
+  ["nobara", "钉崎野蔷薇", [], "《咒术回战》东京校一年级学生。"],
+  ["anya", "阿尼亚·福杰", ["阿尼亚福杰"], "《间谍过家家》中拥有读心能力的女孩。"],
+  ["loid", "洛伊德·福杰", ["洛伊德福杰"], "《间谍过家家》中代号黄昏的间谍。"],
+  ["yor", "约尔·福杰", ["约尔福杰"], "《间谍过家家》中代号荆棘公主的杀手。"],
+  ["eren", "艾伦·耶格尔", ["艾伦耶格尔"], "《进击的巨人》的主要角色。"],
+  ["mikasa", "三笠·阿克曼", ["三笠阿克曼"], "《进击的巨人》中的调查兵团成员。"],
+  ["levi", "利威尔·阿克曼", ["利威尔阿克曼"], "《进击的巨人》中的调查兵团兵长。"],
+  ["light", "夜神月", [], "《死亡笔记》的主要角色。"],
+  ["lawliet", "L·劳莱特", ["L劳莱特"], "《死亡笔记》中追查基拉的侦探。"],
+  ["edward", "爱德华·艾尔利克", ["爱德华艾尔利克"], "《钢之炼金术师》中的钢之炼金术师。"],
+  ["alphonse", "阿尔冯斯·艾尔利克", ["阿尔冯斯艾尔利克"], "《钢之炼金术师》中爱德华的弟弟。"],
+  ["kagome", "日暮戈薇", [], "《犬夜叉》中穿越到战国时代的少女。"],
+  ["kazuto", "桐谷和人", [], "《刀剑神域》中游戏名为桐人的主角。"],
+  ["asuna", "结城明日奈", [], "《刀剑神域》中游戏名为亚丝娜的角色。"],
+  ["shigeo", "影山茂夫", [], "《灵能百分百》中绰号龙套的超能力者。"],
+  ["reigen", "灵幻新隆", [], "《灵能百分百》中自称灵能力者的咨询师。"],
+  ["violet", "薇尔莉特·伊芙加登", ["薇尔莉特伊芙加登"], "《紫罗兰永恒花园》的主角。"],
+  ["lelouch", "鲁路修·兰佩路基", ["鲁路修兰佩路基"], "《反叛的鲁路修》的主角。"],
+  ["gintoki", "坂田银时", [], "《银魂》中万事屋的负责人。"],
+  ["shinpachi", "志村新八", [], "《银魂》中万事屋成员。"],
+  ["jotaro", "空条承太郎", [], "《JOJO的奇妙冒险》第三部主角。"],
+  ["giorno", "乔鲁诺·乔巴拿", ["乔鲁诺乔巴拿"], "《JOJO的奇妙冒险》第五部主角。"],
+  ["shinji", "碇真嗣", [], "《新世纪福音战士》的主角。"],
+  ["rei", "绫波丽", [], "《新世纪福音战士》中零号机驾驶员。"],
+  ["asuka", "惣流·明日香·兰格雷", ["惣流明日香兰格雷"], "《新世纪福音战士》中二号机驾驶员。"],
+  ["ranma", "早乙女乱马", [], "《乱马1/2》的主角。"],
+  ["akane", "天道茜", [], "《乱马1/2》的主要角色。"],
+  ["ichigo", "黑崎一护", [], "《死神》的主角。"],
+  ["rukia", "朽木露琪亚", [], "《死神》中来自尸魂界的死神。"],
+  ["yusuke", "浦饭幽助", [], "《幽游白书》的主角。"],
+  ["killua", "奇犽·揍敌客", ["奇犽揍敌客"], "《全职猎人》中出身杀手家族的猎人。"],
+  ["pikachu", "皮卡丘", [], "《宝可梦》中广为人知的电属性宝可梦。"],
+  ["doraemon", "哆啦A梦", ["多啦A梦"], "来自22世纪的猫型机器人。"],
+  ["totoro", "龙猫", ["托托罗"], "《龙猫》中居住在森林里的神秘生物。"],
+  ["chopper", "托尼托尼·乔巴", ["托尼托尼乔巴"], "《海贼王》中草帽海贼团的船医。"],
+  ["happy", "哈比", [], "《妖精的尾巴》中会飞的蓝色艾克希特。"],
+  ["korosensei", "杀老师", [], "《暗杀教室》中担任三年E班教师的神秘生物。"]
+];
 
 // 每条知识事实会生成20种等价问法；比赛抽题时按knowledgeKey去重，
 // 因此同一局不会用不同措辞重复考察同一个知识点。
@@ -197,7 +270,7 @@ function parseRow(category, row, rowIndex) {
 
 function buildLocalQuestions() {
   const questions = [];
-  for (const category of CATEGORIES) {
+  for (const category of Object.keys(FACT_ROWS)) {
     FACT_ROWS[category].map((row, index) => parseRow(category, row, index)).forEach((fact, factIndex) => {
       for (let variant = 0; variant < 20; variant += 1) {
         const optionPool = fact.kind === "judge" ? [fact.answer, fact.distractors[0]] : [fact.answer, ...fact.distractors];
@@ -220,6 +293,25 @@ function buildLocalQuestions() {
       }
     });
   }
+  CHARACTER_FACTS.forEach(([imageKey, answer, aliases, explanation], index) => {
+    questions.push({
+      id: `character-${imageKey}`,
+      knowledgeKey: `动漫角色-${imageKey}`,
+      category: "动漫角色",
+      pack: "party",
+      kind: "image-fill",
+      prompt: "请填写图中角色的完整姓名",
+      answer,
+      aliases: [answer, ...aliases],
+      answerLength: [...answer].filter((character) => !/[·.\s]/.test(character)).length,
+      options: [],
+      imageUrl: `/api/games/quiz-arena/character-image/${imageKey}`,
+      explanation,
+      source: "AniList角色图鉴",
+      updatedAt: "2026-08-04",
+      order: index
+    });
+  });
   return questions;
 }
 
@@ -257,4 +349,4 @@ function installRemoteQuestions(items) {
 function getQuestionBank() { return [...remoteQuestions, ...LOCAL_QUESTIONS]; }
 function questionPackInfo() { return { localCount: LOCAL_QUESTIONS.length, remoteCount: remoteQuestions.length, total: LOCAL_QUESTIONS.length + remoteQuestions.length, version: "2026.08.04", categories: CATEGORIES }; }
 
-module.exports = { CATEGORIES, LOCAL_QUESTIONS, getQuestionBank, installRemoteQuestions, questionPackInfo };
+module.exports = { CATEGORIES, CHARACTER_IMAGE_QUERIES, LOCAL_QUESTIONS, getQuestionBank, installRemoteQuestions, questionPackInfo };

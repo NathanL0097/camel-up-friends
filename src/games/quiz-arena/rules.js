@@ -12,7 +12,7 @@ const SURVIVAL_SKIPS = 1;
 const BUZZ_WIN_CORRECT = 7;
 const REACTIONS = ["egg", "tomato", "question", "applause"];
 const PACKS = ["all", "classic", "party"];
-const PARTY_CATEGORIES = ["网络文化", "影视", "音乐", "游戏", "美食"];
+const PARTY_CATEGORIES = ["网络文化", "影视", "音乐", "游戏", "美食", "动漫角色"];
 function packAllowsCategory(pack, category) { return pack === "all" || (pack === "party" ? PARTY_CATEGORIES.includes(category) : !PARTY_CATEGORIES.includes(category) && category !== "时事政治"); }
 
 function shuffle(items, random = Math.random) {
@@ -330,6 +330,7 @@ function publicRoom(room, viewerId = null, now = Date.now()) {
       prompt: visiblePrompt(source, now),
       fullyRevealed: source.mode !== "buzzer" || now - source.questionStartedAt >= PROMPT_REVEAL_SECONDS * 1000,
       answerLength: source.question.answerLength,
+      imageUrl: source.question.imageUrl,
       options: source.mode === "survival" && source.phase === "question" && source.activePlayerId === viewerId ? source.question.options : [],
       answer: ["result", "finished"].includes(source.phase) ? source.question.answer : undefined,
       explanation: ["result", "finished"].includes(source.phase) ? source.question.explanation : undefined

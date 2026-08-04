@@ -94,3 +94,20 @@
 @media(max-width:1050px){.quiz-layout{grid-template-columns:minmax(720px,1fr)}.quiz-info{grid-column:1;display:grid;grid-template-columns:1fr 1fr 1fr}.quiz-stage{min-height:710px}.quiz-question-card{width:61%}}
 @media(max-width:760px){.quiz-arena{min-width:940px}.quiz-layout{grid-template-columns:900px}.quiz-info{grid-column:1}.quiz-head-center{left:55%}}
 @media(prefers-reduced-motion:reduce){.quiz-starfield,.quiz-orbit,.quiz-arena-core i,.quiz-crown{animation:none}.quiz-player.newly-eliminated{animation:quiz-seat-drop .01s both}.quiz-elimination-fx{animation-duration:.8s}.quiz-falling-player{animation-duration:.7s}}
+
+/* 动漫角色影像填空题 */
+.quiz-question-card.has-character-image{width:min(65%,720px);min-height:500px;background:linear-gradient(145deg,#0b2845f4,#160d35f0)}
+.quiz-question-card.has-character-image .quiz-question{grid-template-columns:178px minmax(0,1fr);gap:27px;min-height:255px;padding:20px 68px 8px 18px;text-align:left}
+.quiz-question-card.has-character-image .quiz-question h1{font-size:clamp(20px,1.8vw,29px);line-height:1.55}
+.quiz-character-visual{position:relative;width:178px;height:238px;margin:0;border:1px solid #6beaff87;border-radius:20px;background:radial-gradient(circle,#1e5b7c,#071426);box-shadow:0 0 0 5px #4be5ff0b,0 13px 30px #0009,0 0 28px #54dcff2b;overflow:hidden;transform:perspective(700px) rotateY(3deg)}
+.quiz-character-visual::before{content:"";position:absolute;z-index:2;inset:0;background:linear-gradient(105deg,transparent 35%,#b8fbff2e 49%,transparent 61%);transform:translateX(-130%);animation:quiz-image-scan 3.2s ease-in-out infinite}
+.quiz-character-visual::after{content:"";position:absolute;z-index:2;inset:0;background:repeating-linear-gradient(0deg,transparent 0 4px,#5cecff10 5px);pointer-events:none}
+.quiz-character-visual img{display:block;width:100%;height:203px;object-fit:cover;object-position:center 13%;filter:saturate(.93) contrast(1.04)}
+.quiz-character-visual figcaption{position:absolute;z-index:3;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;gap:7px;height:35px;border-top:1px solid #58e5ff4d;background:#061425eb;color:#83e9f7;font:800 8px "Courier New",monospace;letter-spacing:1.5px}
+.quiz-character-visual figcaption i{width:6px;height:6px;border-radius:50%;background:#72ffb4;box-shadow:0 0 8px #5bffae;animation:quiz-signal 1s ease-in-out infinite alternate}
+.quiz-character-visual.image-error img{display:none}.quiz-character-visual.image-error::before{content:"影像信号中断";display:grid;place-items:center;transform:none;color:#a8d5df;font-size:11px;animation:none}
+.quiz-question-card.has-character-image .quiz-text-answer{margin:11px auto 0}.quiz-question-card.has-character-image .quiz-answer-length{height:12px}
+@keyframes quiz-image-scan{0%,28%{transform:translateX(-130%)}70%,100%{transform:translateX(130%)}}
+@keyframes quiz-signal{to{opacity:.35}}
+@media(max-width:1050px){.quiz-question-card.has-character-image{width:64%}}
+@media(prefers-reduced-motion:reduce){.quiz-character-visual::before,.quiz-character-visual figcaption i{animation:none}}

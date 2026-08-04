@@ -6,7 +6,7 @@ const { Server } = require("socket.io");
 const { DEFAULT_GAME_ID, getGame, listGames } = require("./src/games");
 const { createRoomService } = require("./src/platform/room-service");
 const { createSocketPresence } = require("./src/platform/socket-presence");
-const { installRemoteQuestions, questionPackInfo } = require("./src/games/quiz-arena/questions");
+const { installRemoteQuestions, questionPackInfo, CHARACTER_IMAGE_QUERIES } = require("./src/games/quiz-arena/questions");
 
 const app = express();
 const server = createServer(app);
@@ -14,11 +14,53 @@ const io = new Server(server);
 const rooms = new Map();
 const socketPresence = createSocketPresence();
 const PORT = Number(process.env.PORT || 3000);
+const characterImageCache = new Map();
+
+async function resolveCharacterImage(imageKey) {
+  const cached = characterImageCache.get(imageKey);
+  if (cached) return await cached;
+  const search = CHARACTER_IMAGE_QUERIES[imageKey];
+  if (!search) throw new Error("未知角色图鉴编号");
+  const request = (async () => {
+    const query = "query ($search: String) { Page(perPage: 1) { characters(search: $search) { image { large } } } }";
+    const response = await fetch("https://graphql.anilist.co", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "User-Agent": "FriendsBoardGameQuiz/1.0" },
+      body: JSON.stringify({ query, variables: { search } }),
+      signal: AbortSignal.timeout(8000)
+    });
+    const payload = await response.json();
+    const imageUrl = payload?.data?.Page?.characters?.[0]?.image?.large;
+    if (!response.ok || !imageUrl) throw new Error(`角色图片服务暂不可用 (${response.status})`);
+    return imageUrl;
+  })();
+  characterImageCache.set(imageKey, request);
+  try {
+    const imageUrl = await request;
+    characterImageCache.set(imageKey, imageUrl);
+    return imageUrl;
+  } catch (error) {
+    characterImageCache.delete(imageKey);
+    throw error;
+  }
+}
+
+function characterImageFallback() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 480"><defs><radialGradient id="g"><stop stop-color="#254b73"/><stop offset="1" stop-color="#071426"/></radialGradient></defs><rect width="360" height="480" rx="28" fill="url(#g)"/><circle cx="180" cy="170" r="74" fill="#65e7ff" opacity=".22"/><path d="M104 390c10-91 43-138 76-138s66 47 76 138" fill="#8b6dff" opacity=".3"/><text x="180" y="420" fill="#9edfeb" font-family="sans-serif" font-size="16" text-anchor="middle">影像信号暂时中断</text></svg>`;
+}
 
 app.use(express.static(path.join(__dirname, "public")));
 app.get("/health", (_req, res) => res.json({ ok: true, rooms: rooms.size }));
 app.get("/api/games", (_req, res) => res.json({ games: listGames() }));
 app.get("/api/games/quiz-arena/question-pack", (_req, res) => res.json(questionPackInfo()));
+app.get("/api/games/quiz-arena/character-image/:imageKey", async (req, res) => {
+  try {
+    const imageUrl = await resolveCharacterImage(req.params.imageKey);
+    res.set("Cache-Control", "public, max-age=86400").redirect(302, imageUrl);
+  } catch (_error) {
+    res.set("Cache-Control", "public, max-age=300").type("image/svg+xml").send(characterImageFallback());
+  }
+});
 app.get("/room/:code", (_req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
 async function refreshQuizPack() {

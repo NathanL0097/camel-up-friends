@@ -12,12 +12,33 @@ function makeRoom(count = 3, settings = rules.defaultSettings(), random = () => 
   return room;
 }
 
-test("本地基础题库提供3000题并覆盖全部十五个领域", () => {
-  assert.equal(questions.LOCAL_QUESTIONS.length, 3000);
+test("本地基础题库提供3000多题并覆盖动漫角色等十六个领域", () => {
+  assert.equal(questions.LOCAL_QUESTIONS.length, 3054);
   assert.deepEqual([...new Set(questions.LOCAL_QUESTIONS.map((item) => item.category))], rules.CATEGORIES);
   assert.ok(questions.LOCAL_QUESTIONS.every((item) => item.prompt && item.answer && item.explanation));
   assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.kind === "judge").every((item) => item.options.length === 2));
   assert.ok(questions.LOCAL_QUESTIONS.every((item) => !item.prompt.includes("下面这道题的答案是")));
+});
+
+test("动漫角色题公开图片但隐藏答案并要求当前玩家填全名", () => {
+  const settings = { mode: "survival", pack: "party", categories: ["动漫角色"] };
+  const room = makeRoom(3, settings);
+  const active = room.game.activePlayerId;
+  assert.equal(room.game.question.kind, "image-fill");
+  assert.match(room.game.question.imageUrl, /^\/api\/games\/quiz-arena\/character-image\//);
+  const view = rules.publicRoom(room, active, 1000);
+  assert.equal(view.game.question.imageUrl, room.game.question.imageUrl);
+  assert.equal(view.game.question.answer, undefined);
+  rules.submitSurvival(room, active, room.game.question.answer.replaceAll("·", ""), 2000);
+  assert.equal(room.game.result.correct, true);
+});
+
+test("每道动漫角色题都有受控图片查询且不会把搜索词发给客户端", () => {
+  const characterQuestions = questions.LOCAL_QUESTIONS.filter((item) => item.category === "动漫角色");
+  assert.equal(characterQuestions.length, 54);
+  assert.ok(characterQuestions.every((item) => item.kind === "image-fill" && item.aliases.includes(item.answer)));
+  assert.deepEqual(new Set(characterQuestions.map((item) => item.imageUrl.split("/").at(-1))), new Set(Object.keys(questions.CHARACTER_IMAGE_QUERIES)));
+  assert.ok(characterQuestions.every((item) => !item.imageUrl.includes("AniList") && !item.imageUrl.includes("search")));
 });
 
 test("客户端使用环形站台、生命核心和淘汰坠落反馈", () => {
