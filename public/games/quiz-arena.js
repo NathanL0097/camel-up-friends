@@ -2,7 +2,7 @@
   window.GameClientFactories ||= {};
   window.GameClientFactories["quiz-arena"] = ({ socket, $, show, escapeHtml, getMyId, copyInvite }) => {
     const act = (action, payload = {}) => socket.emit("game:action", { action, payload });
-    const categories = ["生活常识", "历史", "地理", "科学", "科技", "体育", "影视", "音乐", "游戏", "美食", "文学艺术", "自然动物", "趣味冷知识", "网络文化", "时事政治", "动漫角色"];
+    const categories = ["生活常识", "历史", "地理", "科学", "科技", "体育", "影视", "音乐", "游戏", "美食", "文学艺术", "自然动物", "趣味冷知识", "网络文化", "时事政治", "动漫角色", "儿童动画角色"];
     const reactionIcons = { egg: "🥚", tomato: "🍅", question: "❓", applause: "👏" };
     const challengeNames = { truth: "真心话", dare: "大冒险", fun: "欢乐挑战" };
     let latestRoom = null;
@@ -24,7 +24,7 @@
     }
 
     function rules() {
-      $("rulesContent").innerHTML = `<div class="eyebrow">知识派对 · 2–6人</div><h2>站神答题王</h2><ol><li><strong>站神模式：</strong>所有玩家按随机顺序循环答题，每人3颗生命和1次跳过。每题20秒；答错或超时失去1颗生命，最后存活者成为站神。</li><li><strong>秘密选项：</strong>所有人都能看到题干，但只有当前玩家能看到选项。答题后公开玩家答案、正确答案与知识解析。</li><li><strong>动漫角色：</strong>出现人物影像时不提供选项，当前答题者必须输入图中角色的完整姓名；常见间隔符号不影响判定。</li><li><strong>传递难题：</strong>跳过不扣生命且不揭晓答案，同一道题交给下一位玩家；下一位如有跳过也能继续传递。</li><li><strong>抢答模式：</strong>题干在8秒内逐字揭示，整题有30秒公共抢答时间。抢到后公共时间暂停，该玩家独享20秒输入时间。</li><li><strong>两次错误：</strong>第一位抢答者答错后，其他玩家可以继续抢；累计两人答错即揭晓。第一位答对7题且仍有生命的玩家获胜。</li><li><strong>捣蛋鬼：</strong>生命归零后可发送鸡蛋、番茄、问号和掌声；每3题共同从三个领域中投票决定下一题。</li><li><strong>赛后：</strong>站神分别为每位失败玩家选择真心话、大冒险或欢乐挑战，每人可以免费刷新一次。</li></ol><p class="rules-note">题库包含3000+道本地题目，并支持服务端在线题包更新；同一场不会重复考察同一个知识点。</p>`;
+      $("rulesContent").innerHTML = `<div class="eyebrow">知识派对 · 2–6人</div><h2>站神答题王</h2><ol><li><strong>站神模式：</strong>所有玩家按随机顺序循环答题，每人3颗生命和1次跳过。每题20秒；答错或超时失去1颗生命，最后存活者成为站神。</li><li><strong>秘密选项：</strong>所有人都能看到题干，但只有当前玩家能看到选项。答题后公开玩家答案、正确答案与知识解析。</li><li><strong>角色识图：</strong>“动漫角色”和“儿童动画角色”都会出现人物影像，不提供选项；当前答题者需输入完整姓名，常见间隔符号不影响判定。</li><li><strong>传递难题：</strong>跳过不扣生命且不揭晓答案，同一道题交给下一位玩家；下一位如有跳过也能继续传递。</li><li><strong>抢答模式：</strong>题干在8秒内逐字揭示，整题有30秒公共抢答时间。抢到后公共时间暂停，该玩家独享20秒输入时间。</li><li><strong>两次错误：</strong>第一位抢答者答错后，其他玩家可以继续抢；累计两人答错即揭晓。第一位答对7题且仍有生命的玩家获胜。</li><li><strong>捣蛋鬼：</strong>生命归零后可发送鸡蛋、番茄、问号和掌声；每3题共同从三个领域中投票决定下一题。</li><li><strong>赛后：</strong>站神分别为每位失败玩家选择真心话、大冒险或欢乐挑战，每人可以免费刷新一次。</li></ol><p class="rules-note">题库包含3000+道本地题目，并支持服务端在线题包更新；同一场不会重复考察同一个知识点。</p>`;
     }
 
     function renderLobby(room) {
@@ -36,7 +36,7 @@
         socket.emit("game:configure", { mode: $("quizMode").value, pack: $("quizPack").value, categories: selected });
       };
       if (mine) $("quizPack").onchange = () => {
-        const party = ["网络文化", "影视", "音乐", "游戏", "美食", "动漫角色"], pack = $("quizPack").value;
+        const party = ["网络文化", "影视", "音乐", "游戏", "美食", "动漫角色", "儿童动画角色"], pack = $("quizPack").value;
         document.querySelectorAll(".quiz-category-select input").forEach((input) => { input.checked = pack === "all" || (pack === "party" ? party.includes(input.value) : !party.includes(input.value) && input.value !== "时事政治"); });
       };
     }
@@ -154,7 +154,7 @@
       $("quizGoal").textContent = game.mode === "buzzer" ? "率先答对7题" : "坚持到最后";
       $("quizStatus").textContent = game.phase === "buzz-answer" ? `${room.players.find((item) => item.id === game.answererId)?.name || "玩家"}拥有答题权` : game.phase === "category-vote" ? "捣蛋鬼领域投票" : game.phase === "result" ? "答案与知识解析" : game.mode === "buzzer" ? "题干逐字揭示中" : `${room.players.find((item) => item.id === game.activePlayerId)?.name || "玩家"}的回合`;
       $("quizCategory").innerHTML = `<span>${escapeHtml(game.question?.category || "知识竞技")}</span>${game.mode === "buzzer" && game.phase !== "result" ? `<b>答案 ${game.question?.answerLength || "?"} 个字</b>` : ""}`;
-      const characterImage = game.question?.imageUrl ? `<figure class="quiz-character-visual"><img id="quizCharacterImage" src="${escapeHtml(game.question.imageUrl)}" alt="待识别的动漫角色" referrerpolicy="no-referrer"><figcaption><i></i> 人物影像档案</figcaption></figure>` : "";
+      const characterImage = game.question?.imageUrl ? `<figure class="quiz-character-visual"><img id="quizCharacterImage" src="${escapeHtml(game.question.imageUrl)}" alt="待识别的动画角色" referrerpolicy="no-referrer"><figcaption><i></i> 人物影像档案</figcaption></figure>` : "";
       $("quizQuestion").innerHTML = game.question ? `${characterImage}<h1>${escapeHtml(game.question.prompt)}${game.mode === "buzzer" && !game.question.fullyRevealed && game.phase === "buzz-open" ? '<i class="typing-cursor"></i>' : ""}</h1>` : "";
       $("quizAnswerLength").textContent = game.mode === "buzzer" && ["buzz-open", "buzz-answer"].includes(game.phase) ? `本题答案：${game.question.answerLength}个字` : "";
       $("quizControls").innerHTML = game.status === "playing" ? renderControls(room) : "";

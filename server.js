@@ -6,7 +6,7 @@ const { Server } = require("socket.io");
 const { DEFAULT_GAME_ID, getGame, listGames } = require("./src/games");
 const { createRoomService } = require("./src/platform/room-service");
 const { createSocketPresence } = require("./src/platform/socket-presence");
-const { installRemoteQuestions, questionPackInfo, CHARACTER_IMAGE_QUERIES } = require("./src/games/quiz-arena/questions");
+const { installRemoteQuestions, questionPackInfo, CHARACTER_IMAGE_QUERIES, CHILD_CHARACTER_IMAGE_URLS } = require("./src/games/quiz-arena/questions");
 
 const app = express();
 const server = createServer(app);
@@ -19,9 +19,11 @@ const characterImageCache = new Map();
 async function resolveCharacterImage(imageKey) {
   const cached = characterImageCache.get(imageKey);
   if (cached) return await cached;
+  const fixedImageUrl = CHILD_CHARACTER_IMAGE_URLS[imageKey];
   const search = CHARACTER_IMAGE_QUERIES[imageKey];
-  if (!search) throw new Error("未知角色图鉴编号");
+  if (!search && !fixedImageUrl) throw new Error("未知角色图鉴编号");
   const request = (async () => {
+    if (fixedImageUrl) return fixedImageUrl;
     const query = "query ($search: String) { Page(perPage: 1) { characters(search: $search) { image { large } } } }";
     const response = await fetch("https://graphql.anilist.co", {
       method: "POST",

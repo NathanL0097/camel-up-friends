@@ -1,4 +1,4 @@
-const CATEGORIES = ["生活常识", "历史", "地理", "科学", "科技", "体育", "影视", "音乐", "游戏", "美食", "文学艺术", "自然动物", "趣味冷知识", "网络文化", "时事政治", "动漫角色"];
+const CATEGORIES = ["生活常识", "历史", "地理", "科学", "科技", "体育", "影视", "音乐", "游戏", "美食", "文学艺术", "自然动物", "趣味冷知识", "网络文化", "时事政治", "动漫角色", "儿童动画角色"];
 
 const CHARACTER_IMAGE_QUERIES = {
   naruto: "Naruto Uzumaki", sasuke: "Sasuke Uchiha", sakura: "Sakura Haruno", kakashi: "Kakashi Hatake",
@@ -13,7 +13,16 @@ const CHARACTER_IMAGE_QUERIES = {
   shinpachi: "Shinpachi Shimura", jotaro: "Joutarou Kuujou", giorno: "Giorno Giovanna", shinji: "Shinji Ikari",
   rei: "Rei Ayanami", asuka: "Asuka Langley Souryuu", ranma: "Ranma Saotome", akane: "Akane Tendo",
   ichigo: "Ichigo Kurosaki", rukia: "Rukia Kuchiki", yusuke: "Yuusuke Urameshi", killua: "Killua Zoldyck",
-  pikachu: "Pikachu", doraemon: "Doraemon", totoro: "Totoro", chopper: "Tony Tony Chopper", happy: "Happy", korosensei: "Koro-sensei"
+  pikachu: "Pikachu", doraemon: "Doraemon", totoro: "Totoro", chopper: "Tony Tony Chopper", happy: "Happy", korosensei: "Koro-sensei",
+  takeshi: "Takeshi Gouda", suneo: "Suneo Honekawa", shizuka: "Shizuka Minamoto", momoko: "Momoko Sakura",
+  kinomoto: "Sakura Kinomoto", shinnosuke: "Shinnosuke Nohara", nobita: "Nobita Nobi"
+};
+
+// 国产儿童动画暂无稳定的开放角色图鉴 API，因此只使用受控键名和已核对的正版剧集封面。
+const CHILD_CHARACTER_IMAGE_URLS = {
+  headson: "https://i0.hdslb.com/bfs/bangumi/image/62da3f13e9337b20e30322be27800625a9dfa5b8.jpg",
+  tutu: "https://i0.hdslb.com/bfs/bangumi/image/a28c1aba5ea17b8fab4890e1b7a1af76f87872b7.png",
+  jiangliuer: "https://i0.hdslb.com/bfs/bangumi/image/713ce95614318de20eda1e75eb72a3bba19c1628.png"
 };
 
 const CHARACTER_FACTS = [
@@ -71,6 +80,19 @@ const CHARACTER_FACTS = [
   ["chopper", "托尼托尼·乔巴", ["托尼托尼乔巴"], "《海贼王》中草帽海贼团的船医。"],
   ["happy", "哈比", [], "《妖精的尾巴》中会飞的蓝色艾克希特。"],
   ["korosensei", "杀老师", [], "《暗杀教室》中担任三年E班教师的神秘生物。"]
+];
+
+const CHILD_CHARACTER_FACTS = [
+  ["headson", "头太元", [], "“大头儿子”在后期衍生真人作品中使用过的姓名；老版动画中通常只称“大头儿子”。", "国产儿童动画"],
+  ["tutu", "胡图图", [], "《大耳朵图图》的主角，平时大家多称他“图图”。", "国产儿童动画"],
+  ["jiangliuer", "江流儿", [], "《围棋少年》中富有围棋天赋的主人公。", "国产儿童动画"],
+  ["takeshi", "刚田武", [], "《哆啦A梦》中绰号“胖虎”的角色。", "童年经典动画"],
+  ["suneo", "骨川小夫", [], "《哆啦A梦》中大家常称“小夫”的角色。", "童年经典动画"],
+  ["shizuka", "源静香", ["源静子"], "《哆啦A梦》中大雄的好朋友，中文常称“静香”。", "童年经典动画"],
+  ["momoko", "樱桃子", [], "《樱桃小丸子》主角“小丸子”的姓名。", "童年经典动画"],
+  ["kinomoto", "木之本樱", [], "《魔卡少女樱》中收集库洛牌的主角。", "童年经典动画"],
+  ["shinnosuke", "野原新之助", [], "《蜡笔小新》主角“小新”的完整姓名。", "童年经典动画"],
+  ["nobita", "野比大雄", [], "《哆啦A梦》中大家常称“大雄”的角色。", "童年经典动画"]
 ];
 
 // 每条知识事实会生成20种等价问法；比赛抽题时按knowledgeKey去重，
@@ -312,6 +334,25 @@ function buildLocalQuestions() {
       order: index
     });
   });
+  CHILD_CHARACTER_FACTS.forEach(([imageKey, answer, aliases, explanation, source], index) => {
+    questions.push({
+      id: `child-character-${imageKey}`,
+      knowledgeKey: `儿童动画角色-${imageKey}`,
+      category: "儿童动画角色",
+      pack: "party",
+      kind: "image-fill",
+      prompt: "请填写图中角色的完整姓名",
+      answer,
+      aliases: [answer, ...aliases],
+      answerLength: [...answer].filter((character) => !/[·.\s]/.test(character)).length,
+      options: [],
+      imageUrl: `/api/games/quiz-arena/character-image/${imageKey}`,
+      explanation,
+      source,
+      updatedAt: "2026-08-04",
+      order: index
+    });
+  });
   return questions;
 }
 
@@ -349,4 +390,4 @@ function installRemoteQuestions(items) {
 function getQuestionBank() { return [...remoteQuestions, ...LOCAL_QUESTIONS]; }
 function questionPackInfo() { return { localCount: LOCAL_QUESTIONS.length, remoteCount: remoteQuestions.length, total: LOCAL_QUESTIONS.length + remoteQuestions.length, version: "2026.08.04", categories: CATEGORIES }; }
 
-module.exports = { CATEGORIES, CHARACTER_IMAGE_QUERIES, LOCAL_QUESTIONS, getQuestionBank, installRemoteQuestions, questionPackInfo };
+module.exports = { CATEGORIES, CHARACTER_IMAGE_QUERIES, CHILD_CHARACTER_IMAGE_URLS, LOCAL_QUESTIONS, getQuestionBank, installRemoteQuestions, questionPackInfo };

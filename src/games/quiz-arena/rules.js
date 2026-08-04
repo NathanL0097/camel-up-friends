@@ -12,7 +12,7 @@ const SURVIVAL_SKIPS = 1;
 const BUZZ_WIN_CORRECT = 7;
 const REACTIONS = ["egg", "tomato", "question", "applause"];
 const PACKS = ["all", "classic", "party"];
-const PARTY_CATEGORIES = ["网络文化", "影视", "音乐", "游戏", "美食", "动漫角色"];
+const PARTY_CATEGORIES = ["网络文化", "影视", "音乐", "游戏", "美食", "动漫角色", "儿童动画角色"];
 function packAllowsCategory(pack, category) { return pack === "all" || (pack === "party" ? PARTY_CATEGORIES.includes(category) : !PARTY_CATEGORIES.includes(category) && category !== "时事政治"); }
 
 function shuffle(items, random = Math.random) {

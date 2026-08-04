@@ -12,12 +12,23 @@ function makeRoom(count = 3, settings = rules.defaultSettings(), random = () => 
   return room;
 }
 
-test("本地基础题库提供3000多题并覆盖动漫角色等十六个领域", () => {
-  assert.equal(questions.LOCAL_QUESTIONS.length, 3054);
+test("本地基础题库提供3000多题并覆盖动漫和儿童动画角色等十七个领域", () => {
+  assert.equal(questions.LOCAL_QUESTIONS.length, 3064);
   assert.deepEqual([...new Set(questions.LOCAL_QUESTIONS.map((item) => item.category))], rules.CATEGORIES);
   assert.ok(questions.LOCAL_QUESTIONS.every((item) => item.prompt && item.answer && item.explanation));
   assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.kind === "judge").every((item) => item.options.length === 2));
   assert.ok(questions.LOCAL_QUESTIONS.every((item) => !item.prompt.includes("下面这道题的答案是")));
+});
+
+test("儿童动画角色单独成类并支持猜完整姓名", () => {
+  const childQuestions = questions.LOCAL_QUESTIONS.filter((item) => item.category === "儿童动画角色");
+  assert.equal(childQuestions.length, 10);
+  assert.ok(childQuestions.every((item) => item.kind === "image-fill" && item.pack === "party"));
+  assert.ok(childQuestions.some((item) => item.answer === "头太元" && item.explanation.includes("老版动画")));
+  assert.ok(childQuestions.some((item) => item.answer === "胡图图"));
+  assert.ok(childQuestions.some((item) => item.answer === "刚田武"));
+  const imageKeys = childQuestions.map((item) => item.imageUrl.split("/").at(-1));
+  assert.ok(imageKeys.every((key) => questions.CHARACTER_IMAGE_QUERIES[key] || questions.CHILD_CHARACTER_IMAGE_URLS[key]));
 });
 
 test("动漫角色题公开图片但隐藏答案并要求当前玩家填全名", () => {
@@ -37,7 +48,7 @@ test("每道动漫角色题都有受控图片查询且不会把搜索词发给�
   const characterQuestions = questions.LOCAL_QUESTIONS.filter((item) => item.category === "动漫角色");
   assert.equal(characterQuestions.length, 54);
   assert.ok(characterQuestions.every((item) => item.kind === "image-fill" && item.aliases.includes(item.answer)));
-  assert.deepEqual(new Set(characterQuestions.map((item) => item.imageUrl.split("/").at(-1))), new Set(Object.keys(questions.CHARACTER_IMAGE_QUERIES)));
+  assert.ok(characterQuestions.every((item) => questions.CHARACTER_IMAGE_QUERIES[item.imageUrl.split("/").at(-1)]));
   assert.ok(characterQuestions.every((item) => !item.imageUrl.includes("AniList") && !item.imageUrl.includes("search")));
 });
 
