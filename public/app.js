@@ -44,7 +44,7 @@ function setAccessState(active, expiresAt = null, role = accessRole) {
   const join = $("joinButton");
   const admin = $("adminButton");
   if (panel) panel.classList.toggle("active", active);
-  if (status) status.textContent = active ? `测试权限有效至 ${formatAccessExpiry(accessExpiresAt)}` : "请输入激活码后开始使用";
+  if (status) status.textContent = active ? (accessRole === "admin" ? "管理员权限永久有效" : `测试权限有效至 ${formatAccessExpiry(accessExpiresAt)}`) : "请输入激活码后开始使用";
   if (create) create.disabled = !active;
   if (join) join.disabled = !active;
   if (admin) admin.classList.toggle("hidden", !(active && accessRole === "admin"));
@@ -234,5 +234,5 @@ socket.on("connect", async () => {
 });
 socket.on("disconnect", () => toast("连接中断，正在尝试重连…"));
 
-setAccessState(Boolean(accessToken && accessExpiresAt > Date.now()), accessExpiresAt || null, accessRole);
+setAccessState(Boolean(accessToken && (accessRole === "admin" || accessExpiresAt > Date.now())), accessExpiresAt || null, accessRole);
 loadGameCatalog();

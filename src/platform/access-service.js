@@ -29,7 +29,7 @@ function createAccessService({ durationMs = 30 * 60 * 60_000 } = {}) {
     const role = hash === ADMIN_CODE_HASH ? "admin" : "tester";
     if ((!allowed.has(hash) && role !== "admin") || redeemed.has(hash)) throw new Error("激活码无效或已经使用");
     const token = crypto.randomBytes(32).toString("base64url");
-    const expiresAt = Date.now() + durationMs;
+    const expiresAt = role === "admin" ? null : Date.now() + durationMs;
     redeemed.add(hash);
     grants.set(token, { expiresAt, role });
     return { token, expiresAt, role };
@@ -38,7 +38,7 @@ function createAccessService({ durationMs = 30 * 60 * 60_000 } = {}) {
   function valid(token, requiredRole = null) {
     if (!token || !grants.has(token)) return false;
     const grant = grants.get(token);
-    if (grant.expiresAt <= Date.now()) {
+    if (grant.expiresAt && grant.expiresAt <= Date.now()) {
       grants.delete(token);
       return false;
     }
