@@ -35,6 +35,7 @@ test("词库覆盖丰富领域且刷新不会立刻重复", () => {
   assert.equal(rules.WORDS.find((item) => item.word === "钢琴").category, "乐器");
   assert.equal(rules.WORDS.some((item) => item.word === "双簧管"), false);
   assert.ok(rules.WORDS.some((item) => item.category === "搞笑动作"));
+  assert.equal(rules.WORDS.some((item) => item.word === "鸟和鸟笼"), false);
   rules.refreshWords(room, artistId, 1_001_000);
   const nextWords = room.game.wordChoices.map((choice) => choice.word);
   assert.equal(nextWords.some((word) => firstWords.includes(word)), false);

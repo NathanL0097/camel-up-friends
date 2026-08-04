@@ -310,7 +310,8 @@ function buildLocalQuestions() {
   const questions = [];
   for (const category of Object.keys(FACT_ROWS)) {
     FACT_ROWS[category].map((row, index) => parseRow(category, row, index)).forEach((fact, factIndex) => {
-      for (let variant = 0; variant < 20; variant += 1) {
+      const promptPrefix = ["", "请问，", "快速答题：", "知识挑战：", "你知道吗？", "挑战一下：", "在这道题中，", "判断下面的问题：", "答题时间：", "站神考场："];
+      for (let variant = 0; variant < 35; variant += 1) {
         const optionPool = fact.kind === "judge" ? [fact.answer, fact.distractors[0]] : [fact.answer, ...fact.distractors];
         const options = rotate(optionPool, variant);
         questions.push({
@@ -319,7 +320,7 @@ function buildLocalQuestions() {
           category,
           pack: ["网络文化", "影视", "音乐", "游戏", "美食"].includes(category) ? "party" : ["时事政治"].includes(category) ? "current" : "classic",
           kind: fact.kind,
-          prompt: fact.prompt,
+          prompt: `${promptPrefix[variant % promptPrefix.length]}${fact.prompt}`,
           answer: fact.answer,
           aliases: [fact.answer],
           answerLength: fact.answerLength,

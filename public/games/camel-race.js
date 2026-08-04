@@ -19,6 +19,14 @@
     $("partnershipButton").onclick = () => emitAction("partner", { partnerId: $("partnershipPlayer").value });
     $("gameRulesButton").onclick = () => $("rulesDialog").showModal();
     $("gameCopyButton").onclick = copyInvite;
+    function relocateFloatingControls() {
+      const track = $("track");
+      const board = track?.parentElement;
+      if (!track || !board) return;
+      const destination = window.matchMedia?.("(max-width: 720px)").matches ? board : track;
+      [$("diceZone"), $("actions")].filter(Boolean).forEach((control) => destination.appendChild(control));
+    }
+    window.addEventListener("resize", relocateFloatingControls, { passive: true });
 
     function renderGame(room) {
       const myId = getMyId();
@@ -96,7 +104,8 @@
         html += `<div class="space ${space === 16 ? "finish" : ""} ${tile ? `has-track-tile ${tile.type}` : ""}" data-space="${space}" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%"><span class="space-number">${space}${space === 16 ? " · 终点" : ""}</span>${tile ? `<span class="track-tile ${tile.type}" style="--owner-color:${playerMarkerColor(ownerIndex)}" title="${escapeHtml(owner?.name || "玩家")}的${tile.type === "oasis" ? "绿洲" : "幻境"}"><b>${tile.type === "oasis" ? "+1" : "−1"}</b><em>${escapeHtml((owner?.name || "玩").slice(0, 1))}</em></span>` : ""}<div class="camel-stack">${stack.map((color, stackIndex) => camelMarkup(color, color === leader, stackIndex)).join("")}</div></div>`;
       }
       track.innerHTML = html;
-      floatingControls.forEach((control) => track.appendChild(control));
+      const mobile = window.matchMedia?.("(max-width: 720px)").matches;
+      floatingControls.forEach((control) => (mobile ? track.parentElement : track).appendChild(control));
     }
 
     function getLeader(game) {

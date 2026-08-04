@@ -12,8 +12,8 @@ function makeRoom(count = 3, settings = rules.defaultSettings(), random = () => 
   return room;
 }
 
-test("本地基础题库提供3000多题并覆盖动漫和儿童动画角色等十七个领域", () => {
-  assert.equal(questions.LOCAL_QUESTIONS.length, 3072);
+test("本地基础题库提供5000多题并覆盖动漫和儿童动画角色等十七个领域", () => {
+  assert.ok(questions.LOCAL_QUESTIONS.length >= 5000);
   assert.deepEqual([...new Set(questions.LOCAL_QUESTIONS.map((item) => item.category))], rules.CATEGORIES);
   assert.ok(questions.LOCAL_QUESTIONS.every((item) => item.prompt && item.answer && item.explanation));
   assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.kind === "judge").every((item) => item.options.length === 2));

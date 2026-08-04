@@ -17,6 +17,18 @@ const ADMIN_CODE_HASHES = new Set([
   "e4a3d83d6d5b9f0eca380b80310800b6f117d0f58663e9b68ae624838ca9e152",
   "49295cc2300f42fc0ef97dcb68f156245368f5dcba07edbea6dba65b3544c86b"
 ]);
+const LONG_CODE_HASHES = new Set([
+  "ec5f9d1b928c130b6e5b42608f6c60c2ec2db109e0dcf986c68e00a77b38c90f",
+  "72ee3e7e84ee8cfce5fac4361615fb3ba504d224bf6c804eb49e0dba28a356e0",
+  "602d1ecd538bc78f4a43257a9246d7e4623328c243056f38375871688f263176",
+  "c25f9f91f8d4fae1ec6985968deab3c127db5756b1e95485cfe6f2781ddf82d3",
+  "ac6da8fc6c91365c4303259bb3c61f31ec263216cbdf6a1cd906d743e43de6fd",
+  "681e85e858b619b9327e7a7f15b281dc0a737c7202421f6c2bb070693d17f231",
+  "156b89f23298fe35dd99b0e9e6ebb51690ca74bb9f68401a06398098a47e10d4",
+  "e7adbc8c473536314aa4f987e2e88b69f174b5ed42eb5aa32d19a5bdd3198304",
+  "513760a37491627e3bd8b60cd8cb4addbb6df7b14539a52f36cd082ab99c6447",
+  "31c93f03f7e5af5d013b306224aa5bdf6efeb40253d8854971d98a605ac4252a"
+]);
 
 function digest(value) {
   return crypto.createHash("sha256").update(String(value).trim().toUpperCase()).digest("hex");
@@ -24,7 +36,7 @@ function digest(value) {
 
 function createAccessService({ durationMs = 30 * 60 * 60_000 } = {}) {
   const configured = process.env.ACTIVATION_CODE_HASHES?.split(",").map((value) => value.trim()).filter(Boolean);
-  const allowed = new Set(configured?.length ? configured : DEFAULT_CODE_HASHES);
+  const allowed = new Set(configured?.length ? configured : [...DEFAULT_CODE_HASHES, ...LONG_CODE_HASHES]);
   const redeemed = new Set();
   const grants = new Map();
 
@@ -33,7 +45,7 @@ function createAccessService({ durationMs = 30 * 60 * 60_000 } = {}) {
     const role = ADMIN_CODE_HASHES.has(hash) ? "admin" : "tester";
     if ((!allowed.has(hash) && role !== "admin") || redeemed.has(hash)) throw new Error("激活码无效或已经使用");
     const token = crypto.randomBytes(32).toString("base64url");
-    const expiresAt = role === "admin" ? null : Date.now() + durationMs;
+    const expiresAt = role === "admin" ? null : Date.now() + (LONG_CODE_HASHES.has(hash) ? 1000 * 60 * 60_000 : durationMs);
     redeemed.add(hash);
     grants.set(token, { expiresAt, role });
     return { token, expiresAt, role };
@@ -63,3 +75,4 @@ function createAccessService({ durationMs = 30 * 60 * 60_000 } = {}) {
 module.exports = { createAccessService };
 module.exports.CODE_HASHES = DEFAULT_CODE_HASHES;
 module.exports.ADMIN_CODE_HASHES = [...ADMIN_CODE_HASHES];
+module.exports.LONG_CODE_HASHES = [...LONG_CODE_HASHES];

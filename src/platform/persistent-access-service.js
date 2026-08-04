@@ -1,16 +1,20 @@
 const crypto = require("node:crypto");
-const { CODE_HASHES, ADMIN_CODE_HASHES } = require("./access-service");
+const { CODE_HASHES, ADMIN_CODE_HASHES, LONG_CODE_HASHES } = require("./access-service");
 
 function hash(value) { return crypto.createHash("sha256").update(String(value)).digest("hex"); }
 
 function createPersistentAccessService({ database, fallback, durationMs = 30 * 60 * 60_000 } = {}) {
-  const codes = new Map([...CODE_HASHES.map((value) => [value, "tester"]), ...ADMIN_CODE_HASHES.map((value) => [value, "admin"]) ]);
+  const codes = new Map([
+    ...CODE_HASHES.map((value) => [value, { role: "tester", durationHours: 30 }]),
+    ...LONG_CODE_HASHES.map((value) => [value, { role: "tester", durationHours: 1000 }]),
+    ...ADMIN_CODE_HASHES.map((value) => [value, { role: "admin", durationHours: 0 }])
+  ]);
   let initialized = false;
   async function ready() {
     if (initialized) return;
     await database.ready();
     if (database.enabled) {
-      for (const [codeHash, role] of codes) await database.query("INSERT INTO activation_codes (code_hash, role) VALUES ($1, $2) ON CONFLICT (code_hash) DO NOTHING", [codeHash, role]);
+      for (const [codeHash, details] of codes) await database.query("INSERT INTO activation_codes (code_hash, role, duration_hours) VALUES ($1, $2, $3) ON CONFLICT (code_hash) DO UPDATE SET role = EXCLUDED.role, duration_hours = EXCLUDED.duration_hours", [codeHash, details.role, details.durationHours]);
     }
     initialized = true;
   }
@@ -20,11 +24,12 @@ function createPersistentAccessService({ database, fallback, durationMs = 30 * 6
     const codeHash = hash(String(code || "").trim().toUpperCase());
     const token = crypto.randomBytes(32).toString("base64url");
     const tokenHash = hash(token);
-    const role = codes.get(codeHash);
-    if (!role) throw new Error("激活码无效或已经使用");
-    const result = await database.query("UPDATE activation_codes SET redeemed_at = NOW(), redeemed_token_hash = $2 WHERE code_hash = $1 AND redeemed_at IS NULL RETURNING role", [codeHash, tokenHash]);
+    const details = codes.get(codeHash);
+    if (!details) throw new Error("激活码无效或已经使用");
+    const result = await database.query("UPDATE activation_codes SET redeemed_at = NOW(), redeemed_token_hash = $2 WHERE code_hash = $1 AND redeemed_at IS NULL RETURNING role, duration_hours", [codeHash, tokenHash]);
     if (!result.rows[0]) throw new Error("激活码无效或已经使用");
-    const expiresAt = role === "admin" ? null : new Date(Date.now() + durationMs);
+    const role = result.rows[0].role;
+    const expiresAt = role === "admin" ? null : new Date(Date.now() + Number(result.rows[0].duration_hours || details.durationHours) * 60 * 60_000);
     await database.query("INSERT INTO access_grants (token_hash, role, expires_at, last_seen_at) VALUES ($1, $2, $3, NOW())", [tokenHash, role, expiresAt]);
     return { token, expiresAt: expiresAt?.getTime() || null, role, actorId: tokenHash.slice(0, 12) };
   }

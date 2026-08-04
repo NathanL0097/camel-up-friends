@@ -7,6 +7,7 @@ function createDatabase({ url = process.env.DATABASE_URL } = {}) {
     CREATE TABLE IF NOT EXISTS activation_codes (
       code_hash TEXT PRIMARY KEY,
       role TEXT NOT NULL CHECK (role IN ('tester', 'admin')),
+      duration_hours INTEGER NOT NULL DEFAULT 30,
       redeemed_at TIMESTAMPTZ,
       redeemed_token_hash TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -29,6 +30,7 @@ function createDatabase({ url = process.env.DATABASE_URL } = {}) {
       metadata JSONB NOT NULL DEFAULT '{}'::jsonb
     );
     CREATE INDEX IF NOT EXISTS audit_logs_occurred_idx ON audit_logs (occurred_at DESC);
+    ALTER TABLE activation_codes ADD COLUMN IF NOT EXISTS duration_hours INTEGER NOT NULL DEFAULT 30;
     CREATE OR REPLACE FUNCTION prevent_audit_mutation() RETURNS trigger AS $$
       BEGIN RAISE EXCEPTION 'audit logs are append-only'; END;
     $$ LANGUAGE plpgsql;

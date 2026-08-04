@@ -13,6 +13,8 @@ const BUZZ_WIN_CORRECT = 7;
 const REACTIONS = ["egg", "tomato", "question", "applause"];
 const PACKS = ["all", "classic", "party"];
 const PARTY_CATEGORIES = ["网络文化", "影视", "音乐", "游戏", "美食", "动漫角色", "儿童动画角色"];
+const RECENT_KNOWLEDGE_KEYS = [];
+const RECENT_LIMIT = 320;
 function packAllowsCategory(pack, category) { return pack === "all" || (pack === "party" ? PARTY_CATEGORIES.includes(category) : !PARTY_CATEGORIES.includes(category) && category !== "时事政治"); }
 
 function shuffle(items, random = Math.random) {
@@ -41,20 +43,37 @@ function eligibleQuestions(game, forcedCategory = null) {
   const bank = getQuestionBank();
   const categories = forcedCategory ? [forcedCategory] : game.settings.categories;
   const packMatch = (question) => game.settings.pack === "all" || (game.settings.pack === "classic" ? question.pack !== "party" && question.pack !== "current" : question.pack === "party");
-  return bank.filter((question) => categories.includes(question.category) && packMatch(question) && !game.usedKnowledgeKeys.includes(question.knowledgeKey));
+  return bank.filter((question) => categories.includes(question.category) && packMatch(question) && !game.usedKnowledgeKeys.includes(question.knowledgeKey) && !RECENT_KNOWLEDGE_KEYS.includes(question.knowledgeKey));
 }
 
 function pickQuestion(game, forcedCategory = null) {
-  let choices = eligibleQuestions(game, forcedCategory);
+  let choices;
+  if (forcedCategory) choices = eligibleQuestions(game, forcedCategory);
+  else {
+    const categoryPools = game.settings.categories.map((category) => ({ category, questions: eligibleQuestions(game, category) })).filter((entry) => entry.questions.length);
+    const selectedPool = categoryPools[Math.floor(game.random() * categoryPools.length)];
+    choices = selectedPool?.questions || [];
+  }
   if (!choices.length) {
+    if (forcedCategory) {
+      const bank = getQuestionBank();
+      const categoryKeys = new Set(bank.filter((question) => question.category === forcedCategory).map((question) => question.knowledgeKey));
+      for (let index = RECENT_KNOWLEDGE_KEYS.length - 1; index >= 0; index -= 1) if (categoryKeys.has(RECENT_KNOWLEDGE_KEYS[index])) RECENT_KNOWLEDGE_KEYS.splice(index, 1);
+    } else RECENT_KNOWLEDGE_KEYS.length = 0;
     game.usedKnowledgeKeys = [];
-    choices = eligibleQuestions(game, forcedCategory);
+    if (forcedCategory) choices = eligibleQuestions(game, forcedCategory);
+    else {
+      const categoryPools = game.settings.categories.map((category) => ({ category, questions: eligibleQuestions(game, category) })).filter((entry) => entry.questions.length);
+      choices = categoryPools[Math.floor(game.random() * categoryPools.length)]?.questions || [];
+    }
   }
   if (!choices.length && forcedCategory) choices = eligibleQuestions(game, null);
   if (!choices.length) throw new Error("当前题库设置下没有可用题目");
   const question = choices[Math.floor(game.random() * choices.length)];
   game.usedQuestionIds.push(question.id);
   game.usedKnowledgeKeys.push(question.knowledgeKey);
+  RECENT_KNOWLEDGE_KEYS.push(question.knowledgeKey);
+  while (RECENT_KNOWLEDGE_KEYS.length > RECENT_LIMIT) RECENT_KNOWLEDGE_KEYS.shift();
   return { ...question, options: shuffle(question.options, game.random) };
 }
 

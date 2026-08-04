@@ -46,7 +46,7 @@ function setAccessState(active, expiresAt = null, role = accessRole) {
   if (panel) panel.classList.toggle("active", active);
   if (status) status.textContent = active ? (accessRole === "admin" ? "管理员权限永久有效" : `测试权限有效至 ${formatAccessExpiry(accessExpiresAt)}`) : "请输入激活码后开始使用";
   if (create) create.disabled = !active;
-  if (join) join.disabled = !active;
+  if (join) join.disabled = false;
   if (admin) admin.classList.toggle("hidden", !(active && accessRole === "admin"));
 }
 function checkAccess() {
@@ -222,8 +222,8 @@ socket.on("connect", async () => {
   const active = await checkAccess();
   const code = roomFromUrl();
   if (!active) {
-    show("landing");
-    if (code) $("entryHint").textContent = "请先输入内部激活码，再加入好友房。";
+    if (code) prepareInviteJoin(code);
+    else show("landing");
     return;
   }
   if (!code) return show("landing");

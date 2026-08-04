@@ -109,7 +109,9 @@ test("四款重点游戏加载移动端专属响应式布局", () => {
   assert.ok(html.includes('/games/mobile-responsive.css'));
   for (const selector of [".poker-game", "#track > .actions", ".quiz-question-card", "#liarHandDock"]) assert.ok(mobile.includes(selector));
   assert.ok(mobile.includes("@media (max-width: 720px)"));
-    assert.ok(mobile.includes("position: fixed"));
+  assert.ok(mobile.includes("position: fixed"));
+  assert.ok(mobile.includes(".board-wrap > #actions"));
+  assert.ok(fs.readFileSync(path.join(__dirname, "../public/pwa.js"), "utf8").includes("添加到主屏幕"));
 });
 
 test("平台提供可安装网页 App 所需的 PWA 资源", () => {
@@ -146,5 +148,7 @@ test("专属管理员激活码获得后台权限且普通激活码不能越权",
   assert.equal(secondAdmin.role, "admin");
   assert.equal(access.adminValid(admin.token), true);
   assert.equal(access.adminValid(tester.token), false);
-  assert.equal(access.issue("6153-C0C1-86F0-AF8B").role, "tester");
+  const long = access.issue("C10F-E87F-DC37-18AB");
+  assert.equal(long.role, "tester");
+  assert.equal(long.expiresAt - Date.now() > 999 * 60 * 60_000, true);
 });

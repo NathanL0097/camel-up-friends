@@ -205,9 +205,12 @@ io.on("connection", (socket) => {
 
   socket.on("room:join", async ({ code: rawCode, name, playerToken, accessToken } = {}, ack = () => {}) => {
     try {
-      if (!(await accessService.valid(accessToken))) throw new Error("请先输入有效的内部激活码");
+      const joiningRoom = rooms.get(String(rawCode || "").toUpperCase());
+      const hasAccess = await accessService.valid(accessToken);
+      if (!hasAccess && joiningRoom?.game) throw new Error("比赛已经开始，加入或重连需要有效激活权限");
+      if (!hasAccess && !joiningRoom) throw new Error("房间不存在或服务器已经重启");
       const { room, player } = roomService.joinRoom({ rawCode, name, playerToken });
-      await accessService.audit({ actorType: "player", actorId: player.id, action: "room_joined", roomCode: room.code, ip: socket.handshake.address });
+      await accessService.audit({ actorType: hasAccess ? "player" : "guest", actorId: player.id, action: hasAccess ? "room_joined" : "guest_invite_joined", roomCode: room.code, ip: socket.handshake.address });
       socket.join(room.code);
       trackPlayerSocket(socket, room, player);
       ack({ ok: true, code: room.code, playerId: player.id, playerToken: player.token });
