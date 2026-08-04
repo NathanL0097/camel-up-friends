@@ -38,6 +38,8 @@ test("平台游戏注册表公开元数据但不公开服务端处理器", () =>
   assert.equal(catalog[6].maxPlayers, 4);
   assert.equal(catalog[7].title, "骗子酒馆");
   assert.equal(catalog[7].maxPlayers, 6);
+  assert.equal(catalog[8].title, "站神答题王");
+  assert.equal(catalog[8].maxPlayers, 6);
   assert.throws(() => getGame("unknown-game"), /暂未开放/);
 });
 

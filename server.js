@@ -6,6 +6,7 @@ const { Server } = require("socket.io");
 const { DEFAULT_GAME_ID, getGame, listGames } = require("./src/games");
 const { createRoomService } = require("./src/platform/room-service");
 const { createSocketPresence } = require("./src/platform/socket-presence");
+const { installRemoteQuestions, questionPackInfo } = require("./src/games/quiz-arena/questions");
 
 const app = express();
 const server = createServer(app);
@@ -17,7 +18,28 @@ const PORT = Number(process.env.PORT || 3000);
 app.use(express.static(path.join(__dirname, "public")));
 app.get("/health", (_req, res) => res.json({ ok: true, rooms: rooms.size }));
 app.get("/api/games", (_req, res) => res.json({ games: listGames() }));
+app.get("/api/games/quiz-arena/question-pack", (_req, res) => res.json(questionPackInfo()));
 app.get("/room/:code", (_req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
+
+async function refreshQuizPack() {
+  const url = process.env.QUIZ_PACK_URL;
+  if (!url) return 0;
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    const count = installRemoteQuestions(Array.isArray(payload) ? payload : payload.questions);
+    console.log(`站神在线题包已更新：${count}题`);
+    return count;
+  } catch (error) {
+    console.warn(`站神在线题包更新失败，继续使用本地题库：${error.message}`);
+    return 0;
+  }
+}
+
+refreshQuizPack();
+const quizPackTicker = setInterval(refreshQuizPack, 6 * 60 * 60_000);
+quizPackTicker.unref();
 
 function code() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
