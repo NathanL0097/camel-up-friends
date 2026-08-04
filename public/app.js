@@ -4,6 +4,9 @@ let identity = JSON.parse(localStorage.getItem("tabletopIdentity") || localStora
 let myId = null;
 let state = null;
 let selectedGameId = "camel-race";
+let accessToken = localStorage.getItem("tabletopAccessToken") || "";
+let accessExpiresAt = Number(localStorage.getItem("tabletopAccessExpiresAt") || 0);
+let accessReady = false;
 const gameClients = new Map();
 const gameCatalog = new Map([["camel-race", { id: "camel-race", clientScript: "/games/camel-race.js" }]]);
 
@@ -23,6 +26,54 @@ function escapeHtml(text) { const div = document.createElement("div"); div.textC
 function roomFromUrl() { return location.pathname.match(/^\/room\/([A-Z0-9]+)/i)?.[1]?.toUpperCase(); }
 function name() { return $("nameInput").value.trim() || localStorage.getItem("tabletopName") || localStorage.getItem("camelName") || "桌游旅人"; }
 function roomUrl(code) { return `${location.origin}/room/${code}`; }
+function formatAccessExpiry(expiresAt) {
+  return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(expiresAt));
+}
+function setAccessState(active, expiresAt = null) {
+  accessReady = active;
+  if (active && expiresAt) {
+    accessExpiresAt = expiresAt;
+    localStorage.setItem("tabletopAccessExpiresAt", String(expiresAt));
+  }
+  const panel = $("activationPanel");
+  const status = $("activationStatus");
+  const create = $("createButton");
+  const join = $("joinButton");
+  if (panel) panel.classList.toggle("active", active);
+  if (status) status.textContent = active ? `测试权限有效至 ${formatAccessExpiry(accessExpiresAt)}` : "请输入激活码后开始使用";
+  if (create) create.disabled = !active;
+  if (join) join.disabled = !active;
+}
+function checkAccess() {
+  return new Promise((resolve) => socket.emit("access:status", { token: accessToken }, (result = {}) => {
+    if (!result.active) {
+      accessToken = "";
+      accessExpiresAt = 0;
+      localStorage.removeItem("tabletopAccessToken");
+      localStorage.removeItem("tabletopAccessExpiresAt");
+      setAccessState(false);
+      resolve(false);
+      return;
+    }
+    setAccessState(true, result.expiresAt);
+    resolve(true);
+  }));
+}
+function redeemAccessCode() {
+  const input = $("activationCode");
+  const code = input?.value.trim().toUpperCase();
+  if (!code) return toast("请输入内部激活码");
+  $("activateButton").disabled = true;
+  socket.emit("access:redeem", { code }, (result = {}) => {
+    $("activateButton").disabled = false;
+    if (!result.ok) return toast(result.error || "激活码无效");
+    accessToken = result.token;
+    localStorage.setItem("tabletopAccessToken", accessToken);
+    setAccessState(true, result.expiresAt);
+    input.value = "";
+    toast("激活成功，测试权限已开启 30 小时");
+  });
+}
 function saveIdentity(result) {
   identity = { code: result.code, playerToken: result.playerToken };
   myId = result.playerId;
@@ -93,7 +144,7 @@ document.addEventListener("click", (event) => { if ($("gamePicker")?.classList.c
 document.addEventListener("keydown", (event) => { if (event.key === "Escape") setGameDrawer(false); });
 
 function join(code) {
-  socket.emit("room:join", { code, name: name(), playerToken: identity?.code === code ? identity.playerToken : null }, (result) => {
+  socket.emit("room:join", { code, name: name(), accessToken, playerToken: identity?.code === code ? identity.playerToken : null }, (result) => {
     if (result?.ok) {
       saveIdentity(result);
       history.replaceState({}, "", `/room/${result.code}`);
@@ -132,7 +183,9 @@ async function copyInvite() {
   catch { toast("请从地址栏复制链接"); }
 }
 
-$("createButton").onclick = () => socket.emit("room:create", { name: name(), playerToken: crypto.randomUUID(), gameId: selectedGameId }, (result) => {
+$("activateButton").onclick = redeemAccessCode;
+$("activationCode").addEventListener("keydown", (event) => { if (event.key === "Enter") redeemAccessCode(); });
+$("createButton").onclick = () => socket.emit("room:create", { name: name(), accessToken, playerToken: crypto.randomUUID(), gameId: selectedGameId }, (result) => {
   if (result?.ok) {
     saveIdentity(result);
     history.replaceState({}, "", `/room/${result.code}`);
@@ -158,8 +211,14 @@ socket.on("room:update", async (room) => {
   room.game ? gameClient.render(room, transition) : renderLobby(room, gameClient);
 });
 socket.on("game:error", (message) => toast(message));
-socket.on("connect", () => {
+socket.on("connect", async () => {
+  const active = await checkAccess();
   const code = roomFromUrl();
+  if (!active) {
+    show("landing");
+    if (code) $("entryHint").textContent = "请先输入内部激活码，再加入好友房。";
+    return;
+  }
   if (!code) return show("landing");
   if (identity?.code === code) {
     $("entryHint").textContent = `正在重新连接房间 ${code}…`;
@@ -168,4 +227,5 @@ socket.on("connect", () => {
 });
 socket.on("disconnect", () => toast("连接中断，正在尝试重连…"));
 
+setAccessState(Boolean(accessToken && accessExpiresAt > Date.now()), accessExpiresAt || null);
 loadGameCatalog();

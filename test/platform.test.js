@@ -5,6 +5,7 @@ const path = require("node:path");
 const { DEFAULT_GAME_ID, getGame, listGames } = require("../src/games");
 const { createRoomService } = require("../src/platform/room-service");
 const { createSocketPresence } = require("../src/platform/socket-presence");
+const { createAccessService } = require("../src/platform/access-service");
 
 function service() {
   const rooms = new Map();
@@ -124,4 +125,13 @@ test("平台提供可安装网页 App 所需的 PWA 资源", () => {
   assert.ok(worker.includes("self.addEventListener(\"install\""));
   assert.ok(worker.includes("/games/mobile-responsive.css"));
   assert.ok(pwa.includes("beforeinstallprompt"));
+});
+
+test("内部激活码只能兑换一次并提供三十小时服务器授权", () => {
+  const access = createAccessService({ durationMs: 30 * 60 * 60_000 });
+  const grant = access.issue("0579-47D1-4AF0-D07D");
+  assert.equal(access.valid(grant.token), true);
+  assert.equal(grant.expiresAt - Date.now() > 29 * 60 * 60_000, true);
+  assert.throws(() => access.issue("0579-47D1-4AF0-D07D"), /无效或已经使用/);
+  assert.throws(() => access.issue("0000-0000-0000-0000"), /无效或已经使用/);
 });

@@ -6,6 +6,7 @@ const { Server } = require("socket.io");
 const { DEFAULT_GAME_ID, getGame, listGames } = require("./src/games");
 const { createRoomService } = require("./src/platform/room-service");
 const { createSocketPresence } = require("./src/platform/socket-presence");
+const { createAccessService } = require("./src/platform/access-service");
 const { installRemoteQuestions, questionPackInfo, CHARACTER_IMAGE_QUERIES, CHILD_CHARACTER_IMAGE_URLS } = require("./src/games/quiz-arena/questions");
 
 const app = express();
@@ -15,6 +16,7 @@ const rooms = new Map();
 const socketPresence = createSocketPresence();
 const PORT = Number(process.env.PORT || 3000);
 const characterImageCache = new Map();
+const accessService = createAccessService();
 
 async function resolveCharacterImage(imageKey) {
   const cached = characterImageCache.get(imageKey);
@@ -123,8 +125,22 @@ const gameTicker = setInterval(() => {
 gameTicker.unref();
 
 io.on("connection", (socket) => {
-  socket.on("room:create", ({ name, playerToken, gameId = DEFAULT_GAME_ID } = {}, ack = () => {}) => {
+  socket.on("access:status", ({ token } = {}, ack = () => {}) => {
+    ack(accessService.status(token));
+  });
+
+  socket.on("access:redeem", ({ code } = {}, ack = () => {}) => {
     try {
+      const grant = accessService.issue(code);
+      ack({ ok: true, ...grant });
+    } catch (error) {
+      ack({ ok: false, error: error.message });
+    }
+  });
+
+  socket.on("room:create", ({ name, playerToken, accessToken, gameId = DEFAULT_GAME_ID } = {}, ack = () => {}) => {
+    try {
+      if (!accessService.valid(accessToken)) throw new Error("请先输入有效的内部激活码");
       const { room, player } = roomService.createRoom({ name, playerToken, gameId });
       socket.join(room.code);
       trackPlayerSocket(socket, room, player);
@@ -133,8 +149,9 @@ io.on("connection", (socket) => {
     } catch (error) { replyError(socket, error); ack({ ok: false, error: error.message }); }
   });
 
-  socket.on("room:join", ({ code: rawCode, name, playerToken } = {}, ack = () => {}) => {
+  socket.on("room:join", ({ code: rawCode, name, playerToken, accessToken } = {}, ack = () => {}) => {
     try {
+      if (!accessService.valid(accessToken)) throw new Error("请先输入有效的内部激活码");
       const { room, player } = roomService.joinRoom({ rawCode, name, playerToken });
       socket.join(room.code);
       trackPlayerSocket(socket, room, player);
