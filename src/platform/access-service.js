@@ -12,7 +12,10 @@ const DEFAULT_CODE_HASHES = [
   "ec06857f39546e72e8643efae99a11964733e69cf807792f96897dd4c407881a",
   "76fb85d31a1dd92f520264f573e07150c324c6c46041554842420da768381440"
 ];
-const ADMIN_CODE_HASH = "e4a3d83d6d5b9f0eca380b80310800b6f117d0f58663e9b68ae624838ca9e152";
+const ADMIN_CODE_HASHES = new Set([
+  "e4a3d83d6d5b9f0eca380b80310800b6f117d0f58663e9b68ae624838ca9e152",
+  "49295cc2300f42fc0ef97dcb68f156245368f5dcba07edbea6dba65b3544c86b"
+]);
 
 function digest(value) {
   return crypto.createHash("sha256").update(String(value).trim().toUpperCase()).digest("hex");
@@ -26,7 +29,7 @@ function createAccessService({ durationMs = 30 * 60 * 60_000 } = {}) {
 
   function issue(code) {
     const hash = digest(code);
-    const role = hash === ADMIN_CODE_HASH ? "admin" : "tester";
+    const role = ADMIN_CODE_HASHES.has(hash) ? "admin" : "tester";
     if ((!allowed.has(hash) && role !== "admin") || redeemed.has(hash)) throw new Error("激活码无效或已经使用");
     const token = crypto.randomBytes(32).toString("base64url");
     const expiresAt = role === "admin" ? null : Date.now() + durationMs;
