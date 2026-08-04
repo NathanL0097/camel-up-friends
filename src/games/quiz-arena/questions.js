@@ -185,14 +185,6 @@ const FACT_ROWS = {
   ]
 };
 
-const PROMPT_STYLES = [
-  (q) => q,
-  (q) => `请回答：${q}`,
-  (q) => `知识挑战：${q}`,
-  (q) => `快速判断你的知识储备：${q}`,
-  (q) => `下面这道题的答案是？${q}`
-];
-
 function rotate(items, amount) {
   const count = amount % items.length;
   return [...items.slice(count), ...items.slice(0, count)];
@@ -216,7 +208,7 @@ function buildLocalQuestions() {
           category,
           pack: ["网络文化", "影视", "音乐", "游戏", "美食"].includes(category) ? "party" : ["时事政治"].includes(category) ? "current" : "classic",
           kind: fact.kind,
-          prompt: PROMPT_STYLES[variant % PROMPT_STYLES.length](fact.prompt),
+          prompt: fact.prompt,
           answer: fact.answer,
           aliases: [fact.answer],
           answerLength: fact.answerLength,

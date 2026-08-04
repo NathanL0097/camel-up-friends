@@ -1,5 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const rules = require("../src/games/quiz-arena/rules");
 const questions = require("../src/games/quiz-arena/questions");
 
@@ -15,6 +17,17 @@ test("本地基础题库提供3000题并覆盖全部十五个领域", () => {
   assert.deepEqual([...new Set(questions.LOCAL_QUESTIONS.map((item) => item.category))], rules.CATEGORIES);
   assert.ok(questions.LOCAL_QUESTIONS.every((item) => item.prompt && item.answer && item.explanation));
   assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.kind === "judge").every((item) => item.options.length === 2));
+  assert.ok(questions.LOCAL_QUESTIONS.every((item) => !item.prompt.includes("下面这道题的答案是")));
+});
+
+test("客户端使用环形站台、生命核心和淘汰坠落反馈", () => {
+  const client = fs.readFileSync(path.join(__dirname, "../public/games/quiz-arena.js"), "utf8");
+  const styles = fs.readFileSync(path.join(__dirname, "../public/games/quiz-arena.css"), "utf8");
+  assert.match(client, /player-count-\$\{room\.players\.length\}/);
+  assert.match(client, /quiz-life-cores/);
+  assert.match(client, /paintElimination/);
+  assert.match(styles, /@keyframes quiz-seat-drop/);
+  assert.match(styles, /@keyframes quiz-fall-avatar/);
 });
 
 test("在线题包只接受结构完整且领域合法的题目", () => {

@@ -43,7 +43,7 @@
 
     function mount() {
       if ($("quizArena")) return;
-      $("gameMount").innerHTML = `<div id="quizArena" class="quiz-arena"><header class="game-head quiz-head"><div><div class="eyebrow">知识竞技场 · 房间 <span id="quizCode"></span></div><h2>站神答题王</h2></div><div id="quizModeBadge" class="quiz-mode-badge"></div><div class="game-head-actions"><button id="quizRules" class="ghost-button">📖 规则</button><button id="quizInvite" class="ghost-button">邀请好友</button></div></header><div class="quiz-layout"><aside class="quiz-scoreboard"><header><strong>挑战者</strong><small id="quizRound"></small></header><div id="quizPlayers"></div></aside><main class="quiz-stage"><div class="quiz-light-rays"></div><div id="quizReactions" class="quiz-reaction-layer"></div><section id="quizQuestionCard" class="quiz-question-card"><div id="quizCategory" class="quiz-category"></div><div id="quizTimer" class="quiz-timer"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44"></circle><circle id="quizTimerRing" cx="50" cy="50" r="44"></circle></svg><strong>--</strong><small>SEC</small></div><div id="quizQuestion" class="quiz-question"></div><div id="quizAnswerLength" class="quiz-answer-length"></div><div id="quizControls" class="quiz-controls"></div><div id="quizResult" class="quiz-result"></div></section><section id="quizGhostPanel" class="quiz-ghost-panel"></section><section id="quizFinish" class="quiz-finish"></section></main><aside class="quiz-info"><div class="quiz-info-card"><small>比赛目标</small><strong id="quizGoal"></strong><p id="quizStatus"></p></div><div id="quizAttempts" class="quiz-attempts"></div><div class="quiz-pack-card"><span>题库在线</span><b>3000+</b><small>本场不会重复知识点</small></div></aside></div></div>`;
+      $("gameMount").innerHTML = `<div id="quizArena" class="quiz-arena"><header class="game-head quiz-head"><div><div class="eyebrow">知识竞技场 · 房间 <span id="quizCode"></span></div><h2><span>♛</span> 站神答题王</h2></div><div class="quiz-head-center"><div id="quizModeBadge" class="quiz-mode-badge"></div><strong id="quizRound"></strong></div><div class="game-head-actions"><button id="quizRules" class="ghost-button">📖 规则</button><button id="quizInvite" class="ghost-button">邀请好友</button></div></header><div class="quiz-layout"><main class="quiz-stage"><div class="quiz-starfield"></div><div class="quiz-light-rays"></div><div class="quiz-orbit quiz-orbit-one"></div><div class="quiz-orbit quiz-orbit-two"></div><div class="quiz-arena-core"><i></i><i></i><i></i></div><div id="quizPlayers" class="quiz-player-ring"></div><div id="quizEliminationFx" class="quiz-elimination-layer"></div><div id="quizReactions" class="quiz-reaction-layer"></div><section id="quizQuestionCard" class="quiz-question-card"><div id="quizCategory" class="quiz-category"></div><div id="quizTimer" class="quiz-timer"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44"></circle><circle id="quizTimerRing" cx="50" cy="50" r="44"></circle></svg><strong>--</strong><small>SEC</small></div><div id="quizQuestion" class="quiz-question"></div><div id="quizAnswerLength" class="quiz-answer-length"></div><div id="quizControls" class="quiz-controls"></div><div id="quizResult" class="quiz-result"></div></section><section id="quizGhostPanel" class="quiz-ghost-panel"></section><section id="quizFinish" class="quiz-finish"></section></main><aside class="quiz-info"><div class="quiz-info-card"><small>竞技目标</small><strong id="quizGoal"></strong><p id="quizStatus"></p></div><div id="quizAttempts" class="quiz-attempts"></div><div class="quiz-pack-card"><span>知识星图已连接</span><b>3000+</b><small>本场不会重复知识点</small></div></aside></div></div>`;
       $("quizRules").onclick = () => $("rulesDialog").showModal();
       $("quizInvite").onclick = copyInvite;
       rules();
@@ -60,9 +60,13 @@
       paint(); clockTimer = setInterval(paint, 200);
     }
 
-    function playerMarkup(room, item) {
+    function playerMarkup(room, item, transition = {}) {
       const game = room.game, mine = item.id === getMyId(), active = game.activePlayerId === item.id || game.answererId === item.id;
-      return `<article class="quiz-player ${mine ? "mine" : ""} ${active ? "active" : ""} ${item.eliminated ? "ghost" : ""}"><div class="quiz-avatar">${item.eliminated ? "👻" : escapeHtml((item.name || "?").slice(0, 1))}</div><div><b>${escapeHtml(item.name)}${mine ? "（你）" : ""}</b><small>${item.eliminated ? "捣蛋鬼" : `${"❤️".repeat(item.lives)}${"🖤".repeat(3 - item.lives)}`}</small></div><span>${game.mode === "buzzer" ? `${item.correct}/7` : `✓ ${item.correct}`}</span>${game.mode === "survival" && !item.eliminated ? `<em>跳过 ×${item.skips}</em>` : ""}</article>`;
+      const previous = transition.players?.[item.id];
+      const lifeHit = previous && previous.lives > item.lives;
+      const justEliminated = previous && !previous.eliminated && item.eliminated;
+      const cores = Array.from({ length: 3 }, (_, index) => `<i class="${index < item.lives ? "charged" : "broken"}"></i>`).join("");
+      return `<article class="quiz-player ${mine ? "mine" : ""} ${active ? "active" : ""} ${item.eliminated ? "ghost" : ""} ${lifeHit ? "life-hit" : ""} ${justEliminated ? "newly-eliminated" : ""}"><div class="quiz-seat-beam"></div><div class="quiz-avatar">${item.eliminated ? "☠" : escapeHtml((item.name || "?").slice(0, 1))}</div><div class="quiz-player-data"><b>${escapeHtml(item.name)}${mine ? "（你）" : ""}</b><small>${item.eliminated ? "捣蛋鬼频道" : `<span class="quiz-life-cores">${cores}</span>`}</small></div><span>${game.mode === "buzzer" ? `${item.correct}/7` : `✓ ${item.correct}`}</span>${game.mode === "survival" && !item.eliminated ? `<em>跳过 ×${item.skips}</em>` : ""}<div class="quiz-seat-platform"></div></article>`;
     }
 
     function renderControls(room) {
@@ -131,11 +135,22 @@
       if (seenReactionIds.size > 200) seenReactionIds = new Set(room.game.reactions.map((entry) => entry.id));
     }
 
-    function prepare(previous) { return { phase: previous?.game?.phase, resultAt: previous?.game?.result?.at, answererId: previous?.game?.answererId, championId: previous?.game?.championId }; }
+    function paintElimination(room, transition) {
+      const eliminated = room.players.find((item) => transition.players?.[item.id] && !transition.players[item.id].eliminated && item.eliminated);
+      if (!eliminated || !$("quizEliminationFx")) return;
+      const el = document.createElement("div");
+      el.className = "quiz-elimination-fx";
+      el.innerHTML = `<div class="quiz-drop-rings"><i></i><i></i><i></i></div><div class="quiz-falling-player"><span>${escapeHtml((eliminated.name || "?").slice(0, 1))}</span><b>${escapeHtml(eliminated.name)}</b></div><strong>生命核心耗尽</strong><small>坠入捣蛋鬼频道</small>`;
+      $("quizEliminationFx").appendChild(el);
+      setTimeout(() => el.remove(), 3200);
+    }
+
+    function prepare(previous) { return { phase: previous?.game?.phase, resultAt: previous?.game?.result?.at, answererId: previous?.game?.answererId, championId: previous?.game?.championId, players: Object.fromEntries((previous?.players || []).map((item) => [item.id, { lives: item.lives, eliminated: item.eliminated }])) }; }
     function render(room, transition = {}) {
       latestRoom = room; show("game"); mount(); const game = room.game, myId = getMyId(), me = room.players.find((item) => item.id === myId);
       $("quizCode").textContent = room.code; $("quizModeBadge").textContent = game.mode === "buzzer" ? "⚡ 抢答模式" : "♛ 站神模式"; $("quizRound").textContent = `第 ${game.questionNumber} 题`;
-      $("quizPlayers").innerHTML = room.players.map((item) => playerMarkup(room, item)).join("");
+      $("quizPlayers").className = `quiz-player-ring player-count-${room.players.length}`;
+      $("quizPlayers").innerHTML = room.players.map((item) => playerMarkup(room, item, transition)).join("");
       $("quizGoal").textContent = game.mode === "buzzer" ? "率先答对7题" : "坚持到最后";
       $("quizStatus").textContent = game.phase === "buzz-answer" ? `${room.players.find((item) => item.id === game.answererId)?.name || "玩家"}拥有答题权` : game.phase === "category-vote" ? "捣蛋鬼领域投票" : game.phase === "result" ? "答案与知识解析" : game.mode === "buzzer" ? "题干逐字揭示中" : `${room.players.find((item) => item.id === game.activePlayerId)?.name || "玩家"}的回合`;
       $("quizCategory").innerHTML = `<span>${escapeHtml(game.question?.category || "知识竞技")}</span>${game.mode === "buzzer" && game.phase !== "result" ? `<b>答案 ${game.question?.answerLength || "?"} 个字</b>` : ""}`;
@@ -150,7 +165,7 @@
       if (game.deadline) clock(game.deadline, total); else { clearInterval(clockTimer); $("quizTimer").querySelector("strong").textContent = "--"; }
       $("quizTimer").classList.toggle("paused", game.phase === "buzz-answer");
       $("quizQuestionCard").className = `quiz-question-card phase-${game.phase}`;
-      bindControls(room); paintReactions(room);
+      bindControls(room); paintReactions(room); paintElimination(room, transition);
       if (transition.resultAt !== game.result?.at && game.result) tone(game.result.correct ? "correct" : "wrong");
       if (!transition.championId && game.championId) tone("correct");
       if (me?.eliminated) $("quizArena").classList.add("ghost-view"); else $("quizArena").classList.remove("ghost-view");
