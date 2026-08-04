@@ -30,6 +30,21 @@ function saveIdentity(result) {
   localStorage.setItem("tabletopName", name());
 }
 
+function setGameDrawer(open) {
+  const picker = $("gamePicker");
+  if (!picker) return;
+  picker.classList.toggle("open", open);
+  $("gamePickerToggle").setAttribute("aria-expanded", String(open));
+  $("gameDrawer").setAttribute("aria-hidden", String(!open));
+  $("gamePickerHint").textContent = open ? "收起游戏库" : "展开游戏库";
+}
+
+function paintSelectedGame(game) {
+  if (!game) return;
+  $("selectedGameIcon").textContent = game.icon || (game.id === "camel-race" ? "🐪" : "🎲");
+  $("selectedGameTitle").textContent = game.title;
+}
+
 function loadClientScript(src) {
   return new Promise((resolve, reject) => {
     const existing = document.querySelector(`script[data-game-client="${src}"]`);
@@ -60,14 +75,22 @@ async function loadGameCatalog() {
     const { games } = await response.json();
     games.forEach((game) => gameCatalog.set(game.id, game));
     $("gameCatalog").innerHTML = games.map((game) => `<button class="game-choice ${game.id === selectedGameId ? "selected" : ""}" data-game-id="${game.id}"><span>${escapeHtml(game.icon || (game.id === "camel-race" ? "🐪" : "🎲"))}</span><b>${escapeHtml(game.title)}</b><small>${game.minPlayers}–${game.maxPlayers}人 · ${game.status === "prototype" ? "技术演示" : "已开放"}</small></button>`).join("");
+    paintSelectedGame(gameCatalog.get(selectedGameId));
     document.querySelectorAll("[data-game-id]").forEach((button) => button.onclick = () => {
       selectedGameId = button.dataset.gameId;
       document.querySelectorAll("[data-game-id]").forEach((choice) => choice.classList.toggle("selected", choice === button));
+      paintSelectedGame(gameCatalog.get(selectedGameId));
+      setGameDrawer(false);
     });
   } catch {
     // 保留HTML内的默认游戏卡，临时网络故障不会阻止创建房间。
   }
 }
+
+$("gamePickerToggle").onclick = () => setGameDrawer(!$("gamePicker").classList.contains("open"));
+$("closeGameDrawer").onclick = () => setGameDrawer(false);
+document.addEventListener("click", (event) => { if ($("gamePicker")?.classList.contains("open") && !$("gamePicker").contains(event.target)) setGameDrawer(false); });
+document.addEventListener("keydown", (event) => { if (event.key === "Escape") setGameDrawer(false); });
 
 function join(code) {
   socket.emit("room:join", { code, name: name(), playerToken: identity?.code === code ? identity.playerToken : null }, (result) => {
@@ -85,6 +108,7 @@ function prepareInviteJoin(code) {
   $("createButton").classList.add("hidden");
   document.querySelector(".divider").classList.add("hidden");
   document.querySelector(".entry-card").classList.add("invite-mode");
+  setGameDrawer(false);
   $("joinButton").textContent = "确认昵称并加入";
   $("entryHint").textContent = `你将加入好友房 ${code}，请先确认或修改昵称。`;
   $("nameInput").focus();

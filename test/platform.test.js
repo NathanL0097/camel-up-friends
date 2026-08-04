@@ -1,5 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const { DEFAULT_GAME_ID, getGame, listGames } = require("../src/games");
 const { createRoomService } = require("../src/platform/room-service");
 const { createSocketPresence } = require("../src/platform/socket-presence");
@@ -87,4 +89,15 @@ test("刷新重连时旧连接断开不会把新连接误判为离线", () => {
   assert.equal(presence.untrack("new-socket", room.code, player.id), 0);
   presence.sync(room);
   assert.equal(player.connected, false);
+});
+
+test("首页游戏选择器使用可收起的双列抽屉且取消卡片倾斜", () => {
+  const html = fs.readFileSync(path.join(__dirname, "../public/index.html"), "utf8");
+  const client = fs.readFileSync(path.join(__dirname, "../public/app.js"), "utf8");
+  const css = fs.readFileSync(path.join(__dirname, "../public/styles.css"), "utf8");
+  assert.ok(html.includes('id="gamePickerToggle"'));
+  assert.ok(html.includes('id="gameDrawer"'));
+  assert.ok(client.includes("setGameDrawer(false)"));
+  assert.ok(css.includes(".game-drawer .game-catalog{display:grid;grid-template-columns:repeat(2"));
+  assert.ok(css.includes(".entry-card{position:relative;transform:none!important}"));
 });
