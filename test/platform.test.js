@@ -101,3 +101,12 @@ test("首页游戏选择器使用可收起的双列抽屉且取消卡片倾斜",
   assert.ok(css.includes(".game-drawer .game-catalog{display:grid;grid-template-columns:repeat(2"));
   assert.ok(css.includes(".entry-card{position:relative;transform:none!important}"));
 });
+
+test("四款重点游戏加载移动端专属响应式布局", () => {
+  const html = fs.readFileSync(path.join(__dirname, "../public/index.html"), "utf8");
+  const mobile = fs.readFileSync(path.join(__dirname, "../public/games/mobile-responsive.css"), "utf8");
+  assert.ok(html.includes('/games/mobile-responsive.css'));
+  for (const selector of [".poker-game", "#track > .actions", ".quiz-question-card", "#liarHandDock"]) assert.ok(mobile.includes(selector));
+  assert.ok(mobile.includes("@media (max-width: 720px)"));
+    assert.ok(mobile.includes("position: fixed"));
+});

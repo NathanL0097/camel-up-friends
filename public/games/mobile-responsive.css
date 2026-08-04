@@ -1,0 +1,197 @@
+/* 手机端专属布局：只调整显示层级，不改变任何游戏规则或联机状态。 */
+@media (max-width: 720px) {
+  html, body { overflow-x: hidden; }
+  body { -webkit-text-size-adjust: 100%; }
+  .topbar { height: 58px; padding: 0 12px; }
+  .brand { font-size: 15px; gap: 6px; }
+  .brand-mark { font-size: 25px; }
+  .brand small { display: none; }
+  .topbar #rulesButton { padding: 7px 10px; font-size: 11px; }
+  .game { width: 100%; min-width: 0; padding: 10px 8px 18px; overflow: visible; }
+  .game-head { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-bottom: 12px; }
+  .game-head h2 { margin: 3px 0; font-size: 24px; }
+  .game-head .eyebrow { font-size: 9px; letter-spacing: 1.2px; }
+  .game-head-actions { gap: 4px; }
+  .game-head-actions .ghost-button { padding: 7px 8px; font-size: 10px; }
+  .game-head-actions #gameCopyButton,
+  .game-head-actions #pokerSound,
+  .game-head-actions #liarSound { display: none; }
+  .turn-badge { padding: 7px 9px; font-size: 10px; white-space: nowrap; }
+
+  /* 骆驼快跑：上方保留完整跑道，下方成为易触摸行动台。 */
+  .game-layout { display: block; }
+  .players-panel, .log-panel { margin-top: 10px; padding: 10px; }
+  .players-panel h3, .log-panel h3 { margin-bottom: 8px; font-size: 11px; }
+  .players-panel #playerList { gap: 6px; padding-bottom: 2px; }
+  .players-panel .player-card { min-width: 132px; padding: 7px 0; }
+  .player-line { font-size: 11px; }
+  .player-status, .log-item { font-size: 9px; }
+  .board-wrap { width: 100%; overflow: visible; }
+  #track { width: 100%; height: 760px; min-height: 760px; overflow: hidden; border-radius: 32px; }
+  #track:before { inset: 36px 28px; border-width: 42px; }
+  #track:after { inset: 68px 48px; }
+  .track .space { width: 52px; height: 48px; min-height: 48px; padding-top: 15px; border-radius: 10px; }
+  .track .space-number { left: 3px; top: 3px; min-width: 17px; height: 14px; padding: 0 3px; font-size: 7px; }
+  .track .camel { width: 43px; height: 30px; transform: scale(.78); }
+  .track .camel-stack { transform: scale(.78); }
+  #track > .dice-zone { top: 76px; left: 50%; width: max-content; max-width: calc(100% - 24px); padding: 7px 9px; gap: 7px; font-size: 9px; }
+  #track > .dice-zone > div { gap: 3px; }
+  #track > .dice-zone .mini-die { width: 22px; height: 22px; }
+  #track > .dice-zone .mini-die.gray { width: 23px; height: 23px; }
+  #track > .actions { position: absolute; inset: auto 8px 8px; width: auto; height: auto; min-height: 0; padding: 8px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; gap: 7px; transform: none; background: #fffaf0f5; border: 1px solid #79572f44; border-radius: 15px; box-shadow: 0 10px 28px #4b2a1745; pointer-events: auto; }
+  #track > .actions > * { position: static !important; inset: auto !important; width: auto !important; min-width: 0; transform: none !important; }
+  #track > .actions .roll-button { grid-column: 1 / -1; grid-row: auto; width: 100% !important; min-height: 55px; padding: 8px 12px; flex-direction: row; justify-content: center; text-align: left; border-radius: 12px; }
+  #track > .actions .roll-button .die { font-size: 25px; }
+  #track > .actions .roll-button strong { font-size: 12px; }
+  #track > .actions .roll-button small { font-size: 8px; }
+  #track > .actions .action-block { padding: 8px; border-radius: 11px; font-size: 10px; }
+  #track > .actions .action-block > strong { font-size: 10px; }
+  #track > .actions .action-block .action-hint { margin-bottom: 5px; font-size: 7px; }
+  #track > .actions .bet-action { grid-column: 1; grid-row: 2; }
+  #track > .actions .tile-action { grid-column: 2; grid-row: 2; }
+  #track > .actions .prediction { grid-column: 1 / -1; grid-row: 3; }
+  #track > .actions .color-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  #track > .actions .bet-stack { min-height: 38px; padding: 4px; }
+  #track > .actions .bet-camel { font-size: 8px; }
+  #track > .actions .bet-values b { width: 17px; height: 16px; font-size: 8px; }
+  #track > .actions .tile-controls { grid-template-columns: 38px 1fr; }
+  #track > .actions .tile-controls input { width: 38px; font-size: 13px; }
+  #track > .actions .tile-controls button, #track > .actions .prediction button { min-height: 32px; padding: 5px 4px; font-size: 9px; }
+  #track > .actions .prediction > div:first-of-type { grid-template-columns: 1fr 1fr; }
+  #track > .actions .prediction select { grid-column: 1 / -1; width: 100%; height: 32px; font-size: 10px; }
+  .partnership-dock { width: 100%; margin-top: 10px; padding: 9px; flex-direction: column; align-items: stretch; gap: 7px; }
+  .partnership-controls { display: grid; grid-template-columns: 1fr auto; }
+  .partnership-dock select { min-width: 0; width: 100%; }
+
+  /* 扑克之夜：桌面缩为可读的牌桌，手牌与操作固定在牌桌下方。 */
+  .poker-game { width: 100%; min-width: 0; padding-bottom: 255px; }
+  .poker-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; height: auto; padding: 7px 9px; border-radius: 14px; }
+  .poker-head h2 { font-size: 22px; }
+  .poker-head .poker-badge { grid-column: 1 / -1; grid-row: 2; justify-self: start; padding: 5px 9px; font-size: 10px; }
+  .poker-head .game-head-actions { grid-column: 2; grid-row: 1; }
+  .poker-table { width: 100%; min-height: 455px; border-width: 8px; border-radius: 34%; }
+  .poker-table:before { inset: 18px; }
+  .poker-table-mark { top: 68%; font-size: 14px; letter-spacing: 3px; }
+  .poker-seat { width: 102px; min-height: 38px; padding: 4px; gap: 4px; border-radius: 22px; }
+  .player-avatar { flex-basis: 28px; width: 28px; height: 28px; border-width: 2px; font-size: 12px; }
+  .poker-seat header > b { max-width: 57px; font-size: 8px; }
+  .poker-seat header span { margin-top: 1px; font-size: 8px; }
+  .poker-seat small { max-width: 62px; margin-top: 1px; font-size: 6px; }
+  .position-badge { left: -5px; top: -12px; min-width: 24px; height: 24px; font-size: 7px; }
+  .blind-badge { right: -7px; top: -11px; padding: 2px 4px; font-size: 7px; }
+  .blind-badge b { min-width: 17px; height: 17px; font-size: 9px; }
+  .poker-center { width: 100%; min-width: 0; top: 46%; }
+  .poker-center > #pokerStreet { padding: 3px 8px; font-size: 8px; }
+  .community-cards { gap: 4px; margin: 7px 0; }
+  .community-cards .poker-card { width: 43px; height: 61px; padding: 4px; }
+  .community-cards .poker-card > span { font-size: 25px; }
+  .community-cards .poker-card > b { font-size: 14px; }
+  .poker-center > #pokerPot { gap: 5px; padding: 4px 8px; }
+  .poker-center > #pokerPot span { font-size: 8px; }
+  .poker-center > #pokerPot b { font-size: 19px; }
+  .poker-center > #pokerPot small { font-size: 8px; }
+  .poker-lcd { left: 50%; top: 20px; width: 90px; padding: 4px 6px; transform: translateX(-50%); }
+  .poker-lcd b { font-size: 24px; }
+  .poker-bets .table-bet { min-width: 60px; padding: 3px 5px; grid-template-columns: 17px auto; border-width: 1px; border-radius: 8px; }
+  .table-bet i { width: 14px; height: 8px; border-width: 1px; }
+  .table-bet span { max-width: 43px; font-size: 6px; }
+  .table-bet b { font-size: 11px; }
+  .poker-player-dock { position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 240; display: grid; grid-template-columns: 1fr; gap: 5px; max-height: 42vh; overflow: auto; min-height: 0; margin-top: 8px; padding: 8px; border-radius: 14px; }
+  .my-hand-dock { position: static; left: auto; top: auto; transform: none; justify-content: center; min-width: 0; }
+  .my-hand-dock .dock-label { writing-mode: horizontal-tb; font-size: 9px; }
+  .my-hand-dock .poker-card { width: 43px; height: 60px; }
+  .my-hand-dock .poker-card > span { font-size: 25px; }
+  .my-poker { position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; align-items: stretch; }
+  .my-poker > * { min-width: 0; }
+  .poker-player-dock > #pokerActions { position: static; }
+  .poker-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; }
+  .poker-actions > button { min-height: 40px; padding: 8px 5px; }
+  .quick-bets { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); }
+  .poker-actions .quick-bet { min-width: 0; min-height: 43px; padding: 5px 2px; }
+  .manual-bet { grid-column: 1 / -1; }
+  .manual-bet input { flex: 1; width: auto !important; min-height: 39px; }
+  .manual-bet button { flex: 1; }
+  .poker-actions > small { grid-column: 1 / -1; }
+  .poker-lower aside { width: 100%; max-height: 110px; }
+  .rebuy-panel { width: 100%; }
+
+  /* 站神答题王：题卡优先，计分板和捣蛋鬼工具降到题卡之后。 */
+  .quiz-arena { width: 100%; min-width: 0 !important; overflow: hidden; }
+  .quiz-head { display: grid; grid-template-columns: 1fr auto; gap: 5px; padding: 7px 10px; }
+  .quiz-head h2 { font-size: 21px; }
+  .quiz-head-center { position: static; grid-column: 1 / -1; grid-row: 2; transform: none; }
+  .quiz-layout { display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0; margin-top: 8px; }
+  .quiz-stage { order: 1; width: 100%; min-height: 0; }
+  .quiz-question-card, .quiz-question-card.has-character-image { width: 100% !important; min-height: 0; padding: 18px 12px 17px; border-radius: 22px; }
+  .quiz-question-card.has-character-image .quiz-question { grid-template-columns: 1fr; gap: 8px; padding: 10px 4px 4px; text-align: center; }
+  .quiz-character-visual { width: 150px; height: 195px; margin: 0 auto; }
+  .quiz-character-visual img { height: 163px; }
+  .quiz-question { min-height: 130px; padding: 24px 10px 7px; }
+  .quiz-question h1, .quiz-question-card.has-character-image .quiz-question h1 { font-size: 23px; line-height: 1.5; }
+  .quiz-timer { top: 13px; right: 12px; width: 64px; height: 64px; }
+  .quiz-timer strong { top: 14px; font-size: 21px; }
+  .quiz-timer small { top: 38px; font-size: 7px; }
+  .quiz-controls { min-height: 0; }
+  .quiz-options { grid-template-columns: 1fr; gap: 7px; }
+  .quiz-options button { min-height: 52px; padding: 8px 12px; }
+  .quiz-text-answer { margin: 12px auto; }
+  .quiz-text-answer input { min-height: 45px; font-size: 16px; }
+  .quiz-text-answer button { padding: 9px 12px; }
+  .quiz-buzz { width: 150px; height: 115px; }
+  .quiz-scoreboard { order: 2; padding: 10px; }
+  .quiz-scoreboard > header { padding-bottom: 7px; }
+  .quiz-player { display: flex; min-width: 0; margin-top: 6px; padding: 7px; }
+  .quiz-player:not(.active):not(.mine) { display: none; }
+  .quiz-info { order: 3; display: flex !important; width: 100%; }
+  .quiz-info-card, .quiz-attempts, .quiz-pack-card { padding: 12px; }
+  .quiz-ghost-panel { margin-top: 7px; }
+  .ghost-tools, .ghost-vote { flex-wrap: wrap; }
+  .quiz-final-overlay { inset: 58px 0 0; padding: 18px 10px 35px; }
+  .quiz-final-overlay h2 { font-size: 28px; }
+
+  /* 骗子酒馆：酒馆桌面和手牌分层，手牌不再遮挡质疑/开枪反馈。 */
+  #liarsTavern { width: 100%; min-width: 0; min-height: 0; }
+  .liar-head { display: grid; grid-template-columns: 1fr auto; height: auto; padding: 8px 10px; gap: 5px; }
+  .liar-head h2 { font-size: 21px; }
+  .liar-head > div:nth-child(2) { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
+  .liar-head > div:last-child { gap: 3px; }
+  .liar-head .ghost-button { padding: 6px 8px; font-size: 10px; }
+  #tavernStage { width: 100%; min-height: 570px; height: 570px; padding-bottom: 235px; box-sizing: border-box; }
+  .liar-seat { min-width: 88px; max-width: 112px; padding: 4px; gap: 4px; }
+  .liar-avatar { flex-basis: 26px; width: 26px; height: 26px; font-size: 15px; }
+  .liar-seat b { max-width: 66px; overflow: hidden; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+  .liar-seat small { max-width: 66px; font-size: 6px; }
+  .shot-track { transform: scale(.72); transform-origin: left center; }
+  #liarTableCenter { width: 100%; grid-template-columns: 72px 68px minmax(0, 1fr); gap: 5px; top: 42%; }
+  .table-rank { height: 105px; }
+  .table-rank b { font-size: 45px; }
+  .table-rank small, .table-rank span, .last-claim { font-size: 7px; }
+  .covered-pile { min-width: 0; }
+  .last-claim { padding: 5px; }
+  #liarLog { right: 7px; top: 7px; width: 130px; max-height: 72px; padding: 5px; font-size: 6px; opacity: .78; }
+  #liarHandDock { position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 450; transform: none; width: auto; max-height: 38vh; overflow: auto; min-height: 0; grid-template-columns: 1fr; gap: 7px; padding: 8px; border-radius: 14px; }
+  .hand-owner { display: flex; align-items: center; gap: 7px; }
+  .hand-owner small, .hand-owner span { font-size: 7px; }
+  .hand-owner b { margin: 0 auto 0 0; font-size: 13px; }
+  .liar-hand { justify-content: flex-start; gap: 4px; padding: 9px 2px 3px; overflow-x: auto; }
+  .liar-card { flex-basis: 61px; width: 61px; height: 91px; padding: 5px; }
+  .liar-card > span { font-size: 22px; }
+  .liar-card > i { right: 5px; top: 5px; font-size: 15px; }
+  .liar-card > b { left: 5px; bottom: 5px; font-size: 7px; }
+  .liar-card > small { left: 5px; right: 5px; bottom: 19px; font-size: 6px; }
+  .liar-actions { grid-template-columns: 58px 1fr; }
+  .liar-actions > button { min-height: 42px; padding: 7px 4px; font-size: 9px; }
+  .liar-clock b { font-size: 24px; }
+  .challenge-reveal { min-width: 0; width: calc(100vw - 28px); padding: 13px; }
+  .roulette-scene, .verdict-scene { z-index: 500; }
+  .verdict-stamp { min-width: 0; width: calc(100vw - 28px); padding: 20px 14px; }
+}
+
+@media (min-width: 721px) and (max-width: 1100px) {
+  .poker-game { min-width: 0; }
+  .quiz-arena { min-width: 0 !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .poker-card.deal-in, .quiz-buzz, .liar-card.deal-card { animation-duration: .01ms !important; }
+}
