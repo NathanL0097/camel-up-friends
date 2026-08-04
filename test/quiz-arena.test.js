@@ -28,6 +28,7 @@ test("只有房主能选择模式、题包和至少一个领域", () => {
   const room = { hostId: "p1", game: null, settings: rules.defaultSettings() };
   assert.throws(() => rules.configure(room, "p2", { mode: "buzzer" }), /只有房主/);
   assert.throws(() => rules.configure(room, "p1", { categories: [] }), /至少选择/);
+  assert.throws(() => rules.configure(room, "p1", { pack: "party", categories: ["历史"] }), /没有可用题目/);
   rules.configure(room, "p1", { mode: "buzzer", pack: "party", categories: ["影视", "游戏"] });
   assert.deepEqual(room.settings, { mode: "buzzer", pack: "party", categories: ["影视", "游戏"] });
 });

@@ -12,6 +12,8 @@ const SURVIVAL_SKIPS = 1;
 const BUZZ_WIN_CORRECT = 7;
 const REACTIONS = ["egg", "tomato", "question", "applause"];
 const PACKS = ["all", "classic", "party"];
+const PARTY_CATEGORIES = ["网络文化", "影视", "音乐", "游戏", "美食"];
+function packAllowsCategory(pack, category) { return pack === "all" || (pack === "party" ? PARTY_CATEGORIES.includes(category) : !PARTY_CATEGORIES.includes(category) && category !== "时事政治"); }
 
 function shuffle(items, random = Math.random) {
   const result = [...items];
@@ -31,6 +33,7 @@ function configure(room, playerId, payload = {}) {
   const pack = PACKS.includes(payload.pack) ? payload.pack : "all";
   const categories = [...new Set((Array.isArray(payload.categories) ? payload.categories : CATEGORIES).filter((item) => CATEGORIES.includes(item)))];
   if (!categories.length) throw new Error("至少选择一个题目领域");
+  if (!categories.some((category) => packAllowsCategory(pack, category))) throw new Error("当前题库组合与所选领域没有可用题目");
   room.settings = { mode, pack, categories };
 }
 

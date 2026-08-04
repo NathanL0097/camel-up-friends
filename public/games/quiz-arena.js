@@ -35,6 +35,10 @@
         const selected = [...document.querySelectorAll(".quiz-category-select input:checked")].map((input) => input.value);
         socket.emit("game:configure", { mode: $("quizMode").value, pack: $("quizPack").value, categories: selected });
       };
+      if (mine) $("quizPack").onchange = () => {
+        const party = ["网络文化", "影视", "音乐", "游戏", "美食"], pack = $("quizPack").value;
+        document.querySelectorAll(".quiz-category-select input").forEach((input) => { input.checked = pack === "all" || (pack === "party" ? party.includes(input.value) : !party.includes(input.value) && input.value !== "时事政治"); });
+      };
     }
 
     function mount() {
