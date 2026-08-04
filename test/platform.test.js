@@ -110,3 +110,18 @@ test("四款重点游戏加载移动端专属响应式布局", () => {
   assert.ok(mobile.includes("@media (max-width: 720px)"));
     assert.ok(mobile.includes("position: fixed"));
 });
+
+test("平台提供可安装网页 App 所需的 PWA 资源", () => {
+  const read = (file) => fs.readFileSync(path.join(__dirname, "..", file), "utf8");
+  const html = read("public/index.html");
+  const manifest = read("public/manifest.webmanifest");
+  const worker = read("public/sw.js");
+  const pwa = read("public/pwa.js");
+  assert.ok(html.includes('rel="manifest"'));
+  assert.ok(html.includes("/pwa.js"));
+  assert.ok(manifest.includes('"display": "standalone"'));
+  assert.ok(manifest.includes("/icons/icon.svg"));
+  assert.ok(worker.includes("self.addEventListener(\"install\""));
+  assert.ok(worker.includes("/games/mobile-responsive.css"));
+  assert.ok(pwa.includes("beforeinstallprompt"));
+});

@@ -4,6 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#172b2b" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="好友桌游馆" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/icons/icon.svg" />
   <title>好友桌游馆 · 在线开桌</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -41,6 +48,7 @@
   <div class="sun"></div>
   <header class="topbar">
     <a class="brand" href="/"><span class="brand-mark">🎲</span><span>好友桌游馆<small>在线开桌</small></span></a>
+    <button id="installAppButton" class="ghost-button install-app-button hidden" type="button">安装到手机</button>
     <button id="rulesButton" class="ghost-button">玩法说明</button>
   </header>
 
@@ -97,6 +105,7 @@
   <div id="toast" class="toast"></div>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/games/poker-gto-trainer.js"></script>
+  <script src="/pwa.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,16 @@
+{
+  "name": "好友桌游馆",
+  "short_name": "好友桌游馆",
+  "description": "和朋友一起在线开桌，随时加入实时桌游房间。",
+  "lang": "zh-CN",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f5ead4",
+  "theme_color": "#172b2b",
+  "categories": ["games", "social"],
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
