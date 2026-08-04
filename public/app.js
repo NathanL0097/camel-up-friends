@@ -45,7 +45,7 @@ function setAccessState(active, expiresAt = null, role = accessRole) {
   const admin = $("adminButton");
   if (panel) panel.classList.toggle("active", active);
   if (status) status.textContent = active ? (accessRole === "admin" ? "管理员权限永久有效" : `测试权限有效至 ${formatAccessExpiry(accessExpiresAt)}`) : "请输入激活码后开始使用";
-  if (create) create.disabled = !active;
+  if (create) create.disabled = false;
   if (join) join.disabled = false;
   if (admin) admin.classList.toggle("hidden", !(active && accessRole === "admin"));
 }
@@ -150,7 +150,7 @@ document.addEventListener("click", (event) => { if ($("gamePicker")?.classList.c
 document.addEventListener("keydown", (event) => { if (event.key === "Escape") setGameDrawer(false); });
 
 function join(code) {
-  socket.emit("room:join", { code, name: name(), accessToken, playerToken: identity?.code === code ? identity.playerToken : null }, (result) => {
+  socket.emit("room:join", { code, name: name(), roomPassword: $("joinPasswordInput").value, playerToken: identity?.code === code ? identity.playerToken : null }, (result) => {
     if (result?.ok) {
       saveIdentity(result);
       history.replaceState({}, "", `/room/${result.code}`);
@@ -162,6 +162,8 @@ function prepareInviteJoin(code) {
   show("landing");
   $("codeInput").value = code;
   $("codeInput").readOnly = true;
+  $("roomPasswordInput").classList.add("hidden");
+  $("roomPasswordInput").previousElementSibling?.classList.add("hidden");
   $("createButton").classList.add("hidden");
   document.querySelector(".divider").classList.add("hidden");
   document.querySelector(".entry-card").classList.add("invite-mode");
@@ -178,7 +180,7 @@ function renderLobby(room, gameClient) {
   $("lobbyGameTitle").textContent = room.gameInfo?.title || "好友桌游";
   $("lobbyPlayers").innerHTML = room.players.map((player) => `<div class="lobby-player ${player.connected ? "" : "offline"}">${player.id === room.hostId ? "👑 " : ""}${escapeHtml(player.name)}${player.id === myId ? "（你）" : ""}</div>`).join("");
   $("startButton").classList.toggle("hidden", room.hostId !== myId);
-  $("hostHint").textContent = room.hostId === myId ? `已有 ${room.players.length} 人；本房间最多 ${room.gameInfo?.maxPlayers || 8} 人。` : "等待房主开始比赛…";
+  $("hostHint").textContent = room.hostId === myId ? `已有 ${room.players.length} 人；本房间最多 ${room.gameInfo?.maxPlayers || 8} 人。${room.roomPasswordRequired ? " 已设置房间密码。" : " 未设置房间密码。"}` : `等待房主开始比赛…${room.roomPasswordRequired ? " 加入时需要房间密码。" : ""}`;
   $("gameLobbySettings").innerHTML = "";
   gameClient?.renderLobby?.(room);
 }
@@ -192,7 +194,7 @@ async function copyInvite() {
 $("activateButton").onclick = redeemAccessCode;
 $("activationCode").addEventListener("keydown", (event) => { if (event.key === "Enter") redeemAccessCode(); });
 $("adminButton").onclick = () => { location.href = "/admin"; };
-$("createButton").onclick = () => socket.emit("room:create", { name: name(), accessToken, playerToken: crypto.randomUUID(), gameId: selectedGameId }, (result) => {
+$("createButton").onclick = () => socket.emit("room:create", { name: name(), roomPassword: $("roomPasswordInput").value, playerToken: crypto.randomUUID(), gameId: selectedGameId }, (result) => {
   if (result?.ok) {
     saveIdentity(result);
     history.replaceState({}, "", `/room/${result.code}`);
@@ -218,14 +220,8 @@ socket.on("room:update", async (room) => {
   room.game ? gameClient.render(room, transition) : renderLobby(room, gameClient);
 });
 socket.on("game:error", (message) => toast(message));
-socket.on("connect", async () => {
-  const active = await checkAccess();
+socket.on("connect", () => {
   const code = roomFromUrl();
-  if (!active) {
-    if (code) prepareInviteJoin(code);
-    else show("landing");
-    return;
-  }
   if (!code) return show("landing");
   if (identity?.code === code) {
     $("entryHint").textContent = `正在重新连接房间 ${code}…`;
@@ -234,5 +230,5 @@ socket.on("connect", async () => {
 });
 socket.on("disconnect", () => toast("连接中断，正在尝试重连…"));
 
-setAccessState(Boolean(accessToken && (accessRole === "admin" || accessExpiresAt > Date.now())), accessExpiresAt || null, accessRole);
+setAccessState(true, accessExpiresAt || null, accessRole);
 loadGameCatalog();

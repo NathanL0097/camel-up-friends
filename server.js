@@ -21,6 +21,9 @@ const characterImageCache = new Map();
 const database = createDatabase();
 const accessService = createPersistentAccessService({ database, fallback: createAccessService() });
 accessService.ready().then(() => console.log(database.enabled ? "Neon 数据库已连接，权限与审计日志已持久化" : "未配置 DATABASE_URL，暂时使用内存权限存储")).catch((error) => console.error(`数据库初始化失败：${error.message}`));
+async function recordAudit(event) {
+  try { await accessService.audit(event); } catch (error) { console.warn(`审计日志写入失败：${error.message}`); }
+}
 
 async function resolveCharacterImage(imageKey) {
   const cached = characterImageCache.get(imageKey);
@@ -68,10 +71,10 @@ async function requireAdmin(req, res, next) {
   const token = adminToken(req);
   const grant = await accessService.status(token);
   if (!grant.active || grant.role !== "admin") {
-    await accessService.audit({ actorType: "request", actorId: token ? "invalid-token" : "anonymous", action: "admin_access_denied", ip: req.ip, metadata: { method: req.method, path: req.path } });
+    await recordAudit({ actorType: "request", actorId: token ? "invalid-token" : "anonymous", action: "admin_access_denied", ip: req.ip, metadata: { method: req.method, path: req.path } });
     return res.status(403).json({ error: "需要管理员权限" });
   }
-  await accessService.audit({ actorType: "admin", actorId: grant.actorId || "admin-token", action: "admin_access", ip: req.ip, metadata: { method: req.method, path: req.path } });
+  await recordAudit({ actorType: "admin", actorId: grant.actorId || "admin-token", action: "admin_access", ip: req.ip, metadata: { method: req.method, path: req.path } });
   req.adminActorId = grant.actorId || "admin-token";
   next();
 }
@@ -96,7 +99,7 @@ app.post("/api/admin/rooms/:code/close", requireAdmin, async (req, res) => {
   const room = rooms.get(code);
   if (!room) return res.status(404).json({ error: "房间不存在" });
   rooms.delete(code);
-  await accessService.audit({ actorType: "admin", actorId: req.adminActorId, action: "room_closed", roomCode: code, ip: req.ip, metadata: { reason: "administrator_action" } });
+  await recordAudit({ actorType: "admin", actorId: req.adminActorId, action: "room_closed", roomCode: code, ip: req.ip, metadata: { reason: "administrator_action" } });
   for (const client of io.sockets.sockets.values()) {
     if (client.data.roomCode === code) {
       client.emit("game:error", "房间已被管理员关闭");
@@ -176,26 +179,25 @@ gameTicker.unref();
 io.on("connection", (socket) => {
   socket.on("access:status", async ({ token } = {}, ack = () => {}) => {
     const status = await accessService.status(token);
-    if (status.role === "admin") await accessService.audit({ actorType: "admin", actorId: status.actorId || "admin-token", action: "admin_login", ip: socket.handshake.address });
+    if (status.role === "admin") await recordAudit({ actorType: "admin", actorId: status.actorId || "admin-token", action: "admin_login", ip: socket.handshake.address });
     ack(status);
   });
 
   socket.on("access:redeem", async ({ code } = {}, ack = () => {}) => {
     try {
       const grant = await accessService.issue(code);
-      await accessService.audit({ actorType: grant.role === "admin" ? "admin" : "tester", actorId: grant.actorId || (grant.role === "admin" ? "admin-token" : "tester-token"), action: grant.role === "admin" ? "admin_redeem" : "tester_redeem", ip: socket.handshake.address });
+      await recordAudit({ actorType: grant.role === "admin" ? "admin" : "tester", actorId: grant.actorId || (grant.role === "admin" ? "admin-token" : "tester-token"), action: grant.role === "admin" ? "admin_redeem" : "tester_redeem", ip: socket.handshake.address });
       ack({ ok: true, ...grant });
     } catch (error) {
-      await accessService.audit({ actorType: "request", actorId: "invalid-activation", action: "activation_failed", ip: socket.handshake.address, metadata: { codeLength: String(code || "").length } });
+      await recordAudit({ actorType: "request", actorId: "invalid-activation", action: "activation_failed", ip: socket.handshake.address, metadata: { codeLength: String(code || "").length } });
       ack({ ok: false, error: error.message });
     }
   });
 
-  socket.on("room:create", async ({ name, playerToken, accessToken, gameId = DEFAULT_GAME_ID } = {}, ack = () => {}) => {
+  socket.on("room:create", async ({ name, playerToken, roomPassword, gameId = DEFAULT_GAME_ID } = {}, ack = () => {}) => {
     try {
-      if (!(await accessService.valid(accessToken))) throw new Error("请先输入有效的内部激活码");
-      const { room, player } = roomService.createRoom({ name, playerToken, gameId });
-      await accessService.audit({ actorType: "player", actorId: player.id, action: "room_created", roomCode: room.code, ip: socket.handshake.address, metadata: { gameId } });
+      const { room, player } = roomService.createRoom({ name, playerToken, roomPassword, gameId });
+      await recordAudit({ actorType: "player", actorId: player.id, action: "room_created", roomCode: room.code, ip: socket.handshake.address, metadata: { gameId } });
       socket.join(room.code);
       trackPlayerSocket(socket, room, player);
       ack({ ok: true, code: room.code, playerId: player.id, playerToken: player.token });
@@ -203,14 +205,11 @@ io.on("connection", (socket) => {
     } catch (error) { replyError(socket, error); ack({ ok: false, error: error.message }); }
   });
 
-  socket.on("room:join", async ({ code: rawCode, name, playerToken, accessToken } = {}, ack = () => {}) => {
+  socket.on("room:join", async ({ code: rawCode, name, playerToken, roomPassword } = {}, ack = () => {}) => {
     try {
       const joiningRoom = rooms.get(String(rawCode || "").toUpperCase());
-      const hasAccess = await accessService.valid(accessToken);
-      if (!hasAccess && joiningRoom?.game) throw new Error("比赛已经开始，加入或重连需要有效激活权限");
-      if (!hasAccess && !joiningRoom) throw new Error("房间不存在或服务器已经重启");
-      const { room, player } = roomService.joinRoom({ rawCode, name, playerToken });
-      await accessService.audit({ actorType: hasAccess ? "player" : "guest", actorId: player.id, action: hasAccess ? "room_joined" : "guest_invite_joined", roomCode: room.code, ip: socket.handshake.address });
+      const { room, player } = roomService.joinRoom({ rawCode, name, playerToken, roomPassword });
+      await recordAudit({ actorType: "guest", actorId: player.id, action: "room_joined", roomCode: room.code, ip: socket.handshake.address, metadata: { hadActiveGame: Boolean(joiningRoom?.game) } });
       socket.join(room.code);
       trackPlayerSocket(socket, room, player);
       ack({ ok: true, code: room.code, playerId: player.id, playerToken: player.token });

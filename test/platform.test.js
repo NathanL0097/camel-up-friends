@@ -68,6 +68,15 @@ test("平台房间保存游戏类型并生成对应的公开状态", () => {
   assert.equal(publicState.players[0].token, undefined);
 });
 
+test("好友房可由房主设置密码并校验访客加入", () => {
+  const { roomService } = service();
+  const { room, player: host } = roomService.createRoom({ name: "房主", playerToken: "host-token", gameId: "camel-race", roomPassword: "沙漠1234" });
+  assert.throws(() => roomService.joinRoom({ rawCode: room.code, name: "错误访客", roomPassword: "wrong" }), /房间密码错误/);
+  const { player } = roomService.joinRoom({ rawCode: room.code, name: "访客", roomPassword: "沙漠1234" });
+  assert.notEqual(player.id, host.id);
+  assert.equal(roomService.publicRoom(room, host.id).roomPasswordRequired, true);
+});
+
 test("平台用统一动作入口分发到独立游戏模块", () => {
   const { roomService } = service();
   const { room, player } = roomService.createRoom({ name: "房主", playerToken: "host-token", gameId: "camel-race" });

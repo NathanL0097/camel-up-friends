@@ -79,8 +79,11 @@
         </div>
         <label for="nameInput">你的昵称</label>
         <input id="nameInput" maxlength="16" placeholder="例如：沙漠赌神" autocomplete="nickname" />
+        <label for="roomPasswordInput" class="room-password-label">创建房间密码 <small>可选，4–32位</small></label>
+        <input id="roomPasswordInput" maxlength="32" type="password" placeholder="不设置则直接凭房间号加入" autocomplete="new-password" />
         <button id="createButton" class="primary-button">创建好友房 <span>→</span></button>
         <div class="divider"><span>或者</span></div>
+        <input id="joinPasswordInput" maxlength="32" type="password" placeholder="房间密码（如房主设置）" autocomplete="current-password" />
         <div class="join-row"><input id="codeInput" maxlength="6" placeholder="输入 6 位房间码" /><button id="joinButton">加入</button></div>
         <p id="entryHint" class="hint"></p>
       </div>

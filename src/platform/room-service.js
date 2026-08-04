@@ -1,4 +1,11 @@
+const crypto = require("node:crypto");
+
 function createRoomService({ rooms, getGame, makeCode, makeId }) {
+  function passwordHash(value) {
+    const password = String(value || "").trim();
+    return password ? crypto.createHash("sha256").update(password).digest("hex") : null;
+  }
+
   function makePlayer(name, playerToken) {
     return {
       id: makeId(),
@@ -9,22 +16,25 @@ function createRoomService({ rooms, getGame, makeCode, makeId }) {
     };
   }
 
-  function createRoom({ name, playerToken, gameId }) {
+  function createRoom({ name, playerToken, gameId, roomPassword }) {
     const gameDefinition = getGame(gameId);
     let roomCode;
     do roomCode = makeCode(); while (rooms.has(roomCode));
     const player = makePlayer(name || "房主", playerToken);
-    const room = { code: roomCode, gameId: gameDefinition.id, hostId: player.id, players: [player], settings: gameDefinition.defaultSettings?.() || {}, game: null };
+    const password = String(roomPassword || "").trim();
+    if (password && (password.length < 4 || password.length > 32)) throw new Error("房间密码长度需要为4至32位");
+    const room = { code: roomCode, gameId: gameDefinition.id, hostId: player.id, players: [player], settings: gameDefinition.defaultSettings?.() || {}, game: null, passwordHash: passwordHash(password) };
     rooms.set(roomCode, room);
     return { room, player };
   }
 
-  function joinRoom({ rawCode, name, playerToken }) {
+  function joinRoom({ rawCode, name, playerToken, roomPassword }) {
     const roomCode = String(rawCode || "").toUpperCase();
     const room = rooms.get(roomCode);
     if (!room) throw new Error("房间不存在或服务器已经重启");
-    const gameDefinition = getGame(room.gameId);
     let player = room.players.find((item) => item.token === playerToken);
+    const gameDefinition = getGame(room.gameId);
+    if (!player && room.passwordHash && passwordHash(roomPassword) !== room.passwordHash) throw new Error("房间密码错误");
     const reconnecting = Boolean(player && player.connected === false);
     if (!player) {
       if (room.game) throw new Error("比赛已经开始，只有原玩家可以重连");
@@ -77,7 +87,8 @@ function createRoomService({ rooms, getGame, makeCode, makeId }) {
         minPlayers: gameDefinition.minPlayers,
         maxPlayers: gameDefinition.maxPlayers,
         status: gameDefinition.status
-      }
+      },
+      roomPasswordRequired: Boolean(room.passwordHash)
     };
   }
 
