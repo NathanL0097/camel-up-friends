@@ -95,9 +95,25 @@ const CATEGORY_OVERRIDES = {
 };
 
 const EXCLUDED_WORDS = new Set(`密码学 量子电脑 自动驾驶 指纹识别 人脸识别 3D打印 全息投影 芯片 雷达 单簧管 双簧管 圆号 长号 扬琴 三角铁 场记板 提词器 吊麦 耳返 舞台升降台 脚手架 钢筋 电焊机 搅拌机 塔吊 工具腰带 行驶证 挂号单 通行证 工程帽 压路机 叉车 水泥袋 电子秤 条形码 扫码枪 防潮垫 相机包 防水袋 便携炉 消毒液 血压计 手术刀 氧气瓶 挤奶桶 饲料槽 农用车 耙子 犁 粮仓 井盖 护栏 交通锥 减速带 撑杆跳 铅球 铁人三项 自由潜水 曲棍球 手球 水球 雕刻刀 滚筒刷 砚台 宣纸 电子书 移动硬盘 路由器 自动铅笔 修正带 回形针 图钉 锉刀 投影仪 行驶证 工作证 取餐券`.split(/\s+/));
-const entries = [...Object.entries(GROUPS), ...Object.entries(EXTRA_GROUPS), ...Object.entries(PARTY_GROUPS)]
+const REPLACEMENT_GROUPS = {
+  "中国城市": "北京 上海 广州 深圳 成都 重庆 杭州 苏州 西安 南京 武汉 长沙 厦门 青岛 大连 昆明 拉萨 哈尔滨 洛阳 桂林",
+  "世界城市": "伦敦 巴黎 罗马 东京 首尔 曼谷 新加坡 纽约 洛杉矶 悉尼 开罗 迪拜 巴塞罗那 威尼斯 柏林 维也纳 布拉格 多伦多 里约热内卢",
+  "国家地区": "中国 英国 法国 日本 韩国 加拿大 巴西 埃及 印度 泰国 希腊 挪威 瑞士 意大利 西班牙 墨西哥 新西兰 南非 土耳其",
+  "常见人物": "医生 老师 警察 演员 歌手 画家 作家 记者 农民 运动员 舞蹈家 司机 面包师 园丁 护士 律师 厨师 画家 导演 音乐家",
+  "经典角色": "孙悟空 猪八戒 唐僧 沙僧 哪吒 嫦娥 夸父 后羿 花木兰 白娘子 许仙 济公 哪吒 葫芦娃 黑猫警长 舒克 贝塔 小猪佩奇 米老鼠",
+  "交通场景": "过马路 等公交 骑自行车 开汽车 乘地铁 坐飞机 坐轮船 停车 加油 修车 过隧道 过桥 看路牌 买车票 检票 排队上车 背行李 过安检 等红灯",
+  "生活动作": "洗手 洗脸 梳头 穿衣 穿鞋 吃饭 喝水 睡觉 起床 开门 关窗 开灯 关灯 打电话 拍照片 读书 写字 听音乐 看电影",
+  "校园场景": "上课 下课 举手 回答问题 写作业 读课文 做实验 参加考试 打扫教室 借书 领奖 升旗 跑步 跳绳 排队 听讲 画画 唱歌 做操",
+  "休闲活动": "钓鱼 下棋 看书 画画 跳舞 唱歌 旅行 摄影 跑步 骑马 滑冰 滑雪 露营 野餐 逛街 看展览 看球赛 做手工 吹泡泡 放风筝",
+  "中国文化": "茶壶 毛笔 灯笼 京剧 龙舟 月饼 粽子 年画 剪纸 陶瓷 旗袍 汉服 脸谱 太极 扇子 筷子 围棋 象棋 古筝 二胡",
+  "建筑地标": "长城 故宫 埃菲尔铁塔 比萨斜塔 大本钟 自由女神像 金字塔 悉尼歌剧院 凯旋门 斗兽场 狮身人面像 天坛 布达拉宫 东方明珠 兵马俑 天安门 钟楼 鼓楼 水塔",
+  "常见动物": "小狗 小猫 兔子 松鼠 狐狸 狮子 老虎 大象 长颈鹿 斑马 熊猫 考拉 海豹 海豚 鲸鱼 乌龟 青蛙 蜜蜂 蝴蝶 金鱼"
+};
+// 全新词库只采用单一、可画、常见的名词、人物、地点与明确动作。
+// 旧的脑洞组合、双物品组合和拟人化组合不参与游戏。
+const entries = [...Object.entries(EXTRA_GROUPS), ...Object.entries(REPLACEMENT_GROUPS)]
   .flatMap(([category, value]) => value.split(/\s+/).filter(Boolean).map((word) => ({ category: CATEGORY_OVERRIDES[word] || category, word })))
   .filter((item) => !EXCLUDED_WORDS.has(item.word));
 const WORDS = [...new Map(entries.map((item) => [item.word, item])).values()];
 
-module.exports = { GROUPS, EXTRA_GROUPS, PARTY_GROUPS, CATEGORY_OVERRIDES, WORDS };
+module.exports = { GROUPS, EXTRA_GROUPS, REPLACEMENT_GROUPS, PARTY_GROUPS, CATEGORY_OVERRIDES, WORDS };

@@ -158,6 +158,47 @@
   .quiz-final-overlay { inset: 58px 0 0; padding: 18px 10px 35px; }
   .quiz-final-overlay h2 { font-size: 28px; }
 
+  /* 站神答题王：竖屏重排为题卡优先，选项始终一列完整显示。 */
+  .quiz-stage { display: flex; flex-direction: column; min-height: 0; padding: 8px; gap: 9px; box-sizing: border-box; }
+  .quiz-question-card { position: relative !important; left: auto !important; top: auto !important; order: 1; transform: none !important; }
+  .quiz-player-ring { position: relative !important; inset: auto !important; order: 2; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; pointer-events: auto; }
+  .quiz-player { position: relative !important; left: auto !important; top: auto !important; width: auto !important; min-height: 52px; transform: none !important; }
+  .quiz-player.active { transform: none !important; }
+  .quiz-arena-core, .quiz-orbit { display: none; }
+  .quiz-ghost-panel { position: relative !important; left: auto !important; bottom: auto !important; order: 3; width: 100%; transform: none !important; }
+  .ghost-vote { width: 100%; box-sizing: border-box; }
+  .ghost-vote > div { width: 100%; }
+  .ghost-vote button { min-height: 38px; font-size: 11px; }
+
+  /* 你画我猜：完全取消横屏画布，竖屏可直接作画与猜词。 */
+  .draw-game { min-width: 0 !important; width: 100%; }
+  .draw-head { width: auto !important; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px; }
+  .draw-head h2 { font-size: 25px; }
+  .draw-phase { padding: 6px 9px; font-size: 10px; }
+  .draw-layout { display: flex !important; flex-direction: column; grid-template-columns: none !important; gap: 9px; width: 100%; }
+  .draw-stage { order: 1; width: 100%; }
+  .draw-players { order: 2; width: 100%; height: auto !important; max-height: 210px; padding: 10px; box-sizing: border-box; overflow: auto; }
+  .guess-panel { order: 3; grid-column: auto !important; width: 100% !important; height: auto !important; min-height: 220px; padding: 10px; box-sizing: border-box; }
+  .draw-word-bar { min-height: 57px; margin-bottom: 8px; padding: 8px 12px; }
+  .draw-word-bar strong { max-width: 235px; overflow-wrap: anywhere; font-size: 18px; letter-spacing: 1px; }
+  .draw-toolbar { flex-wrap: wrap; gap: 6px; min-height: 0; padding: 8px; }
+  .draw-colors { width: 100%; padding: 0 0 6px; border-right: 0; border-bottom: 1px solid #9db5c455; overflow-x: auto; }
+  .draw-color { flex: 0 0 25px; width: 25px; height: 25px; }
+  .tool-button { min-height: 36px; padding: 7px 9px; font-size: 10px; }
+  .draw-toolbar label { margin-left: auto; font-size: 10px; }
+  .draw-toolbar input[type="range"] { width: 78px; }
+  .canvas-wrap { height: min(78vw, 360px) !important; min-height: 270px; }
+  .word-choice { width: calc(100% - 22px); padding: 14px 10px; box-sizing: border-box; }
+  .word-choice > div { grid-template-columns: 1fr; gap: 6px; margin-top: 9px; }
+  .word-choice button { min-height: 49px; }
+  .word-choice button strong { margin-top: 2px; font-size: 16px; }
+  .word-choice .refresh-words { margin-top: 9px; }
+  .round-reveal { width: calc(100% - 24px); max-height: calc(100% - 24px); overflow: auto; padding: 15px 10px; box-sizing: border-box; }
+  .round-reveal strong { font-size: 26px; }
+  .guess-messages { display: block; min-height: 125px; max-height: 180px; margin: 8px 0; }
+  .guess-message { min-width: 0; }
+  .empty-guesses { padding: 38px 0; }
+
   /* 骗子酒馆：酒馆桌面和手牌分层，手牌不再遮挡质疑/开枪反馈。 */
   #liarsTavern { width: 100%; min-width: 0; min-height: 0; }
   .liar-head { display: grid; grid-template-columns: 1fr auto; height: auto; padding: 8px 10px; gap: 5px; }

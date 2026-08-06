@@ -167,12 +167,14 @@ test("捣蛋鬼能发送有限频率表情但存活玩家不能发送", () => {
   assert.throws(() => rules.react(room, "p2", "egg", 3500), /太快/);
 });
 
-test("每完成三题由捣蛋鬼从三个领域中投票决定下一题", () => {
-  const room = makeRoom(); room.players[2].eliminated = true; room.players[2].lives = 0; room.game.questionNumber = 3;
+test("每一题均由捣蛋鬼轮流指定下一题领域", () => {
+  const room = makeRoom(4); room.players[2].eliminated = true; room.players[2].lives = 0; room.players[3].eliminated = true; room.players[3].lives = 0;
   room.game.phase = "result"; room.game.deadline = 5000;
-  rules.tick(room, 5000); assert.equal(room.game.phase, "category-vote"); assert.equal(room.game.categoryVote.options.length, 3);
+  rules.tick(room, 5000); assert.equal(room.game.phase, "category-vote"); assert.equal(room.game.categoryVote.selectorId, "p3");
   const chosen = room.game.categoryVote.options[1]; rules.voteCategory(room, "p3", chosen, 5100);
   assert.equal(room.game.phase, "question"); assert.equal(room.game.question.category, chosen);
+  room.game.phase = "result"; room.game.deadline = 6000;
+  rules.tick(room, 6000); assert.equal(room.game.categoryVote.selectorId, "p4");
 });
 
 test("站神能给每位失败者分别选择三类挑战且本人可免费刷新一次", () => {

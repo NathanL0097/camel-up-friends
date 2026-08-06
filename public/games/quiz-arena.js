@@ -24,7 +24,7 @@
     }
 
     function rules() {
-      $("rulesContent").innerHTML = `<div class="eyebrow">知识派对 · 2–6人</div><h2>站神答题王</h2><ol><li><strong>站神模式：</strong>所有玩家按随机顺序循环答题，每人3颗生命和1次跳过。每题20秒；答错或超时失去1颗生命，最后存活者成为站神。</li><li><strong>秘密选项：</strong>所有人都能看到题干，但只有当前玩家能看到选项。答题后公开玩家答案、正确答案与知识解析。</li><li><strong>角色识图：</strong>“动漫角色”和“儿童动画角色”都会出现人物影像，不提供选项；当前答题者需输入完整姓名，常见间隔符号不影响判定。</li><li><strong>传递难题：</strong>跳过不扣生命且不揭晓答案，同一道题交给下一位玩家；下一位如有跳过也能继续传递。</li><li><strong>抢答模式：</strong>题干在8秒内逐字揭示，整题有30秒公共抢答时间。抢到后公共时间暂停，该玩家独享20秒输入时间。</li><li><strong>两次错误：</strong>第一位抢答者答错后，其他玩家可以继续抢；累计两人答错即揭晓。第一位答对7题且仍有生命的玩家获胜。</li><li><strong>捣蛋鬼：</strong>生命归零后可发送鸡蛋、番茄、问号和掌声；每3题共同从三个领域中投票决定下一题。</li><li><strong>赛后：</strong>站神分别为每位失败玩家选择真心话、大冒险或欢乐挑战，每人可以免费刷新一次。</li></ol><p class="rules-note">题库包含5000+道本地题目，并支持服务端在线题包更新；同一场不会重复考察同一个知识点。</p>`;
+      $("rulesContent").innerHTML = `<div class="eyebrow">知识派对 · 2–6人</div><h2>站神答题王</h2><ol><li><strong>站神模式：</strong>所有玩家按随机顺序循环答题，每人3颗生命和1次跳过。每题20秒；答错或超时失去1颗生命，最后存活者成为站神。</li><li><strong>秘密选项：</strong>所有人都能看到题干，但只有当前玩家能看到选项。答题后公开玩家答案、正确答案与知识解析。</li><li><strong>角色识图：</strong>“动漫角色”和“儿童动画角色”都会出现人物影像，不提供选项；当前答题者需输入完整姓名，常见间隔符号不影响判定。</li><li><strong>传递难题：</strong>跳过不扣生命且不揭晓答案，同一道题交给下一位玩家；下一位如有跳过也能继续传递。</li><li><strong>抢答模式：</strong>题干在8秒内逐字揭示，整题有30秒公共抢答时间。抢到后公共时间暂停，该玩家独享20秒输入时间。</li><li><strong>两次错误：</strong>第一位抢答者答错后，其他玩家可以继续抢；累计两人答错即揭晓。第一位答对7题且仍有生命的玩家获胜。</li><li><strong>捣蛋鬼：</strong>生命归零后可发送鸡蛋、番茄、问号和掌声；之后每一道题都由捣蛋鬼依淘汰顺序轮流指定领域。</li><li><strong>赛后：</strong>站神分别为每位失败玩家选择真心话、大冒险或欢乐挑战，每人可以免费刷新一次。</li></ol><p class="rules-note">题库包含5000+道本地题目，并支持服务端在线题包更新；同一场不会重复考察同一个知识点。</p>`;
     }
 
     function renderLobby(room) {
@@ -84,7 +84,7 @@
         if (game.answererId !== getMyId()) return `<div class="quiz-wait"><span>⚡</span><b>${escapeHtml(room.players.find((item) => item.id === game.answererId)?.name || "玩家")} 抢到了</b><small>公共30秒已经暂停</small></div>`;
         return '<form id="quizAnswerForm" class="quiz-text-answer buzzer"><input id="quizAnswerInput" maxlength="80" autocomplete="off" placeholder="输入答案…"><button>确认提交</button></form>';
       }
-      if (game.phase === "category-vote") return '<div class="quiz-wait"><span>👻</span><b>捣蛋鬼正在决定下一题领域</b></div>';
+      if (game.phase === "category-vote") return '<div class="quiz-wait"><span>👻</span><b>捣蛋鬼正在为下一题选择领域</b></div>';
       return "";
     }
 
@@ -112,8 +112,9 @@
     function ghostMarkup(room) {
       const game = room.game, me = room.players.find((item) => item.id === getMyId());
       if (game.phase === "category-vote" && game.categoryVote) {
-        const voted = game.categoryVote.votes[getMyId()];
-        return `<div class="ghost-vote"><span>👻</span><div><b>捣蛋鬼领域投票</b><small>每3题决定一次下一题</small></div>${me.eliminated ? game.categoryVote.options.map((category) => `<button data-category-vote="${category}" class="${voted === category ? "selected" : ""}">${category}</button>`).join("") : '<em>等待捣蛋鬼投票…</em>'}</div>`;
+        const selector = room.players.find((item) => item.id === game.categoryVote.selectorId);
+        const mine = game.categoryVote.selectorId === getMyId();
+        return `<div class="ghost-vote"><span>👻</span><div><b>${mine ? "轮到你选下一题领域" : `${escapeHtml(selector?.name || "捣蛋鬼")} 正在选题`}</b><small>每一题都由捣蛋鬼轮流指定领域</small></div>${mine ? game.categoryVote.options.map((category) => `<button data-category-vote="${category}">${category}</button>`).join("") : '<em>等待本轮捣蛋鬼选择…</em>'}</div>`;
       }
       if (!me.eliminated || game.status !== "playing") return "";
       return `<div class="ghost-tools"><span>👻 捣蛋鬼表情</span>${Object.entries(reactionIcons).map(([type, icon]) => `<button data-ghost-reaction="${type}">${icon}</button>`).join("")}</div>`;

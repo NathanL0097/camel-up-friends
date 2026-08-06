@@ -6,7 +6,7 @@ const BUZZ_WINDOW_SECONDS = 30;
 const PROMPT_REVEAL_SECONDS = 8;
 const BUZZ_ANSWER_SECONDS = 20;
 const RESULT_SECONDS = 6;
-const VOTE_SECONDS = 12;
+const VOTE_SECONDS = 18;
 const STARTING_LIVES = 3;
 const SURVIVAL_SKIPS = 1;
 const BUZZ_WIN_CORRECT = 7;
@@ -103,7 +103,7 @@ function createGame(players, settings = defaultSettings(), random = Math.random,
     status: "playing", mode: cleanSettings.mode, phase: "question", settings: cleanSettings,
     questionNumber: 0, turnOrder: shuffle(players.map((item) => item.id), random), activePlayerId: null,
     question: null, usedQuestionIds: [], usedKnowledgeKeys: [], deadline: null, mainDeadline: null, mainRemaining: null,
-    questionStartedAt: null, answererId: null, attempts: [], result: null, reactions: [], categoryVote: null,
+    questionStartedAt: null, answererId: null, attempts: [], result: null, reactions: [], categoryVote: null, ghostCategoryCursor: 0,
     ranking: [], championId: null, challenges: {}, challengeRerolls: {}, random, packInfo: questionPackInfo()
   };
   game.activePlayerId = game.turnOrder[0];
@@ -218,9 +218,14 @@ function submitBuzz(room, playerId, value, now = Date.now()) {
 function offerCategoryVote(room, now = Date.now()) {
   const game = room.game;
   const ghosts = room.players.filter((item) => item.eliminated);
-  if (!ghosts.length || game.questionNumber % 3 !== 0) return false;
+  if (!ghosts.length) return false;
+  const selector = ghosts[game.ghostCategoryCursor % ghosts.length];
   game.phase = "category-vote";
-  game.categoryVote = { options: shuffle(game.settings.categories, game.random).slice(0, Math.min(3, game.settings.categories.length)), votes: {}, deadline: now + VOTE_SECONDS * 1000 };
+  game.categoryVote = {
+    selectorId: selector.id,
+    options: game.settings.categories.filter((category) => packAllowsCategory(game.settings.pack, category)),
+    deadline: now + VOTE_SECONDS * 1000
+  };
   game.deadline = game.categoryVote.deadline;
   return true;
 }
@@ -228,23 +233,20 @@ function offerCategoryVote(room, now = Date.now()) {
 function resolveCategoryVote(room, now = Date.now()) {
   const vote = room.game.categoryVote;
   if (!vote) return beginQuestion(room, now);
-  const counts = Object.values(vote.votes).reduce((map, category) => (map[category] = (map[category] || 0) + 1, map), {});
-  const best = Math.max(0, ...Object.values(counts));
-  const tied = vote.options.filter((category) => (counts[category] || 0) === best);
-  const chosen = tied[Math.floor(room.game.random() * tied.length)] || vote.options[0];
+  const chosen = vote.chosen || vote.options[Math.floor(room.game.random() * vote.options.length)] || room.game.settings.categories[0];
   room.game.categoryVote = { ...vote, chosen };
+  room.game.ghostCategoryCursor += 1;
   beginQuestion(room, now, chosen);
 }
 
 function voteCategory(room, playerId, category, now = Date.now()) {
   const game = room.game;
   const item = player(room, playerId);
-  if (game.phase !== "category-vote" || !game.categoryVote) throw new Error("现在没有领域投票");
-  if (!item.eliminated) throw new Error("只有捣蛋鬼可以投票");
+  if (game.phase !== "category-vote" || !game.categoryVote) throw new Error("现在没有领域选择");
+  if (!item.eliminated || game.categoryVote.selectorId !== playerId) throw new Error("现在由指定的捣蛋鬼选择领域");
   if (!game.categoryVote.options.includes(category)) throw new Error("请选择本轮提供的领域");
-  game.categoryVote.votes[playerId] = category;
-  const ghosts = room.players.filter((candidate) => candidate.eliminated && candidate.connected !== false);
-  if (ghosts.length && ghosts.every((candidate) => game.categoryVote.votes[candidate.id])) resolveCategoryVote(room, now);
+  game.categoryVote.chosen = category;
+  resolveCategoryVote(room, now);
 }
 
 function react(room, playerId, type, now = Date.now()) {
