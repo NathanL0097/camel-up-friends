@@ -56,13 +56,12 @@ function pickQuestion(game, forcedCategory = null) {
   }
   if (!choices.length) {
     if (forcedCategory) {
-      const bank = getQuestionBank();
-      const categoryKeys = new Set(bank.filter((question) => question.category === forcedCategory).map((question) => question.knowledgeKey));
-      for (let index = RECENT_KNOWLEDGE_KEYS.length - 1; index >= 0; index -= 1) if (categoryKeys.has(RECENT_KNOWLEDGE_KEYS[index])) RECENT_KNOWLEDGE_KEYS.splice(index, 1);
-    } else RECENT_KNOWLEDGE_KEYS.length = 0;
-    game.usedKnowledgeKeys = [];
-    if (forcedCategory) choices = eligibleQuestions(game, forcedCategory);
-    else {
+      // 领域投票只是偏好，不应因为该领域暂时抽空而清掉全局去重记录。
+      // 先从其他启用领域取新知识点；只有整套题库都用尽时才允许循环。
+      choices = eligibleQuestions(game, null);
+    } else {
+      RECENT_KNOWLEDGE_KEYS.length = 0;
+      game.usedKnowledgeKeys = [];
       const categoryPools = game.settings.categories.map((category) => ({ category, questions: eligibleQuestions(game, category) })).filter((entry) => entry.questions.length);
       choices = categoryPools[Math.floor(game.random() * categoryPools.length)]?.questions || [];
     }
