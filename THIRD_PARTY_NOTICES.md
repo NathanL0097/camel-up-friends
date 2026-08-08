@@ -1,7 +1,11 @@
 # Third-party content notices
 
-## MKQA question data
+## OpenTriviaQA question data
 
-The Quiz Arena independent question bank includes a filtered set of Simplified Chinese question-and-answer records from [MKQA](https://github.com/apple/ml-mkqa), published by Apple under the [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) licence.
+The Quiz Arena independent question bank includes selected and translated multiple-choice records from [OpenTriviaQA](https://github.com/uberspot/OpenTriviaQA), available under the [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) licence.
 
-The project keeps 6,620 answerable Chinese records and adds its own category labels, answer-choice formatting, and game metadata. The original MKQA project is credited above; these adaptations are shared under the same licence where required.
+The project removes unsuitable, overly specific, malformed, and meta-option questions; it also adds category labels and game metadata. The original project is credited above; these adaptations are shared under the same licence where required.
+
+## Wikidata structured facts
+
+Some question-and-option groups are generated from structured relationships in [Wikidata](https://www.wikidata.org/). Wikidata structured data is available under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).

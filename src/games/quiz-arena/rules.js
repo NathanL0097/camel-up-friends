@@ -12,10 +12,10 @@ const SURVIVAL_SKIPS = 1;
 const BUZZ_WIN_CORRECT = 7;
 const REACTIONS = ["egg", "tomato", "question", "applause"];
 const PACKS = ["all", "classic", "party"];
-const PARTY_CATEGORIES = ["网络文化", "影视", "音乐", "游戏", "美食", "动漫角色", "儿童动画角色"];
+const PARTY_CATEGORIES = ["影视", "音乐", "游戏与网络文化", "美食", "动漫角色"];
 const RECENT_KNOWLEDGE_KEYS = [];
 const RECENT_LIMIT = 320;
-function packAllowsCategory(pack, category) { return pack === "all" || (pack === "party" ? PARTY_CATEGORIES.includes(category) : !PARTY_CATEGORIES.includes(category) && category !== "时事政治"); }
+function packAllowsCategory(pack, category) { return pack === "all" || (pack === "party" ? PARTY_CATEGORIES.includes(category) : !PARTY_CATEGORIES.includes(category)); }
 
 function shuffle(items, random = Math.random) {
   const result = [...items];
@@ -68,7 +68,11 @@ function pickQuestion(game, forcedCategory = null) {
   }
   if (!choices.length && forcedCategory) choices = eligibleQuestions(game, null);
   if (!choices.length) throw new Error("当前题库设置下没有可用题目");
-  const question = choices[Math.floor(game.random() * choices.length)];
+  const roll = game.random();
+  const preferredDifficulty = roll < 0.6 ? "easy" : roll < 0.9 ? "medium" : "hard";
+  const difficultyPool = choices.filter((question) => question.difficulty === preferredDifficulty);
+  const finalChoices = difficultyPool.length ? difficultyPool : choices;
+  const question = finalChoices[Math.floor(game.random() * finalChoices.length)];
   game.usedQuestionIds.push(question.id);
   game.usedKnowledgeKeys.push(question.knowledgeKey);
   RECENT_KNOWLEDGE_KEYS.push(question.knowledgeKey);
@@ -96,13 +100,13 @@ function resetPlayers(players, mode) {
   players.forEach((item) => Object.assign(item, { lives: STARTING_LIVES, skips: mode === "survival" ? SURVIVAL_SKIPS : 0, correct: 0, score: 0, eliminated: false, ghostScore: 0, lastReactionAt: 0 }));
 }
 
-function createGame(players, settings = defaultSettings(), random = Math.random, now = Date.now()) {
+function createGame(players, settings = defaultSettings(), random = Math.random, now = Date.now(), previousKnowledgeKeys = []) {
   const cleanSettings = { ...defaultSettings(), ...settings, categories: Array.isArray(settings.categories) && settings.categories.length ? settings.categories.filter((item) => CATEGORIES.includes(item)) : [...CATEGORIES] };
   resetPlayers(players, cleanSettings.mode);
   const game = {
     status: "playing", mode: cleanSettings.mode, phase: "question", settings: cleanSettings,
     questionNumber: 0, turnOrder: shuffle(players.map((item) => item.id), random), activePlayerId: null,
-    question: null, usedQuestionIds: [], usedKnowledgeKeys: [], deadline: null, mainDeadline: null, mainRemaining: null,
+    question: null, usedQuestionIds: [], usedKnowledgeKeys: [...new Set(previousKnowledgeKeys)].filter((key) => typeof key === "string"), deadline: null, mainDeadline: null, mainRemaining: null,
     questionStartedAt: null, answererId: null, attempts: [], result: null, reactions: [], categoryVote: null, ghostCategoryCursor: 0,
     ranking: [], championId: null, challenges: {}, challengeRerolls: {}, random, packInfo: questionPackInfo()
   };

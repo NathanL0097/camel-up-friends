@@ -12,7 +12,7 @@ const definition = {
   status: "prototype",
   defaultSettings: rules.defaultSettings,
   configure: rules.configure,
-  createGame(players, settings) { return rules.createGame(players, settings); },
+  createGame(players, settings, room) { return rules.createGame(players, settings, Math.random, Date.now(), room?.quizHistoryKeys || []); },
   publicRoom: rules.publicRoom,
   tick: rules.tick,
   actions: {

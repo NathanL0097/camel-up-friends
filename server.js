@@ -25,6 +25,44 @@ async function recordAudit(event) {
   try { await accessService.audit(event); } catch (error) { console.warn(`审计日志写入失败：${error.message}`); }
 }
 
+function quizOwnerHash(token) {
+  return crypto.createHash("sha256").update(String(token || "anonymous-host")).digest("hex");
+}
+
+async function loadQuizHistory(room, player) {
+  if (room.gameId !== "quiz-arena") return;
+  room.quizOwnerHash = quizOwnerHash(player.token);
+  room.quizHistoryKeys = new Set();
+  room.quizPersistedKeys = new Set();
+  if (!database.enabled) return;
+  await database.ready();
+  const result = await database.query("SELECT knowledge_key FROM quiz_question_history WHERE owner_hash = $1", [room.quizOwnerHash]);
+  for (const row of result.rows) {
+    room.quizHistoryKeys.add(row.knowledge_key);
+    room.quizPersistedKeys.add(row.knowledge_key);
+  }
+}
+
+async function persistQuizHistory(room) {
+  if (room.gameId !== "quiz-arena" || !room.game || !room.quizOwnerHash) return;
+  const persisted = room.quizPersistedKeys || (room.quizPersistedKeys = new Set());
+  const pending = room.game.usedKnowledgeKeys.filter((key) => !persisted.has(key));
+  if (!pending.length) return;
+  pending.forEach((key) => persisted.add(key));
+  if (!database.enabled) return;
+  try {
+    await database.query(`
+      INSERT INTO quiz_question_history (owner_hash, knowledge_key)
+      SELECT $1, value FROM UNNEST($2::text[]) AS value
+      ON CONFLICT (owner_hash, knowledge_key)
+      DO UPDATE SET last_seen_at = NOW(), seen_count = quiz_question_history.seen_count + 1
+    `, [room.quizOwnerHash, pending]);
+  } catch (error) {
+    pending.forEach((key) => persisted.delete(key));
+    console.warn(`站神历史记录写入失败：${error.message}`);
+  }
+}
+
 async function resolveCharacterImage(imageKey) {
   const cached = characterImageCache.get(imageKey);
   if (cached) return await cached;
@@ -161,6 +199,7 @@ function sendRoom(room) {
   for (const client of io.sockets.sockets.values()) {
     if (client.data.roomCode === room.code) client.emit("room:update", roomService.publicRoom(room, client.data.playerId));
   }
+  void persistQuizHistory(room);
 }
 
 function replyError(socket, error) {
@@ -197,6 +236,7 @@ io.on("connection", (socket) => {
   socket.on("room:create", async ({ name, playerToken, roomPassword, gameId = DEFAULT_GAME_ID } = {}, ack = () => {}) => {
     try {
       const { room, player } = roomService.createRoom({ name, playerToken, roomPassword, gameId });
+      await loadQuizHistory(room, player);
       await recordAudit({ actorType: "player", actorId: player.id, action: "room_created", roomCode: room.code, ip: socket.handshake.address, metadata: { gameId } });
       socket.join(room.code);
       trackPlayerSocket(socket, room, player);

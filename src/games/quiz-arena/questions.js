@@ -1,600 +1,108 @@
-const CATEGORIES = ["生活常识", "历史", "地理", "科学", "科技", "体育", "影视", "音乐", "游戏", "美食", "文学艺术", "自然动物", "趣味冷知识", "网络文化", "时事政治", "动漫角色", "儿童动画角色"];
-const MKQA_QUESTIONS = require("./mkqa-questions.json");
+const CURATED_SOURCE = require("./curated-questions.json");
+const STRUCTURED_SOURCE = require("./structured-questions.json");
+const { CHARACTER_IMAGE_QUERIES, CHARACTER_QUESTIONS } = require("./characters-v3");
+const { MANUAL_QUESTIONS } = require("./manual-facts-v3");
+const { auditQuestionBank, validateQuestion } = require("./question-quality");
 
-const CHARACTER_IMAGE_QUERIES = {
-  naruto: "Naruto Uzumaki", sasuke: "Sasuke Uchiha", sakura: "Sakura Haruno", kakashi: "Kakashi Hatake",
-  luffy: "Monkey D. Luffy", zoro: "Roronoa Zoro", goku: "Goku Son", vegeta: "Vegeta",
-  usagi: "Usagi Tsukino", conan: "Conan Edogawa", tanjiro: "Tanjirou Kamado", nezuko: "Nezuko Kamado",
-  zenitsu: "Zenitsu Agatsuma", rengoku: "Kyoujurou Rengoku", gojo: "Satoru Gojou", yuji: "Yuuji Itadori",
-  megumi: "Megumi Fushiguro", nobara: "Nobara Kugisaki", anya: "Anya Forger", loid: "Loid Forger",
-  yor: "Yor Forger", eren: "Eren Yeager", mikasa: "Mikasa Ackerman", levi: "Levi",
-  light: "Light Yagami", lawliet: "L Lawliet", edward: "Edward Elric", alphonse: "Alphonse Elric",
-  kagome: "Kagome Higurashi", kazuto: "Kazuto Kirigaya", asuna: "Asuna Yuuki", shigeo: "Shigeo Kageyama",
-  reigen: "Arataka Reigen", violet: "Violet Evergarden", lelouch: "Lelouch Lamperouge", gintoki: "Gintoki Sakata",
-  shinpachi: "Shinpachi Shimura", jotaro: "Joutarou Kuujou", giorno: "Giorno Giovanna", shinji: "Shinji Ikari",
-  rei: "Rei Ayanami", asuka: "Asuka Langley Souryuu", ranma: "Ranma Saotome", akane: "Akane Tendo",
-  ichigo: "Ichigo Kurosaki", rukia: "Rukia Kuchiki", yusuke: "Yuusuke Urameshi", killua: "Killua Zoldyck",
-  pikachu: "Pikachu", doraemon: "Doraemon", totoro: "Totoro", chopper: "Tony Tony Chopper", happy: "Happy", korosensei: "Koro-sensei",
-  takeshi: "Takeshi Gouda", suneo: "Suneo Honekawa", shizuka: "Shizuka Minamoto", momoko: "Momoko Sakura",
-  kinomoto: "Sakura Kinomoto", shinnosuke: "Shinnosuke Nohara", nobita: "Nobita Nobi"
-};
+const CATEGORIES = ["生活常识", "历史", "地理", "科学与科技", "体育", "影视", "音乐", "游戏与网络文化", "美食", "文学艺术", "自然动物", "趣味冷知识", "动漫角色"];
+const PARTY_CATEGORIES = new Set(["影视", "音乐", "游戏与网络文化", "美食", "动漫角色"]);
+const FOOD_WORDS = /食物|食品|烹饪|菜肴|饮料|水果|蔬菜|咖啡|茶|面包|蛋糕|巧克力|奶酪|鸡尾酒|葡萄酒|啤酒|餐厅|厨房|调味|甜点/;
+const NETWORK_WORDS = /互联网|网络用语|社交媒体|视频网站|直播|表情包|网红|短视频|播客|YouTube|TikTok|Twitter|微博|微信|哔哩哔哩/iu;
+// 这些问法往往依赖剧集细节、过期赛事数据或死记冷僻数字，不适合朋友聚会。
+// 年代、人物与作品常识仍保留在人工核验题和结构化题中。
+const COLD_DETAIL = /(第\s*\d+|第几|章节|本章|倒数第|哪一集|第几集|哪一季|赛季|哪一年|什么时候|何时|有多少|多少个|多少只|第一个|第二个|第三个|谁是.*第|何时去世|什么时候去世|出生于哪个国家|票房|奥斯卡.*提名|艾美奖|格莱美奖|排行榜第|广告中|书中|小说中|最后一幕|哪两名.*成员|哪支球队|哪位球员|哪位演员|饰演|扮演|情节|剧情|结局|杀了多少|专辑.*第|歌曲.*发行|电影.*出品|电影.*拍摄|赛季|冠军|比赛|得分|本垒打|联盟|球队|教练|运动员人数|摩托车|魔法部|格兰芬多|霍格沃茨|根据《战争机器》)/i;
+const META_OPTIONS = /(这些答案|以上都|都不是|两者|所有这些|这些都|以上皆是|以上都不是)/;
+const VAGUE_OPENING = /^(这个|这些|这种|这位|这项|以下哪项陈述)/;
 
-// 2026-08-07 全新重编题库。旧版 FACT_ROWS 不再参与出题；保留在文件中仅为兼容历史版本。
-// 每条事实生成 34 种独立题面与选项顺序，抽题按知识点而非措辞去重。
-const FRESH_FACT_ROWS = {
-  "生活常识": [
-    "身份证遗失后应优先做什么？|挂失补办|继续等待,随意公布号码,立刻注销银行卡|挂失补办可降低证件被冒用的风险。",
-    "家用灭火器压力表指针通常位于哪个区域才表示压力正常？|绿色区域|红色区域,黑色区域,蓝色区域|常见干粉灭火器的绿色区域表示压力正常。",
-    "乘坐自动扶梯时，较安全的站立位置是？|站在黄线以内并扶好扶手|倚靠侧板,逆向奔跑,坐在台阶上|应站在安全线以内并握住扶手。",
-    "冰箱冷藏室通常适合保存什么？|短期食用的蔬果和熟食|正在加热的汤,易燃物,所有药品|冷藏能延缓食物变质，但不等于长期保存。",
-    "发生轻微烫伤后，首先推荐的处理是？|用流动冷水冲洗|马上涂牙膏,挑破水泡,用冰块直接敷|流动冷水降温是常见的第一步处理。",
-    "废旧电池更合适的处理方式是？|投放到有害垃圾回收点|冲进马桶,混入厨余垃圾,扔进河里|电池含有可能污染环境的成分，应分类回收。",
-    "室内燃气泄漏时，不建议做什么？|开关电器|关闭阀门,打开门窗,离开现场求助|开关电器可能产生火花。",
-    "雨天过马路时应特别注意什么？|车辆制动距离变长|所有车辆会停下,斑马线会发光,雨伞能挡住车|湿滑路面会增加车辆制动距离。",
-    "长时间看屏幕后，较推荐的做法是？|远眺并让眼睛休息|持续盯屏,关灯玩手机,揉眼睛到发红|适度休息有助于缓解视觉疲劳。",
-    "给陌生来电提供验证码可能导致什么风险？|账户被盗用|手机自动关机,网速变快,积分增加|验证码是重要身份凭据，不应告诉陌生人。"
-  ],
-  "历史": [
-    "中国历史上第一个统一的中央集权国家通常是？|秦朝|夏朝,唐朝,宋朝|秦朝完成了大一统并建立中央集权制度。",
-    "“文景之治”发生在哪个朝代？|西汉|东汉,唐朝,明朝|文帝、景帝时期是西汉的重要治世。",
-    "郑和下西洋主要发生在什么朝代？|明朝|元朝,清朝,北宋|郑和受明成祖派遣多次远航。",
-    "《史记》的作者是？|司马迁|班固,司马光,陈寿|司马迁编写了纪传体通史《史记》。",
-    "丝绸之路最早连接中国与哪个方向的地区？|中亚和西亚|南极洲,大洋洲,北极圈|古代丝绸之路经中亚通往西亚和欧洲。",
-    "古罗马斗兽场位于哪座城市？|罗马|雅典,巴黎,开罗|斗兽场是罗马的标志性古迹。",
-    "法国大革命爆发于哪一年？|1789年|1492年,1914年,1945年|1789年法国大革命爆发。",
-    "人类历史上最早实现环球航行的船队由谁的远征完成？|麦哲伦船队|哥伦布船队,达伽马船队,郑和船队|麦哲伦船队完成了首次环球航行。",
-    "英国工业革命最先蓬勃发展的产业是？|棉纺织业|航空业,互联网业,汽车业|纺织技术革新推动了早期工业革命。",
-    "“我思故我在”与哪位思想家相关？|笛卡尔|苏格拉底,康德,尼采|这句名言出自笛卡尔的哲学思想。"
-  ],
-  "地理": [
-    "加拿大的首都是？|渥太华|多伦多,温哥华,蒙特利尔|渥太华是加拿大首都。",
-    "澳大利亚的首都是？|堪培拉|悉尼,墨尔本,珀斯|堪培拉是澳大利亚首都。",
-    "巴西的首都是？|巴西利亚|里约热内卢,圣保罗,萨尔瓦多|巴西利亚是巴西首都。",
-    "日本最高的山峰是？|富士山|阿苏山,白山,高尾山|富士山是日本最高峰。",
-    "世界上面积最大的海洋是？|太平洋|大西洋,印度洋,北冰洋|太平洋面积最大。",
-    "尼罗河最终注入哪个海域？|地中海|红海,黑海,阿拉伯海|尼罗河向北流入地中海。",
-    "埃及最著名的古代金字塔群位于？|吉萨|卢克索,亚历山大,开罗老城|吉萨金字塔群位于开罗附近。",
-    "跨越欧洲和亚洲的重要山脉是？|乌拉尔山脉|阿尔卑斯山,喜马拉雅山,安第斯山脉|乌拉尔山脉常被视为欧亚分界线之一。",
-    "冰岛因地热资源丰富而常被称作什么？|火与冰之国|千湖之国,日出之国,沙漠之国|冰岛兼具火山与冰川景观。",
-    "中国最大的岛屿是？|台湾岛|海南岛,崇明岛,舟山岛|台湾岛面积最大。"
-  ],
-  "科学": [
-    "植物进行光合作用主要吸收哪种气体？|二氧化碳|氧气,氮气,氢气|植物利用二氧化碳和水合成有机物。",
-    "人体血液呈红色主要与什么有关？|血红蛋白|胆汁,淀粉,钙质|血红蛋白中的铁元素使血液呈红色。",
-    "声音在真空中能传播吗？|不能|能且更快,只能传播低音,只能传播高音|声音传播需要介质。",
-    "月球表面重力约为地球的多少？|六分之一|二分之一,三分之一,十分之一|月球重力约为地球的六分之一。",
-    "DNA在细胞中主要储存什么信息？|遗传信息|天气信息,地理信息,热量信息|DNA是遗传信息的重要载体。",
-    "物体从液态变成气态的过程称为？|汽化|凝固,熔化,液化|液体变为气体称汽化。",
-    "太阳系中离太阳最近的行星是？|水星|金星,地球,火星|水星是最靠近太阳的行星。",
-    "pH值小于7的溶液通常呈什么性质？|酸性|碱性,中性,金属色|常温下pH小于7通常表示酸性。",
-    "人体呼吸时吸入空气中最需要的气体是？|氧气|氦气,二氧化碳,氖气|氧气参与人体细胞呼吸。",
-    "放大镜利用的主要光学器件是？|凸透镜|凹透镜,平面镜,棱镜|凸透镜可以形成放大的虚像。"
-  ],
-  "科技": [
-    "计算机中的CPU主要负责什么？|执行运算和控制指令|显示画面,储存衣服,播放纸张,清洗数据|CPU是计算机的核心处理器。",
-    "二维码最常见的用途之一是？|快速存储和读取信息|给手机降温,制造电力,替代卫星|二维码可编码链接和文本等信息。",
-    "GPS主要用于什么？|定位和导航|测血压,烹饪食物,打印照片|GPS通过卫星信号提供定位服务。",
-    "云计算中的“云”通常指什么？|远程服务器资源|天空中的云朵,本地硬盘,纸质档案|云服务依托互联网中的服务器资源。",
-    "锂离子电池常用于哪类设备？|手机和电动汽车|木制家具,纸质图书,水杯|锂电池能量密度较高，应用广泛。",
-    "Wi-Fi主要用于什么？|无线网络连接|卫星发射,测量体温,切割金属|Wi-Fi是常见无线局域网技术。",
-    "3D打印通常采用什么方式制造物体？|逐层堆叠材料|一次性压制,人工雕刻,化学溶解|3D打印按数字模型逐层成型。",
-    "人脸识别技术通常依赖什么？|图像特征分析|闻气味,测体重,读取指纹以外的纸条|系统从图像中提取和比对面部特征。",
-    "网页地址开头的HTTPS比HTTP多提供了什么？|加密传输|更大字体,更快打字,更多广告|HTTPS通过加密保护传输数据。",
-    "无人机通常通过什么方式保持飞行姿态？|传感器与飞控系统|纸质地图,手摇发电,水蒸气|飞控结合传感器实时控制电机。"
-  ],
-  "体育": [
-    "一场标准足球比赛每队场上通常有几名球员？|11名|5名,7名,15名|标准足球比赛每队11人。",
-    "篮球比赛中，三分线外投篮命中通常得到几分？|3分|1分,2分,4分|三分线外命中计3分。",
-    "奥运会五环标志共有几种颜色？|5种|3种,4种,6种|奥运五环由五种颜色组成。",
-    "网球比赛中的“ace”通常指什么？|发球直接得分|连续失误,暂停比赛,换边休息|ace指对手未能触球的发球得分。",
-    "马拉松比赛的标准距离约为？|42.195公里|10公里,21公里,100公里|马拉松标准距离是42.195公里。",
-    "羽毛球比赛中，球落在边线内通常判为？|界内|界外,重发,扣分|边线属于有效场地的一部分。",
-    "乒乓球单打比赛每局通常先到多少分获胜？|11分|7分,15分,21分|现行常规比赛每局11分，需领先两分。",
-    "游泳比赛中自由泳可以使用哪种泳姿？|任意泳姿|只能蛙泳,只能仰泳,只能蝶泳|自由泳允许任意泳姿，实际多使用爬泳。",
-    "冬季奥运会主要举办哪类项目？|冰雪运动|沙滩运动,水上运动,赛车运动|冬奥会以冰上和雪上项目为主。",
-    "棒球比赛中击球手跑到本垒通常记为什么？|得分|暂停,犯规,换人|跑垒回到本垒即得到一分。"
-  ],
-  "影视": [
-    "电影中负责整体创作与拍摄统筹的人通常是？|导演|灯光师,观众,售票员|导演负责影片的艺术与拍摄统筹。",
-    "电视剧每集播出前用于回顾上集内容的片段常称为？|前情提要|片尾彩蛋,花絮,预告片|前情提要帮助观众回忆剧情。",
-    "电影票房通常指什么？|影片售票收入|演员身高,剧本页数,拍摄天数|票房是电影放映的票款收入。",
-    "动画制作中，把静止画面连续播放形成运动错觉的原理叫？|视觉暂留|听觉回声,热胀冷缩,光合作用|连续画面利用视觉暂留形成运动感。",
-    "电影中的“彩蛋”通常出现在哪里？|正片结束前后|购票窗口,停车场,字幕字体|彩蛋多为隐藏惊喜片段。",
-    "纪录片主要以什么为基础？|真实人物或事件|完全虚构世界,随机广告,游戏规则|纪录片以现实素材和真实记录为基础。",
-    "电影画面中从远处逐渐靠近人物的镜头运动叫？|推镜头|拉镜头,摇镜头,定格|摄像机向被摄对象靠近称推镜头。",
-    "配音演员主要为影视作品提供什么？|角色声音|场景布置,票务服务,特效化妆|配音演员为角色或旁白录制声音。",
-    "电影的片尾字幕通常会列出什么？|制作人员名单|观众座位号,天气预报,菜谱|片尾字幕列出参与制作的人员。",
-    "“剧透”通常指什么行为？|提前透露关键剧情|推荐作品,关闭字幕,买票入场|剧透会提前泄露故事的重要内容。"
-  ],
-  "音乐": [
-    "钢琴属于哪类乐器？|键盘乐器|打击乐器,弦乐器,管乐器|钢琴通过键盘击弦发声。",
-    "一首歌曲中反复出现、容易记住的部分常称为？|副歌|前奏,间奏,尾奏|副歌通常是歌曲的核心重复段。",
-    "交响乐团中指挥的主要职责是？|协调演奏节奏和表达|售卖门票,搬运乐器,设计海报|指挥统一乐团的速度、力度与表达。",
-    "小提琴通常用什么拉奏？|琴弓|鼓槌,手风箱,口哨|琴弓摩擦琴弦发声。",
-    "音乐中的节拍主要帮助表达什么？|规律的时间组织|画面颜色,歌词字体,舞台座位|节拍组织音乐的时间与律动。",
-    "吉他的标准演奏通常依靠什么振动发声？|琴弦|琴键,鼓皮,簧片|拨动或扫动琴弦产生声音。",
-    "“无伴奏合唱”指什么？|只用人声演唱|不用歌词,不用旋律,不用观众|无伴奏合唱不使用器乐伴奏。",
-    "音量逐渐变大的音乐术语常称为？|渐强|渐弱,停顿,反复|渐强表示声音力度逐步增强。",
-    "演唱会中观众跟随歌曲一起唱的部分常被称为？|大合唱|独白,旁白,默剧|观众共同演唱形成大合唱。",
-    "五线谱中用来标明音高位置的是？|音符|标点符号,字幕,色块|音符在五线谱的位置表示音高。"
-  ],
-  "游戏": [
-    "棋类游戏中“将军”通常表示什么？|对方王将受到直接威胁|交换棋子,开始计时,重新开局|将军表示王将需立即应对威胁。",
-    "桌游中的回合制通常意味着什么？|玩家依次行动|所有人永远同时行动,只能旁观,没有规则|回合制按顺序让玩家行动。",
-    "电子游戏中的“存档”主要用于什么？|保存游戏进度|删除角色,增加广告,关闭屏幕|存档让玩家之后继续原有进度。",
-    "角色扮演游戏常用的英文缩写是？|RPG|FPS,MOBA,VR|RPG是Role-Playing Game的缩写。",
-    "电子游戏中“boss”通常指什么？|强大的关卡首领|背景音乐,游戏菜单,新手教程|boss常是关卡中较强的敌人。",
-    "拼图游戏的核心目标通常是？|把碎片拼成完整图案|让碎片变大,快速打字,投掷骰子|拼图通过形状和图案组合完成画面。",
-    "多人在线游戏中的“队友”指什么？|同一阵营的玩家|所有观众,游戏客服,随机路人|队友与玩家共同协作或对抗。",
-    "“新手教程”主要帮助玩家做什么？|学习基本操作和规则|直接通关,获得冠军,跳过游戏|教程用于介绍玩法基础。",
-    "卡牌游戏中的“抽牌”通常指什么？|从牌库获得新牌|把牌扔掉,更换座位,结束比赛|抽牌是从牌库拿取卡牌。",
-    "游戏中的“联机”通常表示什么？|通过网络与他人一起玩|只玩单机,关闭声音,删除账号|联机让不同地点的玩家共同游戏。"
-  ],
-  "美食": [
-    "制作寿司时常用的主食材是？|米饭|面包,土豆泥,玉米片|寿司通常以调味米饭为基础。",
-    "披萨出炉时常见的拉丝食材是？|奶酪|海带,豆芽,米粉|奶酪受热会融化拉丝。",
-    "豆腐主要由什么制成？|大豆|小麦,土豆,牛肉|豆腐由豆浆凝固制成。",
-    "柠檬常被认为具有哪种典型味道？|酸味|苦味,咸味,辣味|柠檬富含有机酸，味道偏酸。",
-    "火锅中把食材放入沸汤烫熟的过程通常叫？|涮煮|烘焙,腌制,冷冻|火锅以涮煮方式烹熟食材。",
-    "意大利面常见的主要原料是？|小麦粉|糯米,玉米粒,豆腐|意大利面多由小麦粉制成。",
-    "咖啡常见的提神成分是？|咖啡因|维生素C,食盐,淀粉|咖啡因会刺激中枢神经系统。",
-    "发酵面团膨松主要因为产生了什么气体？|二氧化碳|氧气,氢气,氦气|酵母发酵产生二氧化碳。",
-    "冰淇淋通常属于哪类甜品？|冷冻甜品|烘焙甜品,热汤,腌制品|冰淇淋在低温下凝冻制成。",
-    "使用筷子时较合适的方式是？|夹取食物|插在饭中,挥舞玩耍,敲打餐具|用餐礼仪中应避免将筷子插在饭中。"
-  ],
-  "文学艺术": [
-    "《百年孤独》的作者是？|加西亚·马尔克斯|海明威,托尔斯泰,雨果|《百年孤独》是马尔克斯代表作。",
-    "《小王子》的作者是？|圣埃克苏佩里|安徒生,雨果,狄更斯|《小王子》由法国作家圣埃克苏佩里创作。",
-    "《清明上河图》的作者通常认为是？|张择端|顾恺之,吴道子,唐伯虎|张择端创作了《清明上河图》。",
-    "印象派绘画强调捕捉什么？|光色的瞬间变化|严格写实细节,数学公式,建筑结构|印象派重视光线和色彩印象。",
-    "雕塑艺术常通过什么塑造形象？|立体形体|平面文字,音乐旋律,化学反应|雕塑以三维形体表现对象。",
-    "京剧脸谱中的红色常用来表现什么？|忠勇正直|阴险狡诈,衰老虚弱,寒冷天气|红脸常象征忠勇正直等性格。",
-    "“悲剧”通常着重表现什么？|严肃冲突与命运困境|轻松笑料,体育比分,旅游攻略|悲剧往往表现深刻冲突与困境。",
-    "诗歌中每行末尾韵母相近的现象称为？|押韵|排版,留白,注释|押韵使诗歌更有节奏感。",
-    "水墨画主要使用什么材料表现？|水和墨|油漆和水泥,塑料和玻璃,粉笔和蜡|水墨画以水墨浓淡变化表现意境。",
-    "博物馆收藏和展出的文物、艺术品主要用于什么？|保存与展示文化遗产|售卖食品,举办赛车,修理车辆|博物馆承担收藏、研究和展示职责。"
-  ],
-  "自然动物": [
-    "海豚属于哪一类动物？|哺乳动物|鱼类,两栖类,昆虫|海豚用肺呼吸并哺育幼崽。",
-    "蜜蜂采集花蜜时常帮助植物完成什么？|传粉|冬眠,迁徙,蜕皮|蜜蜂携带花粉促进植物传粉。",
-    "树木年轮通常能反映什么？|生长年限|每天气温,树叶颜色,果实味道|多数树每年形成一轮较明显的年轮。",
-    "蝴蝶的一生通常要经历哪种变化？|完全变态发育|直接长大,分裂繁殖,永不变化|蝴蝶经历卵、幼虫、蛹、成虫阶段。",
-    "骆驼的驼峰主要储存什么？|脂肪|水,空气,沙子|驼峰以脂肪储备能量。",
-    "大熊猫主要以什么为食？|竹子|海草,松果,鱼类|大熊猫以竹子为主要食物。",
-    "候鸟季节性迁徙主要与什么有关？|气候和食物变化|电视节目,城市高楼,月球引力|迁徙有助于适应季节资源变化。",
-    "珊瑚在生物分类中属于什么？|动物|植物,真菌,矿物|珊瑚虫属于动物。",
-    "青蛙的幼体通常叫作什么？|蝌蚪|蛹,鱼苗,雏鸟|蝌蚪会逐渐变态发育为成蛙。",
-    "猫头鹰主要在什么时候更活跃？|夜间|正午,清晨一定,只在雨天|许多猫头鹰具有夜行性。"
-  ],
-  "趣味冷知识": [
-    "章鱼有几颗心脏？|3颗|1颗,2颗,5颗|章鱼有三颗心脏。",
-    "香蕉从植物学角度通常属于哪类果实？|浆果|坚果,核果,柑果|香蕉在植物学分类中属于浆果。",
-    "世界上体型最大的鸟类是？|鸵鸟|企鹅,老鹰,孔雀|鸵鸟是现存最大的鸟类。",
-    "海马的哪一方负责育儿袋孵育？|雄海马|雌海马,两者都不,幼鱼自己|雄海马拥有育儿袋并孕育幼体。",
-    "蜂蜜在密封合适的条件下为什么较不易变质？|含水量低且酸性较强|没有颜色,完全无糖,温度永远低|蜂蜜低水活度和酸性抑制微生物。",
-    "蜗牛的牙齿主要位于哪里？|舌头状齿舌上|脚底,触角,外壳|蜗牛有布满微小齿的齿舌。",
-    "树懒一天通常会睡多久？|十多个小时|一小时,三小时,从不睡觉|树懒活动量低，睡眠时间较长。",
-    "火烈鸟羽毛的粉红色主要来自什么？|食物中的色素|晒太阳,海水染色,天生油漆|食物中的类胡萝卜素影响羽色。",
-    "人类指纹在一生中通常会怎样？|基本保持不变|每月完全更换,只在夏天出现,随身高消失|指纹纹路在成长后基本稳定。",
-    "纸张最早的大规模改良与中国古代哪项发明相关？|造纸术|指南针,火药,印刷机|造纸术推动了书写材料的普及。"
-  ],
-  "网络文化": [
-    "网络上“点赞”通常表达什么？|认可或喜欢|删除内容,关闭网络,提交投诉|点赞是常见的正向互动方式。",
-    "“表情包”通常用于什么？|辅助表达情绪和意思|修理电脑,压缩文件,测量距离|表情包常用于增强沟通语气。",
-    "视频平台的“关注”功能通常有什么作用？|方便查看创作者更新|自动付款,删除账号,提高网速|关注后更容易收到创作者的新内容。",
-    "“直播”与录播的主要区别是？|内容实时进行|没有声音,不能观看,只用文字|直播在内容发生时同步播出。",
-    "网络讨论中“置顶”通常表示什么？|让内容优先显示|永久删除,关闭评论,改变字体|置顶内容会出现在更醒目的位置。",
-    "“私信”通常指什么？|非公开的一对一消息|公开公告,电视新闻,纸质信件|私信仅由相关账号看到。",
-    "网络安全中“钓鱼链接”常试图做什么？|骗取账号或隐私信息|提升网络速度,修复屏幕,发送礼物|钓鱼链接常伪装成可信页面。",
-    "“热搜”通常反映什么？|受到大量关注的话题|天气温度,电脑温度,食物温度|热搜显示平台中讨论度较高的话题。",
-    "“评论区”主要供用户做什么？|发表观点与互动|购买硬件,安装系统,修改密码|评论区是内容下方的交流区域。",
-    "网络使用中，不随意转发未经核实的信息主要是为了？|减少谣言传播|让手机更亮,节省纸张,增加音量|核实信息有助于避免误导他人。"
-  ],
-  "时事政治": [
-    "联合国的英文缩写是？|UN|EU,WHO,NATO|UN代表United Nations。",
-    "世界卫生组织的英文缩写是？|WHO|WTO,UNESCO,IMF|WHO代表World Health Organization。",
-    "欧盟的英文缩写通常是？|EU|UN,UK,AU|EU代表European Union。",
-    "国际法院位于哪座城市？|海牙|巴黎,维也纳,罗马|国际法院位于荷兰海牙。",
-    "英国议会中由选举产生的主要议院是？|下议院|上议院,枢密院,国务委员会|英国下议院成员由选举产生。",
-    "“G20”通常指什么？|二十国集团|二十座城市,二十项运动,二十家银行|G20是国际经济合作论坛。",
-    "联合国安理会有几个常任理事国？|5个|3个,7个,10个|安理会有五个常任理事国。",
-    "国际奥林匹克委员会常用缩写是？|IOC|ICJ,WHO,UN|IOC是International Olympic Committee。",
-    "保护个人数据时，较重要的原则是什么？|最小必要收集|尽量公开所有信息,永不设置密码,随意共享|应只收集实现目的所必要的信息。",
-    "公共政策讨论中，查阅可靠来源的重要原因是？|减少误解并便于核实|让文字更长,增加噪音,避免思考|可靠来源有助于事实核查和理性讨论。"
-  ]
-};
-
-// 国产儿童动画暂无稳定的开放角色图鉴 API，因此只使用受控键名和已核对的正版剧集封面。
-const CHILD_CHARACTER_IMAGE_URLS = {
-  headson: "https://i0.hdslb.com/bfs/bangumi/image/62da3f13e9337b20e30322be27800625a9dfa5b8.jpg",
-  tutu: "https://i0.hdslb.com/bfs/bangumi/image/a28c1aba5ea17b8fab4890e1b7a1af76f87872b7.png",
-  jiangliuer: "https://i0.hdslb.com/bfs/bangumi/image/713ce95614318de20eda1e75eb72a3bba19c1628.png",
-  guangtouqiang: "https://i0.hdslb.com/bfs/bangumi/image/fb6ca695ef8e93ea8cd8fde26ecddd2278cb1d8b.png",
-  xiyangyang: "https://i0.hdslb.com/bfs/bangumi/image/4cd5d75b3ac57d30a114bbe21a9dacd4f7c2fa81.png",
-  zhuzhuxia: "https://i0.hdslb.com/bfs/bangumi/image/e9fe816c56bf0a9368a8b457bbf6bfe402bc6f83.png",
-  nezha: "https://i0.hdslb.com/bfs/bangumi/image/a9c49eeb3cbdb228c30b39881b54a3ce897c5a93.png",
-  hongmao: "https://i0.hdslb.com/bfs/bangumi/image/9a1bbe59a5e0d9f43a2136af00632dec93e32258.jpg",
-  wentian: "http://i0.hdslb.com/bfs/bangumi/image/8c2304bcb131ab9e330a777d69758f0405161b5f.png",
-  kaixinchaoren: "http://i0.hdslb.com/bfs/bangumi/image/2d5e8d7a0ddbbc3f43ce791fc7ab2089884f0816.png",
-  lucoguo: "https://i0.hdslb.com/bfs/bangumi/image/9a75a62616f37863b33a31d08e65e39144eda76c.png"
-};
-
-const CHARACTER_FACTS = [
-  ["naruto", "漩涡鸣人", [], "《火影忍者》的主角，第七班成员。"],
-  ["sasuke", "宇智波佐助", [], "《火影忍者》中宇智波一族的忍者。"],
-  ["sakura", "春野樱", [], "《火影忍者》第七班成员，擅长医疗忍术。"],
-  ["kakashi", "旗木卡卡西", [], "《火影忍者》第七班的指导上忍。"],
-  ["luffy", "蒙奇·D·路飞", ["蒙奇D路飞"], "《海贼王》中草帽海贼团船长。"],
-  ["zoro", "罗罗诺亚·索隆", ["罗罗诺亚索隆"], "《海贼王》中使用三刀流的剑士。"],
-  ["goku", "孙悟空", [], "《龙珠》的主要角色，来自赛亚人一族。"],
-  ["vegeta", "贝吉塔", [], "《龙珠》中的赛亚人王子。"],
-  ["usagi", "月野兔", [], "《美少女战士》的主角。"],
-  ["conan", "江户川柯南", [], "《名侦探柯南》中工藤新一缩小后的身份。"],
-  ["tanjiro", "灶门炭治郎", [], "《鬼灭之刃》的主角。"],
-  ["nezuko", "灶门祢豆子", ["灶门禰豆子"], "《鬼灭之刃》中炭治郎的妹妹。"],
-  ["zenitsu", "我妻善逸", [], "《鬼灭之刃》中使用雷之呼吸的剑士。"],
-  ["rengoku", "炼狱杏寿郎", [], "《鬼灭之刃》中的炎柱。"],
-  ["gojo", "五条悟", [], "《咒术回战》中的特级咒术师。"],
-  ["yuji", "虎杖悠仁", [], "《咒术回战》的主角。"],
-  ["megumi", "伏黑惠", [], "《咒术回战》中使用十种影法术的咒术师。"],
-  ["nobara", "钉崎野蔷薇", [], "《咒术回战》东京校一年级学生。"],
-  ["anya", "阿尼亚·福杰", ["阿尼亚福杰"], "《间谍过家家》中拥有读心能力的女孩。"],
-  ["loid", "洛伊德·福杰", ["洛伊德福杰"], "《间谍过家家》中代号黄昏的间谍。"],
-  ["yor", "约尔·福杰", ["约尔福杰"], "《间谍过家家》中代号荆棘公主的杀手。"],
-  ["eren", "艾伦·耶格尔", ["艾伦耶格尔"], "《进击的巨人》的主要角色。"],
-  ["mikasa", "三笠·阿克曼", ["三笠阿克曼"], "《进击的巨人》中的调查兵团成员。"],
-  ["levi", "利威尔·阿克曼", ["利威尔阿克曼"], "《进击的巨人》中的调查兵团兵长。"],
-  ["light", "夜神月", [], "《死亡笔记》的主要角色。"],
-  ["lawliet", "L·劳莱特", ["L劳莱特"], "《死亡笔记》中追查基拉的侦探。"],
-  ["edward", "爱德华·艾尔利克", ["爱德华艾尔利克"], "《钢之炼金术师》中的钢之炼金术师。"],
-  ["alphonse", "阿尔冯斯·艾尔利克", ["阿尔冯斯艾尔利克"], "《钢之炼金术师》中爱德华的弟弟。"],
-  ["kagome", "日暮戈薇", [], "《犬夜叉》中穿越到战国时代的少女。"],
-  ["kazuto", "桐谷和人", [], "《刀剑神域》中游戏名为桐人的主角。"],
-  ["asuna", "结城明日奈", [], "《刀剑神域》中游戏名为亚丝娜的角色。"],
-  ["shigeo", "影山茂夫", [], "《灵能百分百》中绰号龙套的超能力者。"],
-  ["reigen", "灵幻新隆", [], "《灵能百分百》中自称灵能力者的咨询师。"],
-  ["violet", "薇尔莉特·伊芙加登", ["薇尔莉特伊芙加登"], "《紫罗兰永恒花园》的主角。"],
-  ["lelouch", "鲁路修·兰佩路基", ["鲁路修兰佩路基"], "《反叛的鲁路修》的主角。"],
-  ["gintoki", "坂田银时", [], "《银魂》中万事屋的负责人。"],
-  ["shinpachi", "志村新八", [], "《银魂》中万事屋成员。"],
-  ["jotaro", "空条承太郎", [], "《JOJO的奇妙冒险》第三部主角。"],
-  ["giorno", "乔鲁诺·乔巴拿", ["乔鲁诺乔巴拿"], "《JOJO的奇妙冒险》第五部主角。"],
-  ["shinji", "碇真嗣", [], "《新世纪福音战士》的主角。"],
-  ["rei", "绫波丽", [], "《新世纪福音战士》中零号机驾驶员。"],
-  ["asuka", "惣流·明日香·兰格雷", ["惣流明日香兰格雷"], "《新世纪福音战士》中二号机驾驶员。"],
-  ["ranma", "早乙女乱马", [], "《乱马1/2》的主角。"],
-  ["akane", "天道茜", [], "《乱马1/2》的主要角色。"],
-  ["ichigo", "黑崎一护", [], "《死神》的主角。"],
-  ["rukia", "朽木露琪亚", [], "《死神》中来自尸魂界的死神。"],
-  ["yusuke", "浦饭幽助", [], "《幽游白书》的主角。"],
-  ["killua", "奇犽·揍敌客", ["奇犽揍敌客"], "《全职猎人》中出身杀手家族的猎人。"],
-  ["pikachu", "皮卡丘", [], "《宝可梦》中广为人知的电属性宝可梦。"],
-  ["doraemon", "哆啦A梦", ["多啦A梦"], "来自22世纪的猫型机器人。"],
-  ["totoro", "龙猫", ["托托罗"], "《龙猫》中居住在森林里的神秘生物。"],
-  ["chopper", "托尼托尼·乔巴", ["托尼托尼乔巴"], "《海贼王》中草帽海贼团的船医。"],
-  ["happy", "哈比", [], "《妖精的尾巴》中会飞的蓝色艾克希特。"],
-  ["korosensei", "杀老师", [], "《暗杀教室》中担任三年E班教师的神秘生物。"]
-];
-
-const CHILD_CHARACTER_FACTS = [
-  ["headson", "头太元", [], "“大头儿子”在后期衍生真人作品中使用过的姓名；老版动画中通常只称“大头儿子”。", "国产儿童动画"],
-  ["tutu", "胡图图", [], "《大耳朵图图》的主角，平时大家多称他“图图”。", "国产儿童动画"],
-  ["jiangliuer", "江流儿", [], "《围棋少年》中富有围棋天赋的主人公。", "国产儿童动画"],
-  ["guangtouqiang", "光头强", [], "《熊出没》中在森林里与熊大、熊二斗智斗勇的伐木队小老板。", "国产儿童动画"],
-  ["xiyangyang", "喜羊羊", [], "《喜羊羊与灰太狼》中机智勇敢的小羊。", "国产儿童动画"],
-  ["zhuzhuxia", "猪猪侠", [], "《猪猪侠》中喜欢吃棒棒糖、拥有超能力的主角。", "国产儿童动画"],
-  ["nezha", "哪吒", [], "《哪吒传奇》中手持火尖枪、脚踩风火轮的小英雄。", "国产儿童动画"],
-  ["hongmao", "虹猫", [], "《虹猫蓝兔七侠传》中的长虹剑传人。", "国产儿童动画"],
-  ["wentian", "问天", [], "《神兵小将》中与天晶兽并肩作战的少年。", "国产儿童动画"],
-  ["kaixinchaoren", "开心超人", [], "《开心宝贝》中活泼开朗的超人。", "国产儿童动画"],
-  ["lucoguo", "陆小果", [], "《果宝特攻》中使用蜜桃神剑的果宝战士。", "国产儿童动画"],
-  ["takeshi", "刚田武", [], "《哆啦A梦》中绰号“胖虎”的角色。", "童年经典动画"],
-  ["suneo", "骨川小夫", [], "《哆啦A梦》中大家常称“小夫”的角色。", "童年经典动画"],
-  ["shizuka", "源静香", ["源静子"], "《哆啦A梦》中大雄的好朋友，中文常称“静香”。", "童年经典动画"],
-  ["momoko", "樱桃子", [], "《樱桃小丸子》主角“小丸子”的姓名。", "童年经典动画"],
-  ["kinomoto", "木之本樱", [], "《魔卡少女樱》中收集库洛牌的主角。", "童年经典动画"],
-  ["shinnosuke", "野原新之助", [], "《蜡笔小新》主角“小新”的完整姓名。", "童年经典动画"],
-  ["nobita", "野比大雄", [], "《哆啦A梦》中大家常称“大雄”的角色。", "童年经典动画"]
-];
-
-// 每条知识事实会生成20种等价问法；比赛抽题时按knowledgeKey去重，
-// 因此同一局不会用不同措辞重复考察同一个知识点。
-const FACT_ROWS = {
-  "生活常识": [
-    "标准大气压下水的沸点约为多少摄氏度？|100|0~100|0,50,80|标准大气压下纯水约在100℃沸腾。",
-    "中国大陆通用的火警电话号码是多少？|119|3|110,120,122|119用于报告火灾险情。",
-    "成年人通常有多少颗恒牙（含智齿）？|32|2|20,24,28|成年人的完整恒牙列通常为32颗。",
-    "一天共有多少分钟？|1440|4|720,1200,2400|24×60等于1440分钟。",
-    "一千克等于多少克？|1000|4|100,500,10000|千克与克之间是1000倍关系。",
-    "交通信号灯中通常表示可以通行的颜色是？|绿色|2|红色,黄色,紫色|绿色信号通常表示可以通行。",
-    "人体正常体温通常约为多少摄氏度？|37|2|25,42,50|常见参考值约为37℃，个体与测量部位会有差异。",
-    "身份证号码最后一位可能出现的英文字母是？|X|1|A,B,Z|校验码为10时用罗马数字X表示。",
-    "冰箱冷藏室通常应比冷冻室温度更高还是更低？|更高|2|更低,完全相同,无法比较|冷藏室通常在0℃以上，冷冻室通常在零下。",
-    "使用灭火器时通常应对准火焰的哪个部位？|根部|2|顶部,中部,任意位置|对准燃烧物根部喷射更能有效灭火。"
-  ],
-  "历史": [
-    "秦始皇统一六国发生在哪一年？|公元前221年|7|公元前206年,公元前202年,公元前1046年|秦在公元前221年完成统一。",
-    "中国古代四大发明中用于辨别方向的是？|指南针|3|造纸术,火药,印刷术|指南针利用磁性指示方向。",
-    "郑和下西洋发生在哪个朝代？|明朝|2|唐朝,宋朝,清朝|郑和在明代七下西洋。",
-    "《资治通鉴》的主持编纂者是谁？|司马光|3|司马迁,班固,欧阳修|北宋司马光主持编纂《资治通鉴》。",
-    "工业革命最早大规模兴起于哪个国家？|英国|2|法国,德国,美国|18世纪工业革命首先在英国展开。",
-    "古代丝绸之路传统上以哪座城市为东方起点？|长安|2|洛阳,开封,南京|传统叙述通常以汉唐长安为东方起点。",
-    "唐太宗的姓名是？|李世民|3|李渊,李治,李隆基|李世民即唐太宗。",
-    "文艺复兴最早兴起于今天的哪个国家？|意大利|3|西班牙,荷兰,瑞典|文艺复兴最早在意大利城邦兴起。",
-    "中国历史上第一部纪传体通史是？|史记|2|汉书,资治通鉴,左传|司马迁的《史记》是第一部纪传体通史。",
-    "古埃及文明主要发源于哪条河流域？|尼罗河|3|亚马孙河,恒河,多瑙河|尼罗河孕育了古埃及文明。"
-  ],
-  "地理": [
-    "世界面积最大的国家是？|俄罗斯|3|加拿大,中国,美国|俄罗斯国土面积居世界第一。",
-    "世界最高峰是？|珠穆朗玛峰|5|乔戈里峰,乞力马扎罗山,富士山|珠穆朗玛峰是海拔最高的山峰。",
-    "澳大利亚的首都是？|堪培拉|3|悉尼,墨尔本,珀斯|澳大利亚首都是堪培拉。",
-    "加拿大的首都是？|渥太华|3|多伦多,温哥华,蒙特利尔|加拿大首都是渥太华。",
-    "被赤道穿过且面积最大的洲是？|亚洲|2|非洲,南美洲,大洋洲|亚洲面积最大，赤道穿过其东南部岛屿。",
-    "日本最高的山是？|富士山|3|阿苏山,高尾山,立山|富士山是日本最高峰。",
-    "泰晤士河流经哪座著名城市？|伦敦|2|巴黎,罗马,柏林|泰晤士河穿过伦敦。",
-    "撒哈拉沙漠主要位于哪个大洲？|非洲|2|亚洲,南美洲,大洋洲|撒哈拉沙漠横跨北非。",
-    "新西兰的首都是？|惠灵顿|3|奥克兰,基督城,汉密尔顿|新西兰首都是惠灵顿。",
-    "世界上面积最大的海洋是？|太平洋|3|大西洋,印度洋,北冰洋|太平洋是世界最大海洋。"
-  ],
-  "科学": [
-    "太阳系中距离太阳最近的行星是？|水星|2|金星,地球,火星|水星轨道最靠近太阳。",
-    "植物光合作用主要吸收哪种气体？|二氧化碳|5|氧气,氮气,氢气|植物吸收二氧化碳并释放氧气。",
-    "化学元素符号O代表什么元素？|氧|1|金,银,铁|O是氧元素的符号。",
-    "声音不能在哪种环境中传播？|真空|2|空气,水,钢铁|声音传播需要介质。",
-    "地球天然卫星的名称是？|月球|2|太阳,火星,金星|月球是地球唯一的天然卫星。",
-    "人体内负责运输氧气的血细胞主要是？|红细胞|3|白细胞,血小板,神经细胞|红细胞中的血红蛋白运输氧气。",
-    "物体由液态变为气态的过程称为？|汽化|2|凝固,液化,升华|液体变成气体称为汽化。",
-    "DNA中文通常称为什么？|脱氧核糖核酸|6|核糖核酸,氨基酸,葡萄糖|DNA是脱氧核糖核酸。",
-    "光在真空中的速度约为每秒多少千米？|30万千米|5|3万千米,3000千米,300万千米|光速约为每秒299792千米。",
-    "元素周期表最轻的元素是？|氢|1|氦,锂,碳|氢的原子序数为1。"
-  ],
-  "科技": [
-    "CPU中文通常称为？|中央处理器|5|图形处理器,随机存储器,固态硬盘|CPU是Central Processing Unit。",
-    "网页地址开头的HTTPS比HTTP多出的S代表什么？|安全|2|搜索,速度,服务器|S表示Secure，即安全加密连接。",
-    "二进制数10换算成十进制是多少？|2|1|1,3,10|二进制10等于十进制2。",
-    "1字节通常等于多少比特？|8|1|4,10,16|一个字节通常由8个比特组成。",
-    "GPS主要用于什么？|定位导航|4|文字处理,温度测量,图像压缩|GPS通过卫星信号提供定位与导航。",
-    "常见二维码的英文缩写是？|QR|2|AI,VR,USB|QR来自Quick Response。",
-    "用于描述显示器画面细节多少的常见指标是？|分辨率|3|音量,重量,电阻|分辨率表示图像包含的像素规模。",
-    "计算机临时存放正在运行数据的硬件通常是？|内存|2|显示器,键盘,打印机|内存用于暂存程序运行所需数据。",
-    "Wi-Fi主要用于哪类连接？|无线网络|4|机械传动,燃料输送,纸张打印|Wi-Fi是一类无线局域网技术。",
-    "USB接口通常能传输数据和什么？|电力|2|汽油,蒸汽,天然气|USB可同时承担数据和供电。"
-  ],
-  "体育": [
-    "标准足球比赛每队在场上通常有多少名球员？|11|2|5,6,9|足球每队通常11人上场。",
-    "篮球比赛中的罚球命中通常得几分？|1|1|2,3,4|罚球命中计1分。",
-    "夏季奥运会通常每隔几年举办一次？|4|1|2,3,5|夏季奥运会通常四年一届。",
-    "网球比赛中零分通常用哪个英文词表示？|Love|4|Zero,Null,Blank|网球计分用Love表示零分。",
-    "马拉松全程标准距离约为多少千米？|42.195千米|8|21.0975千米,40千米,50千米|马拉松标准距离为42.195千米。",
-    "排球比赛每队同时在场上通常有几名球员？|6|1|5,7,11|室内排球每队通常6人在场。",
-    "斯诺克中黑球通常价值多少分？|7|1|5,6,8|斯诺克黑球价值7分。",
-    "羽毛球一局通常先到多少分且需领先两分？|21|2|11,15,25|现行常用规则一局21分。",
-    "棒球比赛中击球员绕完所有垒得分称为什么？|本垒打|3|界外球,触杀,盗垒|本垒打通常使击球员完成绕垒得分。",
-    "国际象棋中每方开局共有多少枚棋子？|16|2|8,12,20|每方开局有16枚棋子。"
-  ],
-  "影视": [
-    "电影画面连续播放产生运动感主要利用了什么现象？|视觉暂留|4|声音反射,热胀冷缩,电磁感应|连续画面利用视觉暂留形成运动感。",
-    "奥斯卡金像奖主要表彰哪个领域？|电影|2|建筑,医学,天文学|奥斯卡奖是重要电影奖项。",
-    "电影开拍时场记板的主要用途之一是？|同步声画|4|测量温度,改变灯光,保存电力|场记板帮助后期同步画面与声音。",
-    "电视剧按连续故事分集播出的基本单位称为？|集|1|幕,章,卷|电视剧通常按集播出。",
-    "动画每秒播放的画面数量常用哪个缩写表示？|FPS|3|GPS,CPU,PDF|FPS表示每秒帧数。",
-    "电影中负责统筹画面拍摄和镜头调度的核心创作者通常是？|导演|2|观众,售票员,字幕员|导演负责整体视听创作。",
-    "无声电影时代以喜剧形象闻名的卓别林常戴什么帽子？|圆顶礼帽|4|安全帽,皇冠,棒球帽|圆顶礼帽是其经典银幕形象元素。",
-    "纪录片通常以什么为主要创作基础？|真实素材|4|完全虚构,随机数字,纯音乐|纪录片主要基于现实人物与事件。",
-    "影视后期中将不同镜头连接起来的工作称为？|剪辑|2|铸造,纺织,印刷|剪辑负责选择与组合镜头。",
-    "字幕的主要作用是什么？|呈现对白信息|6|提高温度,调节音量,改变焦距|字幕用文字呈现对白及相关信息。"
-  ],
-  "音乐": [
-    "钢琴标准键盘通常有多少个键？|88|2|66,76,96|现代标准钢琴通常有88键。",
-    "交响乐团中通常负责统一指挥的是？|指挥|2|编剧,裁判,记者|指挥协调乐团速度与表现。",
-    "五线谱共有几条线？|5|1|4,6,8|五线谱由五条平行线构成。",
-    "小提琴通常有几根弦？|4|1|3,5,6|现代小提琴通常有四根弦。",
-    "贝多芬主要以哪个领域的成就闻名？|音乐|2|绘画,地理,建筑|贝多芬是著名作曲家。",
-    "音乐中表示速度逐渐加快的术语是？|渐快|2|渐慢,休止,降调|渐快表示演奏速度逐步提高。",
-    "二胡演奏时通常使用什么摩擦琴弦发声？|弓|1|鼓槌,拨片,键盘|二胡使用夹在弦间的弓毛摩擦发声。",
-    "架子鼓中的踩镲通常主要用哪只脚控制？|左脚|2|右脚,双手,头部|常规架子鼓配置中左脚控制踩镲。",
-    "一段旋律移高或移低但音程关系不变称为什么？|移调|2|休止,切分,弱拍|移调改变调高但保留音程结构。",
-    "合唱中常见的女高音英文缩写是？|S|1|B,T,A|S代表Soprano。"
-  ],
-  "游戏": [
-    "国际象棋中唯一可以跳过其他棋子的常规棋子是？|马|1|车,象,后|马可以越过其他棋子。",
-    "围棋棋盘标准纵横各有多少条线？|19|2|9,13,21|标准围棋棋盘为19路。",
-    "扑克牌中同花顺和四条通常哪个牌型更大？|同花顺|3|四条,葫芦,两对|常见扑克规则中同花顺大于四条。",
-    "数独标准盘面通常是几乘几？|9乘9|3|6乘6,8乘8,10乘10|标准数独为9×9。",
-    "剪刀石头布中石头克制什么？|剪刀|2|布,石头,全部|石头击败剪刀。",
-    "桌游中负责说明可执行操作和胜负条件的文本称为？|规则|2|封面,插画,广告|规则定义游戏流程与胜负。",
-    "电子游戏中NPC通常指什么？|非玩家角色|5|网络密码,画面帧率,游戏手柄|NPC是Non-Player Character。",
-    "RPG通常是哪类游戏的缩写？|角色扮演游戏|6|竞速游戏,音乐游戏,体育游戏|RPG指Role-Playing Game。",
-    "合作游戏的玩家通常需要共同对抗什么？|游戏系统|4|所有队友,计时器本身,游戏包装|合作游戏常由玩家共同对抗系统挑战。",
-    "卡牌游戏中把牌随机重新排列的动作称为？|洗牌|2|弃牌,亮牌,停牌|洗牌用于随机化牌序。"
-  ],
-  "美食": [
-    "制作豆腐的主要原料是？|大豆|2|小麦,玉米,高粱|豆腐主要由大豆加工制成。",
-    "寿司中常见的醋饭主要使用哪种谷物？|大米|2|燕麦,小麦,高粱|寿司醋饭以大米为主。",
-    "巧克力的主要风味原料来自哪种植物种子？|可可|2|咖啡,茶树,橄榄|巧克力主要源自可可豆。",
-    "意大利面传统上主要以哪种粮食制成？|小麦|2|水稻,大豆,花生|意大利面主要由硬质小麦制成。",
-    "泡菜制作常利用哪类微生物发酵？|乳酸菌|3|酵母以外的霉菌,病毒,藻类|泡菜酸味主要来自乳酸菌发酵。",
-    "蜂蜜主要由蜜蜂采集什么加工而成？|花蜜|2|树皮,石头,海水|蜜蜂采集花蜜并加工储存为蜂蜜。",
-    "传统饺子的外皮主要用什么制成？|面粉|2|豆腐,奶酪,海带|饺子皮通常由面粉和水制成。",
-    "爆米花通常使用哪类玉米制作？|爆裂玉米|4|糯玉米,甜玉米罐头,青玉米|爆裂型玉米受热后易膨爆。",
-    "味觉中的鲜味主要与哪类物质有关？|谷氨酸盐|4|纯水,氧气,纤维素|谷氨酸盐是常见鲜味来源。",
-    "面包发酵时常用哪种微生物产生气体？|酵母菌|3|乳酸菌,蓝藻,病毒|酵母发酵产生二氧化碳使面团膨松。"
-  ],
-  "文学艺术": [
-    "《静夜思》的作者是谁？|李白|2|杜甫,白居易,王维|《静夜思》是李白的作品。",
-    "《红楼梦》传统上认为前八十回的作者是谁？|曹雪芹|3|罗贯中,施耐庵,吴承恩|《红楼梦》前八十回通常归于曹雪芹。",
-    "《蒙娜丽莎》的作者是谁？|达芬奇|3|梵高,莫奈,毕加索|《蒙娜丽莎》由列奥纳多·达·芬奇创作。",
-    "中国书法中的文房四宝不包括哪一项？|算盘|2|笔,墨,纸|文房四宝是笔墨纸砚。",
-    "《哈姆雷特》的作者是谁？|莎士比亚|4|狄更斯,雨果,歌德|《哈姆雷特》是莎士比亚戏剧。",
-    "诗句“海内存知己”的下一句是？|天涯若比邻|5|更上一层楼,江春入旧年,云深不知处|出自王勃《送杜少府之任蜀州》。|fill",
-    "诗句“欲穷千里目”的下一句是？|更上一层楼|5|天涯若比邻,低头思故乡,春风吹又生|出自王之涣《登鹳雀楼》。|fill",
-    "诗句“野火烧不尽”的下一句是？|春风吹又生|5|明月何时照我还,一览众山小,更上一层楼|出自白居易《赋得古原草送别》。|fill",
-    "诗句“举头望明月”的下一句是？|低头思故乡|5|春风吹又生,江清月近人,粒粒皆辛苦|出自李白《静夜思》。|fill",
-    "诗句“谁知盘中餐”的下一句是？|粒粒皆辛苦|5|低头思故乡,润物细无声,春眠不觉晓|出自李绅《悯农》。|fill"
-  ],
-  "自然动物": [
-    "世界上现存体型最大的动物是？|蓝鲸|2|非洲象,长颈鹿,鲸鲨|蓝鲸是现存体型最大的动物。",
-    "企鹅主要分布在哪个半球？|南半球|3|北半球,东半球,仅赤道|大多数企鹅自然分布在南半球。",
-    "蝙蝠属于哪一类动物？|哺乳动物|4|鸟类,昆虫,爬行动物|蝙蝠是能够持续飞行的哺乳动物。",
-    "青蛙的幼体通常称为什么？|蝌蚪|2|幼虫,鱼苗,蛹|青蛙幼体称蝌蚪。",
-    "骆驼的驼峰主要储存什么？|脂肪|2|水,空气,血液|驼峰主要储存脂肪。",
-    "蜜蜂通过什么动作向同伴传递蜜源方向？|舞蹈|2|睡眠,蜕皮,冬眠|蜜蜂用舞蹈传递方向和距离信息。",
-    "大熊猫主要以哪种植物为食？|竹子|2|松树,仙人掌,水稻|竹子是大熊猫主要食物。",
-    "章鱼通常有几条腕？|8|1|6,10,12|章鱼有八条腕。",
-    "鸟类身体表面特有的覆盖物是？|羽毛|2|鳞片,毛发,甲壳|羽毛是现生鸟类的典型特征。",
-    "珊瑚在生物分类上属于动物还是植物？|动物|2|植物,真菌,细菌|造礁珊瑚由珊瑚虫等动物构成。"
-  ],
-  "趣味冷知识": [
-    "通常情况下，人的左右肺哪一侧叶数更多？|右肺|2|左肺,完全相同,没有肺叶|右肺三叶，左肺两叶。",
-    "铅笔芯的主要成分是石墨和什么？|黏土|2|铅,银,塑料|铅笔芯主要由石墨与黏土混合制成。",
-    "香蕉在植物学上属于浆果吗？|属于|2|不属于,只属于坚果,只属于豆类|植物学定义下香蕉属于浆果。|judge",
-    "人的指纹在胎儿时期就会形成吗？|会|1|不会,出生十年后形成,成年后形成|指纹纹路在出生前已经形成。|judge",
-    "海马主要由雌性还是雄性负责孕育幼体？|雄性|2|雌性,双方都不孕育,由其他鱼类|雄海马拥有育儿袋。",
-    "一副不含大小王的扑克牌共有多少张？|52|2|48,54,56|四种花色各13张，共52张。",
-    "国际单位制中温度的基本单位是？|开尔文|3|摄氏度,华氏度,焦耳|开尔文是SI温度基本单位。",
-    "蜂鸟能够向后飞行吗？|能够|2|不能,只能滑翔,只能水下后退|蜂鸟特殊的翅膀运动使其可向后飞。|judge",
-    "北极熊的皮肤通常是什么颜色？|黑色|2|白色,粉色,透明|北极熊毛发透明，皮肤通常呈黑色。",
-    "人耳中最小的骨头叫什么？|镫骨|2|股骨,尺骨,髌骨|镫骨位于中耳，是人体最小骨。"
-  ],
-  "网络文化": [
-    "网络聊天中“233”通常表达什么情绪？|大笑|2|悲伤,困倦,愤怒|233常用于表达大笑。",
-    "网络中的“UP主”通常指什么？|内容创作者|5|快递员,裁判员,网络线路|UP主通常指上传和创作内容的用户。",
-    "“弹幕”在网络视频中通常指什么？|滚动评论|4|视频广告,背景音乐,下载按钮|弹幕是随视频画面滚动显示的评论。",
-    "“破防了”在网络语境中常表示什么？|情绪受到触动|6|设备损坏,网速提升,完成防守|网络语境中常指心理防线被触动。",
-    "网络缩写“YYDS”通常表示？|永远的神|4|音乐电视,一眼定胜负,页面已删除|YYDS来自“永远的神”的拼音首字母。",
-    "“吃瓜群众”通常指哪类人？|围观者|3|厨师,运动员,种植者|通常指围观事件的网友。",
-    "互联网中的“云玩家”常指什么？|看别人玩但自己少玩的人|10|维修服务器的人,气象玩家,只玩飞行游戏的人|该词常指主要通过视频直播了解游戏的人。",
-    "“社死”是哪个说法的简称？|社会性死亡|5|社交软件,社会实践,社区服务|社死是“社会性死亡”的网络简称。",
-    "网络中的“梗”通常指什么？|反复传播的趣味表达|9|网络电缆,植物根茎,文件格式|网络梗是被大量引用和再创作的表达。",
-    "“种草”在网络消费语境中常表示什么？|产生购买兴趣|6|园艺劳动,取消订单,退还商品|种草常指受到推荐后产生购买兴趣。"
-  ],
-  "时事政治": [
-    "联合国总部位于哪座城市？|纽约|2|日内瓦,巴黎,伦敦|联合国总部设在美国纽约。",
-    "英国议会由上议院和什么组成？|下议院|3|参议院,众议院,国务院|英国议会由君主、上议院和下议院构成。",
-    "欧洲联盟常用的英文缩写是？|EU|2|UN,NATO,WHO|EU是European Union的缩写。",
-    "世界卫生组织常用的英文缩写是？|WHO|3|WTO,IMF,IOC|WHO是World Health Organization。",
-    "2024年夏季奥运会的主办城市是？|巴黎|2|东京,伦敦,洛杉矶|2024年夏季奥运会在巴黎举办。",
-    "联合国安全理事会常任理事国共有几个？|5|1|4,6,10|安理会有五个常任理事国。",
-    "英国首相通常在哪座建筑办公和居住？|唐宁街10号|6|白金汉宫,威斯敏斯特教堂,温莎城堡|英国首相官邸位于唐宁街10号。",
-    "北大西洋公约组织常用的英文缩写是？|NATO|4|NASA,OPEC,UNESCO|NATO是北大西洋公约组织。",
-    "国际法院设在哪座城市？|海牙|2|布鲁塞尔,维也纳,马德里|国际法院位于荷兰海牙。",
-    "二十国集团通常使用哪个英文缩写？|G20|3|G2,G7,G77|二十国集团通常简称G20。"
-  ]
-};
-
-function rotate(items, amount) {
-  const count = amount % items.length;
-  return [...items.slice(count), ...items.slice(0, count)];
+function refineCategory(question) {
+  const text = `${question.prompt} ${question.answer}`;
+  if (["科学", "科技"].includes(question.category)) return "科学与科技";
+  if (["游戏", "网络文化"].includes(question.category)) return "游戏与网络文化";
+  if (["生活常识", "趣味冷知识"].includes(question.category) && FOOD_WORDS.test(text)) return "美食";
+  if (["生活常识", "趣味冷知识", "影视", "音乐"].includes(question.category) && NETWORK_WORDS.test(text)) return "游戏与网络文化";
+  return question.category;
 }
 
-function parseRow(category, row, rowIndex) {
-  const fields = row.split("|");
-  const [prompt, answer] = fields;
-  const legacyFormat = /^\d+$/.test(fields[2] || "");
-  const answerLength = legacyFormat ? Number(fields[2]) : [...answer].length;
-  const distractorText = legacyFormat ? fields[3] : fields[2];
-  const explanation = legacyFormat ? fields[4] : fields[3];
-  const explicitKind = legacyFormat ? fields[5] : fields[4];
-  return { category, prompt, answer, answerLength, distractors: String(distractorText || "").split(",").filter(Boolean), explanation, kind: explicitKind || "choice", knowledgeKey: `${category}-${rowIndex + 1}` };
+function sourceFunScore(question) {
+  let score = question.difficulty === "easy" ? 8 : question.difficulty === "medium" ? 4 : 0;
+  if (question.optionType !== "source-set") score += 3;
+  if ([...question.prompt].length <= 42) score += 3;
+  if (/首都|最大|最小|作者|发明|发现|行星|海洋|大洲|人体|动物|语言|国家|成语|诗人|朝代|元素|器官|货币|颜色/.test(question.prompt)) score += 4;
+  score -= (question.prompt.match(/[A-Za-z]+/g) || []).length * 2;
+  if (/宇宙中|系列中|主人公|校长|队长|大副|魔法|精灵|角色|哪一部.*作品/.test(question.prompt)) score -= 8;
+  if (/哪种颜色|哪个国家|哪座城市|哪位作家|哪位科学家|哪种动物|哪种语言|哪项运动/.test(question.prompt)) score += 2;
+  return score;
 }
 
-function buildLocalQuestions() {
-  // MKQA 是人工翻译的开放知识问答集；每条 source id 都是一道独立事实题，
-  // 不再用同一知识点的改写或调换选项来膨胀题库数量。
-  const questions = MKQA_QUESTIONS.map((question) => ({
-    ...question,
-    pack: ["网络文化", "影视", "音乐", "游戏", "美食"].includes(question.category) ? "party" : question.category === "时事政治" ? "current" : "classic",
-    aliases: [...new Set(question.aliases || [question.answer])],
-    options: [...question.options]
-  }));
-  for (const category of Object.keys(FRESH_FACT_ROWS)) {
-    FRESH_FACT_ROWS[category].map((row, index) => parseRow(category, row, index)).forEach((fact, factIndex) => {
-      for (let variant = 0; variant < 1; variant += 1) {
-        const optionPool = fact.kind === "judge" ? [fact.answer, fact.distractors[0]] : [fact.answer, ...fact.distractors];
-        const options = rotate(optionPool, variant);
-        questions.push({
-          id: `local-${category}-${factIndex + 1}-${variant + 1}`,
-          knowledgeKey: fact.knowledgeKey,
-          category,
-          pack: ["网络文化", "影视", "音乐", "游戏", "美食"].includes(category) ? "party" : ["时事政治"].includes(category) ? "current" : "classic",
-          kind: fact.kind,
-          prompt: fact.prompt,
-          answer: fact.answer,
-          aliases: [fact.answer],
-          answerLength: fact.answerLength,
-          options,
-          explanation: fact.explanation,
-          source: "站神原创基础题库",
-          updatedAt: "2026-08-08"
-        });
-      }
-    });
-  }
-  CHARACTER_FACTS.forEach(([imageKey, answer, aliases, explanation], index) => {
-    questions.push({
-      id: `character-${imageKey}`,
-      knowledgeKey: `动漫角色-${imageKey}`,
-      category: "动漫角色",
-      pack: "party",
-      kind: "image-fill",
-      prompt: "请填写图中角色的完整姓名",
-      answer,
-      aliases: [answer, ...aliases],
-      answerLength: [...answer].filter((character) => !/[·.\s]/.test(character)).length,
-      options: [],
-      imageUrl: `/api/games/quiz-arena/character-image/${imageKey}`,
-      explanation,
-      source: "AniList角色图鉴",
-      updatedAt: "2026-08-04",
-      order: index
-    });
-  });
-  CHILD_CHARACTER_FACTS.forEach(([imageKey, answer, aliases, explanation, source], index) => {
-    questions.push({
-      id: `child-character-${imageKey}`,
-      knowledgeKey: `儿童动画角色-${imageKey}`,
-      category: "儿童动画角色",
-      pack: "party",
-      kind: "image-fill",
-      prompt: "请填写图中角色的完整姓名",
-      answer,
-      aliases: [answer, ...aliases],
-      answerLength: [...answer].filter((character) => !/[·.\s]/.test(character)).length,
-      options: [],
-      imageUrl: `/api/games/quiz-arena/character-image/${imageKey}`,
-      explanation,
-      source,
-      updatedAt: "2026-08-04",
-      order: index
-    });
-  });
-  return questions;
+const structuredQuestions = [...new Map(STRUCTURED_SOURCE.map((question) => [question.id, question])).values()]
+  .filter((question) => validateQuestion(question).valid)
+  .map((question) => ({ ...question, category: refineCategory(question) }));
+const curatedCandidates = CURATED_SOURCE.filter((question) => {
+  if (!validateQuestion(question).valid || COLD_DETAIL.test(question.prompt) || VAGUE_OPENING.test(question.prompt)) return false;
+  if (question.options.some((option) => META_OPTIONS.test(option))) return false;
+  return (question.prompt.match(/[A-Za-z]+/g) || []).length <= 5;
+}).map((question) => ({ ...question, category: refineCategory(question) }));
+const neededCurated = 5000 - structuredQuestions.length - MANUAL_QUESTIONS.length - CHARACTER_QUESTIONS.length;
+const curatedQuotas = new Map([
+  ["生活常识", 510], ["美食", 50], ["趣味冷知识", 180], ["地理", 300], ["历史", 260],
+  ["科学与科技", 400], ["自然动物", 200], ["文学艺术", 350], ["体育", 100],
+  ["音乐", 50], ["游戏与网络文化", 100], ["影视", 77]
+]);
+const selectedCurated = [];
+for (const [category, quota] of curatedQuotas) {
+  const pool = curatedCandidates.filter((question) => question.category === category)
+    .sort((a, b) => sourceFunScore(b) - sourceFunScore(a) || a.prompt.length - b.prompt.length || a.id.localeCompare(b.id));
+  if (pool.length < quota) throw new Error(`精品题源不足：${category} 需要 ${quota} 道，现有 ${pool.length} 道`);
+  selectedCurated.push(...pool.slice(0, quota));
 }
+if (neededCurated < 0 || selectedCurated.length !== neededCurated) throw new Error(`精品题源配额错误：需要 ${neededCurated} 道，实际 ${selectedCurated.length} 道`);
 
-const LOCAL_QUESTIONS = buildLocalQuestions();
+const combinedQuestions = [...structuredQuestions, ...MANUAL_QUESTIONS, ...selectedCurated, ...CHARACTER_QUESTIONS];
+function playabilityScore(question) {
+  if (question.source?.startsWith("公开")) return 140;
+  if (question.source === "全新角色图鉴题包") return 90;
+  if (question.source?.startsWith("Wikidata")) return 20 + Math.min(100, Number(question.popularity || 0) / 2);
+  return 30 + sourceFunScore(question);
+}
+combinedQuestions.sort((a, b) => {
+  return playabilityScore(b) - playabilityScore(a) || Number(b.popularity || 0) - Number(a.popularity || 0) || a.id.localeCompare(b.id);
+});
+const LOCAL_QUESTIONS = combinedQuestions.map((question, index) => ({
+  ...question,
+  category: refineCategory(question),
+  pack: PARTY_CATEGORIES.has(refineCategory(question)) ? "party" : "classic",
+  difficulty: index < 3000 ? "easy" : index < 4500 ? "medium" : "hard",
+  aliases: [...new Set(question.aliases || [question.answer])],
+  options: [...(question.options || [])]
+}));
+
+const localAudit = auditQuestionBank(LOCAL_QUESTIONS, { expectedCount: 5000 });
+if (!localAudit.valid) throw new Error(`站神题库质量审计失败：${JSON.stringify(localAudit.failures.slice(0, 8))}`);
+
 let remoteQuestions = [];
-
 function validateRemoteQuestion(question, index) {
   if (!question || typeof question.prompt !== "string" || typeof question.answer !== "string" || !CATEGORIES.includes(question.category)) return null;
   const answer = question.answer.trim().slice(0, 80);
   const prompt = question.prompt.trim().slice(0, 240);
-  if (!answer || !prompt) return null;
-  const options = Array.isArray(question.options) ? question.options.map(String).filter(Boolean).slice(0, 4) : [];
-  return {
+  const options = Array.isArray(question.options) ? question.options.map(String).map((item) => item.trim()).filter(Boolean).slice(0, 4) : [];
+  const candidate = {
     id: `remote-${String(question.id || index).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 60) || index}`,
     knowledgeKey: `remote-${String(question.knowledgeKey || question.id || index).slice(0, 80)}`,
     category: question.category,
-    pack: ["classic", "party", "current"].includes(question.pack) ? question.pack : "classic",
+    pack: PARTY_CATEGORIES.has(question.category) ? "party" : "classic",
     kind: ["choice", "judge", "fill"].includes(question.kind) ? question.kind : "choice",
     prompt,
     answer,
     aliases: [...new Set([answer, ...(Array.isArray(question.aliases) ? question.aliases.map(String) : [])])].slice(0, 8),
     answerLength: Math.max(1, Math.min(40, Number(question.answerLength) || [...answer].length)),
     options: options.includes(answer) ? options : [answer, ...options].slice(0, 4),
-    explanation: String(question.explanation || "").slice(0, 300),
+    optionType: String(question.optionType || "source-set").slice(0, 40),
+    difficulty: ["easy", "medium", "hard"].includes(question.difficulty) ? question.difficulty : "medium",
+    explanation: String(question.explanation || `正确答案是“${answer}”。`).slice(0, 300),
     source: String(question.source || "在线题包").slice(0, 80),
     updatedAt: String(question.updatedAt || new Date().toISOString().slice(0, 10)).slice(0, 10)
   };
+  return validateQuestion(candidate).valid ? candidate : null;
 }
 
 function installRemoteQuestions(items) {
@@ -603,6 +111,18 @@ function installRemoteQuestions(items) {
 }
 
 function getQuestionBank() { return [...remoteQuestions, ...LOCAL_QUESTIONS]; }
-function questionPackInfo() { return { localCount: LOCAL_QUESTIONS.length, remoteCount: remoteQuestions.length, total: LOCAL_QUESTIONS.length + remoteQuestions.length, version: "2026.08.08", categories: CATEGORIES, independentCount: new Set(LOCAL_QUESTIONS.map((question) => question.knowledgeKey)).size }; }
+function questionPackInfo() {
+  const difficulty = Object.fromEntries(["easy", "medium", "hard"].map((level) => [level, LOCAL_QUESTIONS.filter((item) => item.difficulty === level).length]));
+  return {
+    localCount: LOCAL_QUESTIONS.length,
+    remoteCount: remoteQuestions.length,
+    total: LOCAL_QUESTIONS.length + remoteQuestions.length,
+    version: "2026.08.08-v4",
+    categories: CATEGORIES,
+    independentCount: new Set(LOCAL_QUESTIONS.map((question) => question.knowledgeKey)).size,
+    audited: true,
+    difficulty
+  };
+}
 
-module.exports = { CATEGORIES, CHARACTER_IMAGE_QUERIES, CHILD_CHARACTER_IMAGE_URLS, LOCAL_QUESTIONS, getQuestionBank, installRemoteQuestions, questionPackInfo };
+module.exports = { CATEGORIES, CHARACTER_IMAGE_QUERIES, CHILD_CHARACTER_IMAGE_URLS: {}, LOCAL_QUESTIONS, getQuestionBank, installRemoteQuestions, questionPackInfo };

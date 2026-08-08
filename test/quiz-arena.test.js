@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const rules = require("../src/games/quiz-arena/rules");
 const questions = require("../src/games/quiz-arena/questions");
+const { auditQuestionBank, validateQuestion } = require("../src/games/quiz-arena/question-quality");
 
 function makeRoom(count = 3, settings = rules.defaultSettings(), random = () => 0, now = 1000) {
   const players = Array.from({ length: count }, (_, index) => ({ id: `p${index + 1}`, name: `玩家${index + 1}`, connected: true }));
@@ -12,24 +13,24 @@ function makeRoom(count = 3, settings = rules.defaultSettings(), random = () => 
   return room;
 }
 
-test("本地基础题库由独立事实题组成并覆盖十七个领域", () => {
-  assert.ok(questions.LOCAL_QUESTIONS.length >= 5000);
+test("本地精品题库恰好包含五千个独立知识点并覆盖全部领域", () => {
+  assert.equal(questions.LOCAL_QUESTIONS.length, 5000);
   assert.deepEqual([...new Set(questions.LOCAL_QUESTIONS.map((item) => item.category))].sort(), [...rules.CATEGORIES].sort());
   assert.equal(new Set(questions.LOCAL_QUESTIONS.map((item) => item.knowledgeKey)).size, questions.LOCAL_QUESTIONS.length);
   assert.ok(questions.LOCAL_QUESTIONS.every((item) => item.prompt && item.answer && item.explanation));
   assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.kind === "judge").every((item) => item.options.length === 2));
   assert.ok(questions.LOCAL_QUESTIONS.every((item) => !item.prompt.includes("下面这道题的答案是")));
+  assert.deepEqual(questions.questionPackInfo().difficulty, { easy: 3000, medium: 1500, hard: 500 });
+  assert.equal(auditQuestionBank(questions.LOCAL_QUESTIONS, { expectedCount: 5000 }).valid, true);
+  assert.ok(questions.LOCAL_QUESTIONS.every((item) => validateQuestion(item).valid));
+  assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.kind === "choice").every((item) => item.options.length === 4 && new Set(item.options).size === 4 && item.options.includes(item.answer)));
 });
 
-test("儿童动画角色单独成类并支持猜完整姓名", () => {
-  const childQuestions = questions.LOCAL_QUESTIONS.filter((item) => item.category === "儿童动画角色");
-  assert.equal(childQuestions.length, 18);
-  assert.ok(childQuestions.every((item) => item.kind === "image-fill" && item.pack === "party"));
-  assert.ok(childQuestions.some((item) => item.answer === "头太元" && item.explanation.includes("老版动画")));
-  assert.ok(childQuestions.some((item) => item.answer === "胡图图"));
-  assert.ok(childQuestions.some((item) => item.answer === "刚田武"));
-  const imageKeys = childQuestions.map((item) => item.imageUrl.split("/").at(-1));
-  assert.ok(imageKeys.every((key) => questions.CHARACTER_IMAGE_QUERIES[key] || questions.CHILD_CHARACTER_IMAGE_URLS[key]));
+test("旧图片角色题已全部退出并换成全新角色题包", () => {
+  const characterQuestions = questions.LOCAL_QUESTIONS.filter((item) => item.category === "动漫角色");
+  assert.equal(characterQuestions.length, 60);
+  assert.ok(characterQuestions.every((item) => item.id.startsWith("character-v3-") && item.pack === "party"));
+  assert.ok(!characterQuestions.some((item) => ["江户川柯南", "蒙奇·D·路飞", "野原新之助", "头太元"].includes(item.answer)));
 });
 
 test("动漫角色题公开图片但隐藏答案并要求当前玩家填全名", () => {
@@ -47,7 +48,7 @@ test("动漫角色题公开图片但隐藏答案并要求当前玩家填全名",
 
 test("每道动漫角色题都有受控图片查询且不会把搜索词发给客户端", () => {
   const characterQuestions = questions.LOCAL_QUESTIONS.filter((item) => item.category === "动漫角色");
-  assert.equal(characterQuestions.length, 54);
+  assert.equal(characterQuestions.length, 60);
   assert.ok(characterQuestions.every((item) => item.kind === "image-fill" && item.aliases.includes(item.answer)));
   assert.ok(characterQuestions.every((item) => questions.CHARACTER_IMAGE_QUERIES[item.imageUrl.split("/").at(-1)]));
   assert.ok(characterQuestions.every((item) => !item.imageUrl.includes("AniList") && !item.imageUrl.includes("search")));
@@ -61,10 +62,12 @@ test("客户端使用环形站台、生命核心和淘汰坠落反馈", () => {
   assert.match(client, /paintElimination/);
   assert.match(styles, /@keyframes quiz-seat-drop/);
   assert.match(styles, /@keyframes quiz-fall-avatar/);
+  assert.match(client, /同一房主跨房间长期去重/);
+  assert.doesNotMatch(client, /"儿童动画角色"|时事政治|"科学", "科技"/);
 });
 
 test("在线题包只接受结构完整且领域合法的题目", () => {
-  const count = questions.installRemoteQuestions([{ id: "fresh-1", category: "科学", prompt: "测试问题？", answer: "答案", options: ["答案", "其他"], explanation: "测试解析" }, { category: "不存在", prompt: "无效", answer: "无效" }]);
+  const count = questions.installRemoteQuestions([{ id: "fresh-1", category: "科学与科技", prompt: "太阳系中离太阳最近的行星是？", answer: "水星", options: ["水星", "金星", "地球", "火星"], optionType: "planet", explanation: "水星离太阳最近。" }, { category: "不存在", prompt: "无效", answer: "无效" }]);
   assert.equal(count, 1);
   assert.equal(questions.questionPackInfo().remoteCount, 1);
   questions.installRemoteQuestions([]);
@@ -75,8 +78,16 @@ test("只有房主能选择模式、题包和至少一个领域", () => {
   assert.throws(() => rules.configure(room, "p2", { mode: "buzzer" }), /只有房主/);
   assert.throws(() => rules.configure(room, "p1", { categories: [] }), /至少选择/);
   assert.throws(() => rules.configure(room, "p1", { pack: "party", categories: ["历史"] }), /没有可用题目/);
-  rules.configure(room, "p1", { mode: "buzzer", pack: "party", categories: ["影视", "游戏"] });
-  assert.deepEqual(room.settings, { mode: "buzzer", pack: "party", categories: ["影视", "游戏"] });
+  rules.configure(room, "p1", { mode: "buzzer", pack: "party", categories: ["影视", "游戏与网络文化"] });
+  assert.deepEqual(room.settings, { mode: "buzzer", pack: "party", categories: ["影视", "游戏与网络文化"] });
+});
+
+test("房主历史知识编号会在新一局继续排除", () => {
+  const previous = questions.LOCAL_QUESTIONS.filter((item) => item.category === "地理").slice(0, 30).map((item) => item.knowledgeKey);
+  const players = [{ id: "p1", name: "房主" }, { id: "p2", name: "朋友" }];
+  const game = rules.createGame(players, { mode: "survival", pack: "classic", categories: ["地理"] }, () => 0, 1000, previous);
+  assert.ok(!previous.includes(game.question.knowledgeKey));
+  assert.ok(previous.every((key) => game.usedKnowledgeKeys.includes(key)));
 });
 
 test("站神模式每人三颗生命和一次跳过且选项只对当前玩家公开", () => {

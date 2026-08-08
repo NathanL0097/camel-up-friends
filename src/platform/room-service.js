@@ -53,14 +53,14 @@ function createRoomService({ rooms, getGame, makeCode, makeId }) {
     if (room.game) throw new Error("比赛已经开始");
     const minimumToStart = gameDefinition.minimumToStart ?? gameDefinition.minPlayers;
     if (room.players.length < minimumToStart) throw new Error(`至少需要 ${minimumToStart} 人才能开始`);
-    room.game = gameDefinition.createGame(room.players, room.settings);
+    room.game = gameDefinition.createGame(room.players, room.settings, room);
   }
 
   function restartGame(room, playerId) {
     const gameDefinition = getGame(room.gameId);
     if (room.hostId !== playerId) throw new Error("只有房主可以再开一局");
     if (!room.game || room.game.status !== "finished") throw new Error("当前比赛还没有结束");
-    room.game = gameDefinition.createGame(room.players, room.settings);
+    room.game = gameDefinition.createGame(room.players, room.settings, room);
   }
 
   function configureGame(room, playerId, payload) {

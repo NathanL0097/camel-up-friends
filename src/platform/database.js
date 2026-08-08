@@ -30,6 +30,15 @@ function createDatabase({ url = process.env.DATABASE_URL } = {}) {
       metadata JSONB NOT NULL DEFAULT '{}'::jsonb
     );
     CREATE INDEX IF NOT EXISTS audit_logs_occurred_idx ON audit_logs (occurred_at DESC);
+    CREATE TABLE IF NOT EXISTS quiz_question_history (
+      owner_hash TEXT NOT NULL,
+      knowledge_key TEXT NOT NULL,
+      first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      seen_count INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY (owner_hash, knowledge_key)
+    );
+    CREATE INDEX IF NOT EXISTS quiz_question_history_owner_idx ON quiz_question_history (owner_hash, last_seen_at DESC);
     ALTER TABLE activation_codes ADD COLUMN IF NOT EXISTS duration_hours INTEGER NOT NULL DEFAULT 30;
     CREATE OR REPLACE FUNCTION prevent_audit_mutation() RETURNS trigger AS $$
       BEGIN RAISE EXCEPTION 'audit logs are append-only'; END;
