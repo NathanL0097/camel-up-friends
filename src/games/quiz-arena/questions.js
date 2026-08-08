@@ -1,4 +1,5 @@
 const CATEGORIES = ["生活常识", "历史", "地理", "科学", "科技", "体育", "影视", "音乐", "游戏", "美食", "文学艺术", "自然动物", "趣味冷知识", "网络文化", "时事政治", "动漫角色", "儿童动画角色"];
+const MKQA_QUESTIONS = require("./mkqa-questions.json");
 
 const CHARACTER_IMAGE_QUERIES = {
   naruto: "Naruto Uzumaki", sasuke: "Sasuke Uchiha", sakura: "Sakura Haruno", kakashi: "Kakashi Hatake",
@@ -498,11 +499,17 @@ function parseRow(category, row, rowIndex) {
 }
 
 function buildLocalQuestions() {
-  const questions = [];
+  // MKQA 是人工翻译的开放知识问答集；每条 source id 都是一道独立事实题，
+  // 不再用同一知识点的改写或调换选项来膨胀题库数量。
+  const questions = MKQA_QUESTIONS.map((question) => ({
+    ...question,
+    pack: ["网络文化", "影视", "音乐", "游戏", "美食"].includes(question.category) ? "party" : question.category === "时事政治" ? "current" : "classic",
+    aliases: [...new Set(question.aliases || [question.answer])],
+    options: [...question.options]
+  }));
   for (const category of Object.keys(FRESH_FACT_ROWS)) {
     FRESH_FACT_ROWS[category].map((row, index) => parseRow(category, row, index)).forEach((fact, factIndex) => {
-      const promptPrefix = ["", "知识快问：", "请作答：", "本题考查：", "站神挑战：", "快速判断：", "请选出正确答案：", "准备好了吗：", "小知识时间：", "请回答：", "本轮题目：", "马上作答：", "知识卡片：", "看题：", "挑战开始：", "请选择：", "问题来了："];
-      for (let variant = 0; variant < 34; variant += 1) {
+      for (let variant = 0; variant < 1; variant += 1) {
         const optionPool = fact.kind === "judge" ? [fact.answer, fact.distractors[0]] : [fact.answer, ...fact.distractors];
         const options = rotate(optionPool, variant);
         questions.push({
@@ -511,14 +518,14 @@ function buildLocalQuestions() {
           category,
           pack: ["网络文化", "影视", "音乐", "游戏", "美食"].includes(category) ? "party" : ["时事政治"].includes(category) ? "current" : "classic",
           kind: fact.kind,
-          prompt: `${promptPrefix[variant % promptPrefix.length]}${fact.prompt}`,
+          prompt: fact.prompt,
           answer: fact.answer,
           aliases: [fact.answer],
           answerLength: fact.answerLength,
           options,
           explanation: fact.explanation,
-          source: "站神基础题库",
-          updatedAt: "2026-08-04"
+          source: "站神原创基础题库",
+          updatedAt: "2026-08-08"
         });
       }
     });
@@ -596,6 +603,6 @@ function installRemoteQuestions(items) {
 }
 
 function getQuestionBank() { return [...remoteQuestions, ...LOCAL_QUESTIONS]; }
-function questionPackInfo() { return { localCount: LOCAL_QUESTIONS.length, remoteCount: remoteQuestions.length, total: LOCAL_QUESTIONS.length + remoteQuestions.length, version: "2026.08.04", categories: CATEGORIES }; }
+function questionPackInfo() { return { localCount: LOCAL_QUESTIONS.length, remoteCount: remoteQuestions.length, total: LOCAL_QUESTIONS.length + remoteQuestions.length, version: "2026.08.08", categories: CATEGORIES, independentCount: new Set(LOCAL_QUESTIONS.map((question) => question.knowledgeKey)).size }; }
 
 module.exports = { CATEGORIES, CHARACTER_IMAGE_QUERIES, CHILD_CHARACTER_IMAGE_URLS, LOCAL_QUESTIONS, getQuestionBank, installRemoteQuestions, questionPackInfo };
