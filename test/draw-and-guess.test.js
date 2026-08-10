@@ -22,23 +22,26 @@ test("开局安排每人三次作画并重置积分", () => {
   assert.deepEqual(room.players.map((player) => player.score), [0, 0, 0]);
 });
 
-test("新版聚会词库超过两千词且刷新不会立刻重复", () => {
+test("v3约三千题只保留可画名词且刷新不会立刻重复", () => {
   const room = makeRoom(2);
   const artistId = room.game.artistId;
   const firstWords = room.game.wordChoices.map((choice) => choice.word);
-  assert.ok(rules.WORDS.length >= 2000);
-  assert.ok(new Set(rules.WORDS.map((item) => item.category)).size >= 15);
+  assert.ok(rules.WORDS.length >= 2900);
+  assert.ok(rules.WORDS.length <= 3200);
+  assert.ok(new Set(rules.WORDS.map((item) => item.category)).size >= 12);
   assert.equal(new Set(rules.WORDS.map((item) => item.word)).size, rules.WORDS.length);
   assert.equal(rules.WORDS.find((item) => item.word === "北京").category, "地点交通");
   assert.equal(rules.WORDS.find((item) => item.word === "伦敦").category, "地点交通");
   assert.equal(rules.WORDS.find((item) => item.word === "古筝").category, "文化记忆");
   assert.equal(rules.WORDS.some((item) => item.word === "双簧管"), false);
-  assert.ok(["踩到香蕉皮", "麦克风没关", "上班打卡", "吃瓜群众", "黑神话悟空", "嫦娥奔月"].every((word) => rules.WORDS.some((item) => item.word === word)));
+  assert.ok(["雨伞", "大熊猫", "孙悟空", "万里长城", "热带雨林", "生日蛋糕"].every((word) => rules.WORDS.some((item) => item.word === word)));
   assert.deepEqual(new Set(room.game.wordChoices.map((choice) => choice.difficulty)), new Set(["easy", "medium", "hard"]));
   assert.equal(rules.WORDS.some((item) => item.word === "鸟和鸟笼"), false);
   assert.equal(rules.WORDS.some((item) => item.word === "蛋糕和蜡烛"), false);
   assert.equal(rules.WORDS.some((item) => item.word === "河马跳芭蕾"), false);
   assert.equal(rules.WORDS.some((item) => item.word.includes("和")), false);
+  assert.equal(rules.WORDS.some((item) => /踩到|自拍翻车|上班打卡|嫦娥奔月|画蛇添足/.test(item.word)), false);
+  assert.equal(rules.WORDS.some((item) => ["舞龙", "舞狮", "跳房子", "跳绳", "倒计时"].includes(item.word)), false);
   rules.refreshWords(room, artistId, 1_001_000);
   const nextWords = room.game.wordChoices.map((choice) => choice.word);
   assert.equal(nextWords.some((word) => firstWords.includes(word)), false);

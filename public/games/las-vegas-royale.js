@@ -2,7 +2,7 @@ window.GameClientFactories ||= {};
 
 window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml, getMyId, copyInvite }) => {
   const emit = (action, payload = {}) => socket.emit("game:action", { action, payload });
-  const COLOR_NAMES = { ruby: "红宝石", cyan: "霓虹蓝", gold: "金色", violet: "紫晶", emerald: "翡翠" };
+  const COLOR_NAMES = { ruby: "红宝石", cyan: "霓虹蓝", gold: "金色", violet: "紫晶", emerald: "翡翠", orange: "琥珀橙" };
   let previous = null;
   let lastPresentedEventId = 0;
   const eventQueue = [];
@@ -26,7 +26,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     const mine = room.hostId === getMyId();
     const settings = room.settings || { mode: "royale", tileCount: 3 };
     $("rulesContent").innerHTML = rulesMarkup();
-    $("gameLobbySettings").innerHTML = `<div class="vegas-lobby-settings"><header><span>🎰</span><div><strong>赌城规则</strong><small>官方豪华版支持基础局与随机模块局</small></div></header><label>玩法<select id="vegasMode" ${mine ? "" : "disabled"}><option value="royale" ${settings.mode === "royale" ? "selected" : ""}>豪华规则 · 随机赌场模块</option><option value="base" ${settings.mode === "base" ? "selected" : ""}>基础规则 · 不使用模块</option></select></label><label>本轮模块数<select id="vegasTileCount" ${mine && settings.mode === "royale" ? "" : "disabled"}>${[1,2,3,4,5,6].map((n) => `<option value="${n}" ${Number(settings.tileCount) === n ? "selected" : ""}>${n} 块${n === 3 ? "（官方标准）" : "（官方变体）"}</option>`).join("")}</select></label>${mine ? '<button id="saveVegasSettings">保存设置</button>' : '<p>等待房主确认规则…</p>'}<footer>2–5人 · 3轮 · 约45–60分钟</footer></div>`;
+    $("gameLobbySettings").innerHTML = `<div class="vegas-lobby-settings"><header><span>🎰</span><div><strong>赌城规则</strong><small>纯真人好友局，不加入电脑或中立玩家</small></div></header><label>玩法<select id="vegasMode" ${mine ? "" : "disabled"}><option value="royale" ${settings.mode === "royale" ? "selected" : ""}>豪华规则 · 随机赌场模块</option><option value="base" ${settings.mode === "base" ? "selected" : ""}>基础规则 · 不使用模块</option></select></label><label>本轮模块数<select id="vegasTileCount" ${mine && settings.mode === "royale" ? "" : "disabled"}>${[1,2,3,4,5,6].map((n) => `<option value="${n}" ${Number(settings.tileCount) === n ? "selected" : ""}>${n} 块${n === 3 ? "（标准）" : "（变体）"}</option>`).join("")}</select></label>${mine ? '<button id="saveVegasSettings">保存设置</button>' : '<p>等待房主确认规则…</p>'}<footer>4–6人 · 3轮 · 纯真人好友局</footer></div>`;
     if (mine) {
       $("vegasMode").onchange = () => { $("vegasTileCount").disabled = $("vegasMode").value === "base"; };
       $("saveVegasSettings").onclick = () => socket.emit("game:configure", { mode: $("vegasMode").value, tileCount: Number($("vegasTileCount").value) });
@@ -34,7 +34,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
   }
 
   function rulesMarkup() {
-    return `<div class="eyebrow">LAS VEGAS ROYALE · 2–5人</div><h2>拉斯维加斯骰城 · 规则速查</h2><ol><li>共进行 <b>3轮</b>。轮到你时掷出所有剩余骰子，必须选择一个点数，并把该点数的全部骰子放进对应号码的赌场。</li><li>每人有7颗普通骰和1颗 <b>Biggy</b>；Biggy结算多数时算2颗，但放置、封锁和被移除时仍是一颗骰子。</li><li>每轮获得2枚筹码。不满意掷骰可花1枚筹码跳过；未花完的筹码可留到后续轮，终局每枚价值$10K。</li><li>每座赌场有两张奖金牌。结算时先将所有票数相同的玩家一起淘汰，再由剩余第一、第二名依次取得高额、低额奖金。</li><li>豪华规则会在赌场1起依次放置随机模块，官方标准为3块；放骰后立即按中央提示完成效果。每块实体板的正反面不会在同轮同时出现。</li><li>两人局每轮加入一组中立骰；它们照常制造多数和平票，但赢走的奖金退回银行。</li><li>三轮后现金加剩余筹码价值最高者获胜；平手依次比较奖金牌与筹码的总张数。</li></ol><p class="rules-note">本项目依据官方规则实现玩法，界面、赌场名称与视觉素材均为原创重绘。</p>`;
+    return `<div class="eyebrow">LAS VEGAS ROYALE · 4–6人</div><h2>拉斯维加斯骰城 · 规则速查</h2><ol><li>共进行 <b>3轮</b>。轮到你时掷出所有剩余骰子，必须选择一个点数，并把该点数的全部骰子放进对应号码的赌场。</li><li>每人有6颗普通骰和1颗明显更大的 <b>Biggy</b>；Biggy结算多数时算2颗。</li><li><b>好友房增强规则：</b>Biggy进入赌场时，若那里已有对手普通骰，可以选择一颗踢回对方骰池，也可以不发动；Biggy不能被踢回。</li><li>每轮获得2枚筹码。不满意掷骰可花1枚筹码跳过；未花完的筹码可留到后续轮，终局每枚价值$10K。</li><li>每座赌场有两张奖金牌。结算时先将所有票数相同的玩家一起淘汰，再由剩余第一、第二名依次取得高额、低额奖金。</li><li>豪华规则会在赌场1起依次放置随机模块；放骰后立即按中央提示完成效果。</li><li>三轮后现金加剩余筹码价值最高者获胜；平手依次比较奖金牌与筹码的总张数。</li></ol><p class="rules-note">Biggy“踢回普通骰”按本好友房的指定增强规则实现；其余核心流程沿用拉斯维加斯骰子游戏的多数与平票结算。</p>`;
   }
 
   $("gameMount").innerHTML = `
@@ -66,8 +66,13 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
   $("vegasInvite").onclick = copyInvite;
   $("vegasRules").onclick = () => $("rulesDialog").showModal();
 
-  function dieHtml(item, extra = "") {
-    return `<span class="vegas-die ${item.big ? "biggy" : ""} ${extra}" title="${item.big ? "Biggy：结算时算两颗" : "普通骰"}"><i>${item.face || "◆"}</i>${item.big ? "<b>×2</b>" : ""}</span>`;
+  const PIP_POSITIONS = { 1:[5], 2:[1,9], 3:[1,5,9], 4:[1,3,7,9], 5:[1,3,5,7,9], 6:[1,3,4,6,7,9] };
+  function dieFaceHtml(face) {
+    return `<span class="cube-pips">${PIP_POSITIONS[face].map((position) => `<i class="pip pip-${position}"></i>`).join("")}</span><small>${face}</small>`;
+  }
+  function dieHtml(item, extra = "", color = "") {
+    const face = Number(item.face) || 1;
+    return `<span class="die-cube-wrap ${item.big ? "biggy" : ""} ${color} ${extra}" title="${item.big ? "Biggy：结算算两颗，可选择踢回一颗对手普通骰" : `${face}点普通骰`}"><span class="die-cube show-${face}">${[1,6,3,4,2,5].map((side) => `<span class="die-face face-${side}">${dieFaceHtml(side)}</span>`).join("")}</span><em class="die-number">${face}</em>${item.big ? '<b class="biggy-mark">BIG<br>×2</b>' : ""}</span>`;
   }
 
   function playerName(room, id) {
@@ -94,12 +99,15 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     casino.dice.forEach((item) => (groups[item.playerId] ||= []).push(item));
     const dice = Object.entries(groups).map(([id, items]) => `<div class="casino-dice-group ${room.players.find((p) => p.id === id)?.color || "neutral"}"><small>${escapeHtml(playerName(room, id))}</small><div>${items.map((d) => dieHtml(d)).join("")}</div><b>${items.reduce((sum, d) => sum + (d.big ? 2 : 1), 0)}票</b></div>`).join("");
     const tile = casino.tile;
-    return `<article class="casino-card casino-${casino.number} ${game.closedCasino === casino.number ? "closed" : ""}">
+    const rolledFaces = new Set(game.currentRoll?.map((item) => item.face) || []);
+    const selectable = game.currentTurnId === getMyId() && rolledFaces.has(casino.number) && game.closedCasino !== casino.number && !game.pending;
+    return `<article class="casino-card casino-${casino.number} ${game.closedCasino === casino.number ? "closed" : ""} ${selectable ? "selectable" : ""}" data-casino="${casino.number}" ${selectable ? 'role="button" tabindex="0"' : ""}>
       <div class="casino-sign"><span>${casino.number}</span><div><small>CASINO</small><b>${["日落大道", "埃及艳后", "海市蜃楼", "金色马蹄", "霓虹宫殿", "幸运之星"][casino.number - 1]}</b></div></div>
       <div class="money-cards">${casino.money.map((value) => `<span>$${value}K</span>`).join("")}</div>
       ${tile ? `<div class="royale-tile" title="${escapeHtml(tile.name)}"><span>${tile.icon}</span><div><small>豪华板块 ${tile.id}</small><b>${escapeHtml(tile.name)}</b></div>${tile.state.jackpot ? `<em>$${tile.state.jackpot}K</em>` : ""}</div>` : ""}
       <div class="casino-dice">${dice || "<span class=\"empty-table\">等待骰子入场</span>"}${casino.blankDice ? `<div class="blank-dice">灰骰 × ${casino.blankDice}</div>` : ""}</div>
       ${game.closedCasino === casino.number ? "<div class=\"closed-stamp\">禁止入场</div>" : ""}
+      ${selectable ? `<div class="casino-select-callout">选择 ${casino.number} 点</div>` : ""}
     </article>`;
   }
 
@@ -121,6 +129,10 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     if (!mine) { area.innerHTML = `<div class="waiting-choice">等待 <b>${escapeHtml(actor)}</b> 完成「${pendingLabel(pending.type)}」…</div>`; return; }
     const resolve = (payload) => emit("resolve", payload);
     switch (pending.type) {
+      case "biggyKick":
+        area.innerHTML = `<p><b>Biggy 入场！</b>你可以踢回一颗对手普通骰，也可以保留当前局面。</p>${optionSelect(pending.targets.map((target) => [target.id, `${playerName(room, target.playerId)} 的普通骰`]))}`;
+        area.append(actionButton("不发动能力", () => resolve({ skip: true }), "muted"));
+        area.append(actionButton("踢回这颗骰子", () => resolve({ dieId: $("pendingSelect").value }), "biggy-power")); break;
       case "luckyChoose":
         area.innerHTML = `<p>秘密握住 1–3 枚标记，让左手边玩家猜。</p>${optionSelect([[1,"握 1 枚 · 奖励2筹码"],[2,"握 2 枚 · 奖励$30K"],[3,"握 3 枚 · 奖励$40K"]])}`;
         area.append(actionButton("握好，请对方猜", () => resolve({ count: +$("pendingSelect").value }))); break;
@@ -166,7 +178,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
   }
 
   function pendingLabel(type) {
-    return ({ luckyChoose: "幸运一拳", luckyGuess: "猜拳", fifty: "猜高猜低", noEntry: "禁止入场", block: "堵住它", handicap: "让分局", doubleDown: "双倍下注", niceDice: "妙骰", myChoice: "任我选", primeTime: "黄金时刻", blackDivide: "黑箱分组", blackChoose: "黑箱选奖" })[type] || "板块效果";
+    return ({ biggyKick: "Biggy 踢骰", luckyChoose: "幸运一拳", luckyGuess: "猜拳", fifty: "猜高猜低", noEntry: "禁止入场", block: "堵住它", handicap: "让分局", doubleDown: "双倍下注", niceDice: "妙骰", myChoice: "任我选", primeTime: "黄金时刻", blackDivide: "黑箱分组", blackChoose: "黑箱选奖" })[type] || "板块效果";
   }
 
   function manipulationControls(room) {
@@ -183,7 +195,8 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
   function renderArena(room) {
     const game = room.game; const mine = game.currentTurnId === getMyId(); const pendingMine = game.pending?.actorId === getMyId();
     $("turnPrompt").innerHTML = game.pending ? `<span>豪华板块</span><strong>${pendingLabel(game.pending.type)}</strong>` : mine ? `<span>轮到你</span><strong>${game.currentRoll ? "选择一个点数，全部放入对应赌场" : "掷出你剩余的全部骰子"}</strong>` : `<span>等待行动</span><strong>${escapeHtml(playerName(room, game.currentTurnId))} 的回合</strong>`;
-    $("rolledDice").innerHTML = game.currentRoll?.length ? game.currentRoll.map((item) => dieHtml(item, "rolling")).join("") : "<span class=\"arena-placeholder\">◆</span>";
+    const activeColor = room.players.find((player) => player.id === game.currentTurnId)?.color || "";
+    $("rolledDice").innerHTML = game.currentRoll?.length ? game.currentRoll.map((item) => dieHtml(item, "rolling", activeColor)).join("") : "<span class=\"arena-placeholder\">🎲</span>";
     const area = $("rollActions"); area.innerHTML = "";
     if (game.pending) return renderPending(room, game.pending, pendingMine);
     if (!mine) { area.innerHTML = "<div class=\"waiting-choice\">赌场正在等待下一次掷骰…</div>"; return; }
@@ -224,8 +237,8 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
 
   const pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
   function eventPlayer(room, id) { return id?.startsWith("__") ? playerName(room, id) : playerName(room, id); }
-  function eventDiceMarkup(dice, hidden = false) {
-    return dice.map((item, index) => `<span class="event-die ${item.big ? "biggy" : ""} ${item.black ? "black" : ""}" style="--delay:${index * 55}ms"><i>${hidden ? "?" : item.face}</i>${item.big ? "<b>×2</b>" : ""}</span>`).join("");
+  function eventDiceMarkup(dice, hidden = false, color = "") {
+    return dice.map((item, index) => dieHtml({ ...item, face: hidden ? 1 : item.face }, `event-cube ${hidden ? "mystery" : ""} ${item.black ? "black" : ""}`, color).replace('class="die-cube ', `style="--delay:${index * 55}ms" class="die-cube `)).join("");
   }
 
   async function presentEvent(room, event) {
@@ -235,15 +248,22 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     kicker.textContent = event.reason || "赌场播报"; detail.textContent = "";
     if (event.type === "dice-roll") {
       title.textContent = `${eventPlayer(room, event.playerId)} 正在掷骰`;
-      visual.innerHTML = eventDiceMarkup(event.dice || [], true); sound("roll");
+      const color = room.players.find((player) => player.id === event.playerId)?.color || "";
+      visual.innerHTML = eventDiceMarkup(event.dice || [], true, color); sound("roll");
       await pause(850);
-      visual.classList.add("revealed"); visual.innerHTML = eventDiceMarkup(event.dice || [], false);
+      visual.classList.add("revealed"); visual.innerHTML = eventDiceMarkup(event.dice || [], false, color);
       detail.textContent = `结果：${(event.dice || []).map((item) => item.face).join("、")}`;
       await pause(900);
     } else if (event.type === "dice-place") {
       title.textContent = `${eventPlayer(room, event.playerId)} 放置骰子`;
-      visual.innerHTML = eventDiceMarkup(event.dice || [], false); detail.textContent = event.casino ? `飞向 ${event.casino} 号赌场` : event.reason;
+      const color = room.players.find((player) => player.id === event.playerId)?.color || "";
+      visual.innerHTML = eventDiceMarkup(event.dice || [], false, color); detail.textContent = event.casino ? `飞向 ${event.casino} 号赌场` : event.reason;
       sound("place"); await pause(250); visual.classList.add("flying"); await pause(850);
+    } else if (event.type === "dice-kick") {
+      title.textContent = "Biggy 发动踢骰";
+      const color = room.players.find((player) => player.id === event.targetPlayerId)?.color || "";
+      visual.innerHTML = eventDiceMarkup(event.dice || [], false, color); detail.textContent = `${eventPlayer(room, event.targetPlayerId)} 的普通骰被踢回骰池`;
+      sound("place"); await pause(250); visual.classList.add("kicked"); await pause(1000);
     } else if (event.type === "money") {
       const gain = event.amount > 0;
       title.textContent = gain ? "奖金正在派发" : "罚款正在收取";
@@ -285,6 +305,13 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     $("rulesContent").innerHTML = rulesMarkup();
     $("vegasCode").textContent = room.code; $("vegasRound").innerHTML = `<span>ROUND</span><b>${game.round} / 3</b>`;
     renderPlayers(room); $("casinoGrid").innerHTML = game.casinos.map((casino) => renderCasino(room, casino)).join(""); renderArena(room); renderPayout(room); queuePresentation(room);
+    const choosing = game.currentTurnId === getMyId() && game.currentRoll?.length && !game.pending;
+    document.querySelector(".vegas-table")?.classList.toggle("choosing-casino", Boolean(choosing));
+    document.querySelectorAll(".casino-card.selectable").forEach((card) => {
+      const choose = () => { sound("place"); emit("place", { face: Number(card.dataset.casino) }); };
+      card.onclick = choose;
+      card.onkeydown = (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); choose(); } };
+    });
     $("roundStatus").innerHTML = `<p><span>当前回合</span><b>${escapeHtml(playerName(room, game.currentTurnId))}</b></p><p><span>封锁赌场</span><b>${game.closedCasino ? `${game.closedCasino}号` : "无"}</b></p><p><span>强势控场</span><b>${game.powerToken ? escapeHtml(playerName(room, game.powerToken)) : "无人持有"}</b></p>`;
     $("vegasLog").innerHTML = game.log.map((line) => `<p>${escapeHtml(line)}</p>`).join(""); renderFinish(room); previous = room;
   }

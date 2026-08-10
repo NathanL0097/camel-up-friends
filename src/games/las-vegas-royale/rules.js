@@ -1,4 +1,4 @@
-const COLORS = ["ruby", "cyan", "gold", "violet", "emerald"];
+const COLORS = ["ruby", "cyan", "gold", "violet", "emerald", "orange"];
 const MONEY_COUNTS = { 30: 11, 40: 11, 50: 13, 60: 15, 70: 13, 80: 11, 90: 9, 100: 7 };
 const TILES = [
   { id: "A1", name: "幸运一拳", icon: "✊" }, { id: "A2", name: "累积大奖", icon: "🎰" },
@@ -108,19 +108,11 @@ function setupRound(game) {
   game.settlement = null;
   animate(game, "round-start", { round: game.round });
   Object.values(game.playerState).forEach((state) => {
-    state.supply = Array.from({ length: 7 }, (_, i) => ({ id: `${state.id}-r${game.round}-d${i}`, big: false }));
+    state.supply = Array.from({ length: 6 }, (_, i) => ({ id: `${state.id}-r${game.round}-d${i}`, big: false }));
     state.supply.push({ id: `${state.id}-r${game.round}-big`, big: true });
     state.chips += 2;
     animate(game, "chips", { playerId: state.id, amount: 2, reason: `第${game.round}轮筹码` });
   });
-  if (game.turnOrder.length === 2) {
-    const neutral = Array.from({ length: 7 }, (_, i) => ({ id: `neutral-r${game.round}-${i}`, playerId: "__neutral", big: false }));
-    neutral.push({ id: `neutral-r${game.round}-big`, playerId: "__neutral", big: true });
-    const faces = neutral.map((item) => {
-      const face = die(); game.casinos[face - 1].dice.push(item); return { face, big: item.big };
-    });
-    animate(game, "dice-roll", { playerId: "__neutral", dice: faces, reason: "中立骰入场" });
-  }
   for (const casino of game.casinos) {
     if (casino.tile?.id === "A2") casino.tile.state.jackpot = 30;
     if (casino.tile?.id === "C1") casino.tile.state.available = true;
@@ -177,12 +169,30 @@ function place(room, playerId, rawFace) {
   const rolled = game.currentRoll.filter((item) => item.face === face);
   if (!rolled.length) throw new Error("这次没有掷出该点数");
   const state = playerState(game, playerId);
-  const moved = removeSupply(state, rolled.map((item) => item.id)).map((item) => ({ ...item, playerId }));
+  const moved = removeSupply(state, rolled.map((item) => item.id)).map((item) => ({ ...item, playerId, face }));
   game.casinos[face - 1].dice.push(...moved);
   animate(game, "dice-place", { playerId, casino: face, dice: moved.map(({ big }) => ({ face, big })), reason: "骰子进驻赌场" });
   game.currentRoll = null;
   log(game, `${room.players.find((p) => p.id === playerId).name} 将 ${moved.length} 颗骰子放进 ${face} 号赌场${moved.some((d) => d.big) ? "（含 Biggy）" : ""}。`);
+  continueAfterPlacement(room, playerId, face, moved);
+}
+
+function continueAfterPlacement(room, playerId, face, moved) {
+  const game = room.game;
   refreshPowerToken(game);
+  const casino = game.casinos[face - 1];
+  const targets = moved.some((item) => item.big)
+    ? casino.dice.filter((item) => item.playerId !== playerId && !item.big)
+    : [];
+  if (targets.length) {
+    game.pending = {
+      type: "biggyKick", actorId: playerId, casino: face,
+      moved: moved.map(({ id, big, playerId: ownerId, face: dieFace }) => ({ id, big, playerId: ownerId, face: dieFace })),
+      targets: targets.map(({ id, playerId: ownerId }) => ({ id, playerId: ownerId }))
+    };
+    log(game, "Biggy 入场：可以选择一颗对手普通骰踢回，也可以不发动能力。");
+    return;
+  }
   activateTile(room, playerId, face, moved);
 }
 
@@ -210,11 +220,12 @@ function usePowerPlay(room, playerId, rawFace) {
   const state = playerState(game, playerId);
   if (!state.supply.length) throw new Error("没有可放置的骰子");
   const item = state.supply.shift();
-  game.casinos[face - 1].dice.push({ ...item, playerId });
+  const moved = [{ ...item, playerId, face }];
+  game.casinos[face - 1].dice.push(...moved);
   animate(game, "dice-place", { playerId, casino: face, dice: [{ face, big: item.big }], reason: "强势控场" });
   game.powerToken = null;
   log(game, `${room.players.find((p) => p.id === playerId).name} 使用强势控场，将一颗骰子翻到 ${face}。`);
-  activateTile(room, playerId, face, [{ ...item, playerId }]);
+  continueAfterPlacement(room, playerId, face, moved);
 }
 
 function reward(game, playerId, cash = 0, chips = 0, reason = "豪华板块奖励") {
@@ -323,6 +334,28 @@ function resolvePending(room, playerId, payload = {}) {
   const state = playerState(game, playerId);
   const casino = game.casinos[pending.casino - 1];
   switch (pending.type) {
+    case "biggyKick": {
+      if (payload.skip) {
+        log(game, `${room.players.find((p) => p.id === playerId)?.name || "玩家"} 选择不发动 Biggy 的踢骰能力。`);
+        game.pending = null;
+        activateTile(room, playerId, pending.casino, pending.moved);
+        return;
+      }
+      const targetId = String(payload.dieId || "");
+      const target = pending.targets.find((item) => item.id === targetId);
+      if (!target) throw new Error("请选择一颗可以踢回的对手普通骰");
+      const targetCasino = game.casinos[pending.casino - 1];
+      const dieIndex = targetCasino.dice.findIndex((item) => item.id === targetId && item.playerId === target.playerId && !item.big);
+      if (dieIndex < 0) throw new Error("这颗骰子已经不在赌场中");
+      const [kicked] = targetCasino.dice.splice(dieIndex, 1);
+      playerState(game, kicked.playerId).supply.push({ id: kicked.id, big: false });
+      animate(game, "dice-kick", { playerId, targetPlayerId: kicked.playerId, casino: pending.casino, dice: [{ face: pending.casino, big: false }], reason: "Biggy 踢回普通骰" });
+      log(game, `${room.players.find((p) => p.id === playerId)?.name || "玩家"} 的 Biggy 将 ${room.players.find((p) => p.id === kicked.playerId)?.name || "对手"} 的一颗普通骰踢回骰池。`);
+      game.pending = null;
+      refreshPowerToken(game);
+      activateTile(room, playerId, pending.casino, pending.moved);
+      return;
+    }
     case "luckyChoose": {
       const count = Math.max(1, Math.min(3, Number(payload.count)));
       const leftIndex = (game.turnOrder.indexOf(playerId) + 1) % game.turnOrder.length;

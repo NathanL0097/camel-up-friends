@@ -1,4 +1,5 @@
 const { CURATED_PARTY_GROUPS } = require("./party-words-v2");
+const { NOUN_GROUPS } = require("./noun-words-v3");
 
 const GROUPS = {
   "动物": "长颈鹿 企鹅 刺猬 袋鼠 海豚 章鱼 孔雀 蜗牛 松鼠 斑马 河马 鳄鱼 树懒 猫头鹰 变色龙 啄木鸟 北极熊 大熊猫 萤火虫 寄居蟹",
@@ -96,7 +97,7 @@ const CATEGORY_OVERRIDES = {
   "生日派对": "庆典活动", "倒计时": "庆典活动", "嘉宾席": "场所设施", "采访话筒": "数码设备", "应援灯牌": "娱乐圈物品"
 };
 
-const EXCLUDED_WORDS = new Set(`密码学 量子电脑 自动驾驶 指纹识别 人脸识别 3D打印 全息投影 芯片 雷达 单簧管 双簧管 圆号 长号 扬琴 三角铁 场记板 提词器 吊麦 耳返 舞台升降台 脚手架 钢筋 电焊机 搅拌机 塔吊 工具腰带 行驶证 挂号单 通行证 工程帽 压路机 叉车 水泥袋 电子秤 条形码 扫码枪 防潮垫 相机包 防水袋 便携炉 消毒液 血压计 手术刀 氧气瓶 挤奶桶 饲料槽 农用车 耙子 犁 粮仓 井盖 护栏 交通锥 减速带 撑杆跳 铅球 铁人三项 自由潜水 曲棍球 手球 水球 雕刻刀 滚筒刷 砚台 宣纸 电子书 移动硬盘 路由器 自动铅笔 修正带 回形针 图钉 锉刀 投影仪 行驶证 工作证 取餐券`.split(/\s+/));
+const EXCLUDED_WORDS = new Set(`密码学 量子电脑 自动驾驶 指纹识别 人脸识别 3D打印 全息投影 芯片 雷达 单簧管 双簧管 圆号 长号 扬琴 三角铁 场记板 提词器 吊麦 耳返 舞台升降台 脚手架 钢筋 电焊机 搅拌机 塔吊 工具腰带 行驶证 挂号单 通行证 工程帽 压路机 叉车 水泥袋 电子秤 条形码 扫码枪 防潮垫 相机包 防水袋 便携炉 消毒液 血压计 手术刀 氧气瓶 挤奶桶 饲料槽 农用车 耙子 犁 粮仓 井盖 护栏 交通锥 减速带 撑杆跳 铅球 铁人三项 自由潜水 曲棍球 手球 水球 雕刻刀 滚筒刷 砚台 宣纸 电子书 移动硬盘 路由器 自动铅笔 修正带 回形针 图钉 锉刀 投影仪 行驶证 工作证 取餐券 舞龙 舞狮 跳房子 跳绳 倒计时`.split(/\s+/));
 const REPLACEMENT_GROUPS = {
   "中国城市": "北京 上海 广州 深圳 成都 重庆 杭州 苏州 西安 南京 武汉 长沙 厦门 青岛 大连 昆明 拉萨 哈尔滨 洛阳 桂林",
   "世界城市": "伦敦 巴黎 罗马 东京 首尔 曼谷 新加坡 纽约 洛杉矶 悉尼 开罗 迪拜 巴塞罗那 威尼斯 柏林 维也纳 布拉格 多伦多 里约热内卢",
@@ -111,7 +112,7 @@ const REPLACEMENT_GROUPS = {
   "建筑地标": "长城 故宫 埃菲尔铁塔 比萨斜塔 大本钟 自由女神像 金字塔 悉尼歌剧院 凯旋门 斗兽场 狮身人面像 天坛 布达拉宫 东方明珠 兵马俑 天安门 钟楼 鼓楼 水塔",
   "常见动物": "小狗 小猫 兔子 松鼠 狐狸 狮子 老虎 大象 长颈鹿 斑马 熊猫 考拉 海豹 海豚 鲸鱼 乌龟 青蛙 蜜蜂 蝴蝶 金鱼"
 };
-const SAFE_ORIGINAL_GROUPS = new Set(["动物", "美食", "生活", "地点", "职业", "动作", "自然", "时尚", "艺术", "体育", "游戏", "影视娱乐", "旅行", "校园", "幻想", "节日", "四字成语"]);
+const SAFE_ORIGINAL_GROUPS = new Set(["动物", "美食", "生活", "地点", "职业", "自然", "科技", "时尚", "艺术", "旅行", "校园", "幻想", "节日"]);
 const FORBIDDEN_COMBINATION = /(?:和|与|以及|或者)/;
 const FORBIDDEN_PROMPTS = new Set(["鸟和鸟笼", "蛋糕和蜡烛", "河马跳芭蕾", "太阳和月亮", "猫和老鼠"]);
 
@@ -128,7 +129,7 @@ function broadCategory(group, word) {
   if (/体育|运动/.test(source)) return "体育运动";
   if (/自然|天气|天象|植物|花卉|奇观/.test(source)) return "自然天气";
   if (/地点|建筑|城市|国家|旅行|交通|道路/.test(source)) return "地点交通";
-  if (/节日|节庆|中国文化|童年/.test(source)) return "文化记忆";
+  if (/节日|节庆|中国文化|传统文化|古代器物|童年/.test(source)) return "文化记忆";
   if (/服装|鞋帽|配饰|时尚/.test(source)) return "服饰装扮";
   if (/校园/.test(source)) return "校园生活";
   if (/动作|现场|日常|场景|情绪|社交|囧事|上班|校园|居家|朋友|城市生活|反差/.test(source)) return "动作场景";
@@ -149,17 +150,25 @@ function expandGroups(groups, suppliedDifficulty = null) {
   })));
 }
 
-// 基础物品负责“好画”，真实动作和固定表达负责“好笑”。旧的随机脑洞组合、
-// 双物品拼接及专业器械不参与游戏。
-const baseEntries = expandGroups([...Object.entries(EXTRA_GROUPS), ...Object.entries(REPLACEMENT_GROUPS)]);
+const SAFE_EXTRA_GROUPS = new Set(Object.keys(EXTRA_GROUPS).filter((group) => !/动作|运动/.test(group)));
+const SAFE_REPLACEMENT_GROUPS = new Set(["中国城市", "世界城市", "国家地区", "常见人物", "经典角色", "中国文化", "建筑地标", "常见动物"]);
+const SAFE_PARTY_GROUPS = new Set(["熟悉角色", "国产动画", "西游人物", "知名人物"]);
+
+// v3 不再把动作、成语、作品名或随机组合当成题目。题目来源只有人工列出的
+// 实体物品、人物、动植物与景观；同一个文字答案只保留一次。
+const baseEntries = expandGroups([
+  ...Object.entries(EXTRA_GROUPS).filter(([group]) => SAFE_EXTRA_GROUPS.has(group)),
+  ...Object.entries(REPLACEMENT_GROUPS).filter(([group]) => SAFE_REPLACEMENT_GROUPS.has(group)),
+  ...Object.entries(NOUN_GROUPS)
+]);
 const classicEntries = expandGroups(Object.entries(GROUPS).filter(([group]) => SAFE_ORIGINAL_GROUPS.has(group)));
-const partyEntries = CURATED_PARTY_GROUPS.flatMap(({ category, difficulty, words }) => words.split(/\s+/).filter(Boolean).map((word) => ({ category: broadCategory(category, word), difficulty, word })));
+const partyEntries = CURATED_PARTY_GROUPS.filter(({ category }) => SAFE_PARTY_GROUPS.has(category)).flatMap(({ category, difficulty, words }) => words.split(/\s+/).filter(Boolean).map((word) => ({ category: broadCategory(category, word), difficulty, word })));
 const entries = [...baseEntries, ...classicEntries, ...partyEntries].filter((item) =>
   !EXCLUDED_WORDS.has(item.word)
   && !FORBIDDEN_PROMPTS.has(item.word)
   && !FORBIDDEN_COMBINATION.test(item.word)
   && [...item.word].length >= 2
-  && [...item.word].length <= 9
+  && [...item.word].length <= 10
 );
 const WORDS = [...new Map(entries.map((item) => [item.word, item])).values()];
 
@@ -167,7 +176,7 @@ const WORD_BANK_INFO = Object.freeze({
   count: WORDS.length,
   categories: new Set(WORDS.map((item) => item.category)).size,
   difficulty: Object.fromEntries(["easy", "medium", "hard"].map((level) => [level, WORDS.filter((item) => item.difficulty === level).length])),
-  version: "2026.08.10-party-v2"
+  version: "2026.08.11-nouns-v3"
 });
 
 module.exports = { GROUPS, EXTRA_GROUPS, REPLACEMENT_GROUPS, PARTY_GROUPS, CATEGORY_OVERRIDES, WORDS, WORD_BANK_INFO };
