@@ -4,6 +4,8 @@ const SHELL = [
   "/index.html",
   "/styles.css",
   "/games/mobile-responsive.css",
+  "/games/casino-night.css",
+  "/games/casino-night.js",
   "/pwa.js",
   "/manifest.webmanifest",
   "/icons/icon.svg"
