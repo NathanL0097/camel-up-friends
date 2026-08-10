@@ -10,11 +10,11 @@ const players = [
   { id: "d", name: "戴维", connected: true }
 ];
 
-test("纯真人版限定4至6人并生成三轮、七颗骰子和赌场奖金", () => {
+test("纯真人版限定2至6人并生成三轮、七颗骰子和赌场奖金", () => {
   const game = rules.createGame(players);
-  assert.equal(definition.minPlayers, 4);
+  assert.equal(definition.minPlayers, 2);
   assert.equal(definition.maxPlayers, 6);
-  assert.equal(definition.minimumToStart, 4);
+  assert.equal(definition.minimumToStart, 2);
   assert.equal(game.roundMoney.length, 3);
   assert.equal(game.casinos.length, 6);
   assert.equal(game.casinos.filter((casino) => casino.tile).length, 3);
@@ -68,8 +68,8 @@ test("未结束时只向本人公开资产，终局后向所有人公开", () =>
   assert.equal(publicState.players[1].cash, 40);
 });
 
-test("四至六人局不生成电脑或中立骰", () => {
-  const game = rules.createGame(players);
+test("双人至六人局均不生成电脑或中立骰", () => {
+  const game = rules.createGame(players.slice(0, 2));
   const neutral = game.casinos.flatMap((casino) => casino.dice).filter((die) => die.playerId.startsWith("__neutral"));
   assert.equal(neutral.length, 0);
   assert.equal(rules.COLORS.length, 6);

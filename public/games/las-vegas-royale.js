@@ -26,7 +26,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     const mine = room.hostId === getMyId();
     const settings = room.settings || { mode: "royale", tileCount: 3 };
     $("rulesContent").innerHTML = rulesMarkup();
-    $("gameLobbySettings").innerHTML = `<div class="vegas-lobby-settings"><header><span>🎰</span><div><strong>赌城规则</strong><small>纯真人好友局，不加入电脑或中立玩家</small></div></header><label>玩法<select id="vegasMode" ${mine ? "" : "disabled"}><option value="royale" ${settings.mode === "royale" ? "selected" : ""}>豪华规则 · 随机赌场模块</option><option value="base" ${settings.mode === "base" ? "selected" : ""}>基础规则 · 不使用模块</option></select></label><label>本轮模块数<select id="vegasTileCount" ${mine && settings.mode === "royale" ? "" : "disabled"}>${[1,2,3,4,5,6].map((n) => `<option value="${n}" ${Number(settings.tileCount) === n ? "selected" : ""}>${n} 块${n === 3 ? "（标准）" : "（变体）"}</option>`).join("")}</select></label>${mine ? '<button id="saveVegasSettings">保存设置</button>' : '<p>等待房主确认规则…</p>'}<footer>4–6人 · 3轮 · 纯真人好友局</footer></div>`;
+    $("gameLobbySettings").innerHTML = `<div class="vegas-lobby-settings"><header><span>🎰</span><div><strong>赌城规则</strong><small>纯真人好友局，不加入电脑或中立玩家</small></div></header><label>玩法<select id="vegasMode" ${mine ? "" : "disabled"}><option value="royale" ${settings.mode === "royale" ? "selected" : ""}>豪华规则 · 随机赌场模块</option><option value="base" ${settings.mode === "base" ? "selected" : ""}>基础规则 · 不使用模块</option></select></label><label>本轮模块数<select id="vegasTileCount" ${mine && settings.mode === "royale" ? "" : "disabled"}>${[1,2,3,4,5,6].map((n) => `<option value="${n}" ${Number(settings.tileCount) === n ? "selected" : ""}>${n} 块${n === 3 ? "（标准）" : "（变体）"}</option>`).join("")}</select></label>${mine ? '<button id="saveVegasSettings">保存设置</button>' : '<p>等待房主确认规则…</p>'}<footer>2–6人 · 3轮 · 纯真人好友局</footer></div>`;
     if (mine) {
       $("vegasMode").onchange = () => { $("vegasTileCount").disabled = $("vegasMode").value === "base"; };
       $("saveVegasSettings").onclick = () => socket.emit("game:configure", { mode: $("vegasMode").value, tileCount: Number($("vegasTileCount").value) });
@@ -34,7 +34,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
   }
 
   function rulesMarkup() {
-    return `<div class="eyebrow">LAS VEGAS ROYALE · 4–6人</div><h2>拉斯维加斯骰城 · 规则速查</h2><ol><li>共进行 <b>3轮</b>。轮到你时掷出所有剩余骰子，必须选择一个点数，并把该点数的全部骰子放进对应号码的赌场。</li><li>每人有6颗普通骰和1颗明显更大的 <b>Biggy</b>；Biggy结算多数时算2颗。</li><li><b>好友房增强规则：</b>Biggy进入赌场时，若那里已有对手普通骰，可以选择一颗踢回对方骰池，也可以不发动；Biggy不能被踢回。</li><li>每轮获得2枚筹码。不满意掷骰可花1枚筹码跳过；未花完的筹码可留到后续轮，终局每枚价值$10K。</li><li>每座赌场有两张奖金牌。结算时先将所有票数相同的玩家一起淘汰，再由剩余第一、第二名依次取得高额、低额奖金。</li><li>豪华规则会在赌场1起依次放置随机模块；放骰后立即按中央提示完成效果。</li><li>三轮后现金加剩余筹码价值最高者获胜；平手依次比较奖金牌与筹码的总张数。</li></ol><p class="rules-note">Biggy“踢回普通骰”按本好友房的指定增强规则实现；其余核心流程沿用拉斯维加斯骰子游戏的多数与平票结算。</p>`;
+    return `<div class="eyebrow">LAS VEGAS ROYALE · 2–6人</div><h2>拉斯维加斯骰城 · 规则速查</h2><ol><li>共进行 <b>3轮</b>。轮到你时掷出所有剩余骰子，必须选择一个点数，并把该点数的全部骰子放进对应号码的赌场。</li><li>每人有6颗普通骰和1颗明显更大的 <b>Biggy</b>；Biggy结算多数时算2颗。</li><li><b>好友房增强规则：</b>Biggy进入赌场时，若那里已有对手普通骰，可以选择一颗踢回对方骰池，也可以不发动；Biggy不能被踢回。</li><li>每轮获得2枚筹码。不满意掷骰可花1枚筹码跳过；未花完的筹码可留到后续轮，终局每枚价值$10K。</li><li>每座赌场有两张奖金牌。结算时先将所有票数相同的玩家一起淘汰，再由剩余第一、第二名依次取得高额、低额奖金。</li><li>豪华规则会在赌场1起依次放置随机模块；放骰后立即按中央提示完成效果。</li><li>三轮后现金加剩余筹码价值最高者获胜；平手依次比较奖金牌与筹码的总张数。</li></ol><p class="rules-note">双人测试局同样只使用两位真人玩家，不补电脑或中立骰。Biggy“踢回普通骰”按本好友房的指定增强规则实现。</p>`;
   }
 
   $("gameMount").innerHTML = `
