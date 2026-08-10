@@ -24,7 +24,7 @@
     }
 
     function rules() {
-      $("rulesContent").innerHTML = `<div class="eyebrow">知识派对 · 2–6人</div><h2>站神答题王</h2><ol><li><strong>站神模式：</strong>所有玩家按随机顺序循环答题，每人3颗生命和1次跳过。每题20秒；答错或超时失去1颗生命，最后存活者成为站神。</li><li><strong>秘密选项：</strong>所有人都能看到题干，但只有当前玩家能看到选项。答题后公开玩家答案、正确答案与知识解析。</li><li><strong>角色识图：</strong>少量题目会显示新的动漫或儿童动画角色图片，不提供选项；当前答题者需输入完整姓名，常见间隔符号不影响判定。</li><li><strong>传递难题：</strong>跳过不扣生命且不揭晓答案，同一道题交给下一位玩家；下一位如有跳过也能继续传递。</li><li><strong>抢答模式：</strong>题干在8秒内逐字揭示，整题有30秒公共抢答时间。抢到后公共时间暂停，该玩家独享20秒输入时间。</li><li><strong>两次错误：</strong>第一位抢答者答错后，其他玩家可以继续抢；累计两人答错即揭晓。第一位答对7题且仍有生命的玩家获胜。</li><li><strong>捣蛋鬼：</strong>生命归零后可发送鸡蛋、番茄、问号和掌声；之后每一道题都由捣蛋鬼依淘汰顺序轮流指定领域。</li><li><strong>赛后：</strong>站神分别为每位失败玩家选择真心话、大冒险或欢乐挑战，每人可以免费刷新一次。</li></ol><p class="rules-note">5000 道题全部带独立知识编号；同一位房主以后再开房，也会优先避开朋友们已经答过的题。</p>`;
+      $("rulesContent").innerHTML = `<div class="eyebrow">知识派对 · 2–6人</div><h2>站神答题王</h2><ol><li><strong>站神模式：</strong>所有玩家按随机顺序循环答题，每人3颗生命和1次跳过。每题20秒；答错或超时失去1颗生命，最后存活者成为站神。</li><li><strong>连胜奖励：</strong>同一玩家连续答对5题，会额外获得1次跳过机会；获得奖励后重新计算连胜。答错、超时或主动跳过都会中断连胜。</li><li><strong>中国优先题库：</strong>所有领域优先选择中国人物、作品、事件与生活背景；科学、自然保留通用常识，海外内容只保留全球知名项目。</li><li><strong>秘密选项：</strong>所有人都能看到题干，但只有当前玩家能看到选项。答题后公开玩家答案、正确答案与知识解析。</li><li><strong>角色识图：</strong>少量题目会显示动漫或儿童动画角色图片，不提供选项；当前答题者需输入完整姓名。</li><li><strong>传递难题：</strong>跳过不扣生命且不揭晓答案，同一道题交给下一位玩家。</li><li><strong>抢答模式：</strong>题干在8秒内逐字揭示，整题有30秒公共抢答时间。抢到后公共时间暂停，该玩家独享20秒输入时间。</li><li><strong>捣蛋鬼：</strong>生命归零后可发送场景表情，并依次为每一道题指定领域。</li><li><strong>赛后：</strong>站神分别为每位失败玩家选择真心话、大冒险或欢乐挑战。</li></ol><p class="rules-note">5000 道题全部带独立知识编号；同一位房主以后再开房，也会优先避开朋友们已经答过的题。</p>`;
     }
 
     function renderLobby(room) {
@@ -66,15 +66,15 @@
       const lifeHit = previous && previous.lives > item.lives;
       const justEliminated = previous && !previous.eliminated && item.eliminated;
       const cores = Array.from({ length: 3 }, (_, index) => `<i class="${index < item.lives ? "charged" : "broken"}"></i>`).join("");
-      return `<article class="quiz-player ${mine ? "mine" : ""} ${active ? "active" : ""} ${item.eliminated ? "ghost" : ""} ${lifeHit ? "life-hit" : ""} ${justEliminated ? "newly-eliminated" : ""}"><div class="quiz-seat-beam"></div><div class="quiz-avatar">${item.eliminated ? "☠" : escapeHtml((item.name || "?").slice(0, 1))}</div><div class="quiz-player-data"><b>${escapeHtml(item.name)}${mine ? "（你）" : ""}</b><small>${item.eliminated ? "捣蛋鬼频道" : `<span class="quiz-life-cores">${cores}</span>`}</small></div><span>${game.mode === "buzzer" ? `${item.correct}/7` : `✓ ${item.correct}`}</span>${game.mode === "survival" && !item.eliminated ? `<em>跳过 ×${item.skips}</em>` : ""}<div class="quiz-seat-platform"></div></article>`;
+      return `<article class="quiz-player ${mine ? "mine" : ""} ${active ? "active" : ""} ${item.eliminated ? "ghost" : ""} ${lifeHit ? "life-hit" : ""} ${justEliminated ? "newly-eliminated" : ""}"><div class="quiz-seat-beam"></div><div class="quiz-avatar">${item.eliminated ? "☠" : escapeHtml((item.name || "?").slice(0, 1))}</div><div class="quiz-player-data"><b>${escapeHtml(item.name)}${mine ? "（你）" : ""}</b><small>${item.eliminated ? "捣蛋鬼频道" : `<span class="quiz-life-cores">${cores}</span>`}</small></div><span>${game.mode === "buzzer" ? `${item.correct}/7` : `✓ ${item.correct}`}</span>${game.mode === "survival" && !item.eliminated ? `<em>跳过 ×${item.skips}<small>连对 ${item.answerStreak}/5</small></em>` : ""}<div class="quiz-seat-platform"></div></article>`;
     }
 
     function renderControls(room) {
       const game = room.game, me = room.players.find((item) => item.id === getMyId()), question = game.question;
       if (game.phase === "question") {
         if (game.activePlayerId !== getMyId()) return `<div class="quiz-wait"><span>👀</span><b>${escapeHtml(room.players.find((item) => item.id === game.activePlayerId)?.name || "玩家")} 正在作答</b><small>选项只有答题者能够看到</small></div>`;
-        if (["fill", "image-fill"].includes(question.kind)) return `<form id="quizAnswerForm" class="quiz-text-answer"><input id="quizAnswerInput" maxlength="60" autocomplete="off" placeholder="${question.kind === "image-fill" ? "输入角色完整姓名…" : "输入诗词答案…"}"><button>提交答案</button>${me.skips ? '<button type="button" id="quizSkip" class="skip">跳过 ×1</button>' : ""}</form>`;
-        return `<div class="quiz-options">${question.options.map((option, index) => `<button data-answer="${escapeHtml(option)}"><i>${String.fromCharCode(65 + index)}</i><span>${escapeHtml(option)}</span></button>`).join("")}</div>${me.skips ? '<button id="quizSkip" class="quiz-skip">↷ 跳过并传给下一位</button>' : ""}`;
+        if (["fill", "image-fill"].includes(question.kind)) return `<form id="quizAnswerForm" class="quiz-text-answer"><input id="quizAnswerInput" maxlength="60" autocomplete="off" placeholder="${question.kind === "image-fill" ? "输入角色完整姓名…" : "输入诗词答案…"}"><button>提交答案</button>${me.skips ? `<button type="button" id="quizSkip" class="skip">跳过 ×${me.skips}</button>` : ""}</form>`;
+        return `<div class="quiz-options">${question.options.map((option, index) => `<button data-answer="${escapeHtml(option)}"><i>${String.fromCharCode(65 + index)}</i><span>${escapeHtml(option)}</span></button>`).join("")}</div>${me.skips ? `<button id="quizSkip" class="quiz-skip">↷ 跳过并传给下一位 · 剩余${me.skips}次</button>` : ""}`;
       }
       if (game.phase === "buzz-open") {
         const attempted = game.attempts.some((attempt) => attempt.playerId === getMyId());
@@ -106,7 +106,7 @@
       const game = room.game, result = game.result;
       if (!result || game.phase !== "result") return "";
       const name = result.playerId ? room.players.find((item) => item.id === result.playerId)?.name : "全场";
-      return `<div class="quiz-result-card ${result.correct ? "correct" : "wrong"}"><span>${result.correct ? "✓" : "✕"}</span><small>${escapeHtml(name || "玩家")} · ${result.correct ? "回答正确" : result.reason === "no-buzz" ? "无人抢答" : "回答错误"}</small><h3>${escapeHtml(result.value || "未作答")}</h3><div>正确答案 <b>${escapeHtml(result.answer)}</b></div><p>${escapeHtml(result.explanation || "")}</p></div>`;
+      return `<div class="quiz-result-card ${result.correct ? "correct" : "wrong"} ${result.skipAwarded ? "skip-awarded" : ""}"><span>${result.correct ? "✓" : "✕"}</span><small>${escapeHtml(name || "玩家")} · ${result.correct ? "回答正确" : result.reason === "no-buzz" ? "无人抢答" : "回答错误"}</small><h3>${escapeHtml(result.value || "未作答")}</h3>${result.skipAwarded ? '<strong class="quiz-streak-reward">🔥 连对5题 · 获得1次跳过</strong>' : ""}<div>正确答案 <b>${escapeHtml(result.answer)}</b></div><p>${escapeHtml(result.explanation || "")}</p></div>`;
     }
 
     function ghostMarkup(room) {

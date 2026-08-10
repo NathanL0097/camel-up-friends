@@ -2,6 +2,8 @@ const CURATED_SOURCE = require("./curated-questions.json");
 const STRUCTURED_SOURCE = require("./structured-questions.json");
 const { CHARACTER_IMAGE_QUERIES, CHARACTER_QUESTIONS } = require("./characters-v3");
 const { MANUAL_QUESTIONS } = require("./manual-facts-v3");
+const { CHINA_FEATURED_QUESTIONS } = require("./china-featured");
+const { chinaFirstQuestion } = require("./china-policy");
 const { auditQuestionBank, validateQuestion } = require("./question-quality");
 
 const CATEGORIES = ["生活常识", "历史", "地理", "科学与科技", "体育", "影视", "音乐", "游戏与网络文化", "美食", "文学艺术", "自然动物", "趣味冷知识", "动漫角色"];
@@ -42,11 +44,11 @@ const curatedCandidates = CURATED_SOURCE.filter((question) => {
   if (question.options.some((option) => META_OPTIONS.test(option))) return false;
   return (question.prompt.match(/[A-Za-z]+/g) || []).length <= 5;
 }).map((question) => ({ ...question, category: refineCategory(question) }));
-const neededCurated = 5000 - structuredQuestions.length - MANUAL_QUESTIONS.length - CHARACTER_QUESTIONS.length;
+const neededCurated = 5000 - structuredQuestions.length - MANUAL_QUESTIONS.length - CHARACTER_QUESTIONS.length - CHINA_FEATURED_QUESTIONS.length;
 const curatedQuotas = new Map([
-  ["生活常识", 510], ["美食", 50], ["趣味冷知识", 180], ["地理", 300], ["历史", 260],
+  ["生活常识", 510], ["美食", 0], ["趣味冷知识", 180], ["地理", 300], ["历史", 260],
   ["科学与科技", 400], ["自然动物", 200], ["文学艺术", 350], ["体育", 100],
-  ["音乐", 50], ["游戏与网络文化", 100], ["影视", 77]
+  ["音乐", 0], ["游戏与网络文化", 100], ["影视", 77]
 ]);
 const selectedCurated = [];
 for (const [category, quota] of curatedQuotas) {
@@ -57,7 +59,7 @@ for (const [category, quota] of curatedQuotas) {
 }
 if (neededCurated < 0 || selectedCurated.length !== neededCurated) throw new Error(`精品题源配额错误：需要 ${neededCurated} 道，实际 ${selectedCurated.length} 道`);
 
-const combinedQuestions = [...structuredQuestions, ...MANUAL_QUESTIONS, ...selectedCurated, ...CHARACTER_QUESTIONS];
+const combinedQuestions = [...structuredQuestions, ...MANUAL_QUESTIONS, ...selectedCurated, ...CHINA_FEATURED_QUESTIONS, ...CHARACTER_QUESTIONS];
 function playabilityScore(question) {
   if (question.source?.startsWith("公开")) return 140;
   if (question.source === "全新角色图鉴题包") return 90;
@@ -117,12 +119,13 @@ function questionPackInfo() {
     localCount: LOCAL_QUESTIONS.length,
     remoteCount: remoteQuestions.length,
     total: LOCAL_QUESTIONS.length + remoteQuestions.length,
-    version: "2026.08.08-v4",
+    version: "2026.08.10-cn-first-v5",
     categories: CATEGORIES,
     independentCount: new Set(LOCAL_QUESTIONS.map((question) => question.knowledgeKey)).size,
     audited: true,
+    localePolicy: "china-first",
     difficulty
   };
 }
 
-module.exports = { CATEGORIES, CHARACTER_IMAGE_QUERIES, CHILD_CHARACTER_IMAGE_URLS: {}, LOCAL_QUESTIONS, getQuestionBank, installRemoteQuestions, questionPackInfo };
+module.exports = { CATEGORIES, CHARACTER_IMAGE_QUERIES, CHILD_CHARACTER_IMAGE_URLS: {}, LOCAL_QUESTIONS, getQuestionBank, installRemoteQuestions, questionPackInfo, chinaFirstQuestion };

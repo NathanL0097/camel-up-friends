@@ -26,11 +26,13 @@ test("本地精品题库恰好包含五千个独立知识点并覆盖全部领�
   assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.kind === "choice").every((item) => item.options.length === 4 && new Set(item.options).size === 4 && item.options.includes(item.answer)));
 });
 
-test("旧图片角色题已全部退出并换成全新角色题包", () => {
+test("角色识图以国产动画为主并只保留全球知名海外角色", () => {
   const characterQuestions = questions.LOCAL_QUESTIONS.filter((item) => item.category === "动漫角色");
   assert.equal(characterQuestions.length, 60);
   assert.ok(characterQuestions.every((item) => item.id.startsWith("character-v3-") && item.pack === "party"));
-  assert.ok(!characterQuestions.some((item) => ["江户川柯南", "蒙奇·D·路飞", "野原新之助", "头太元"].includes(item.answer)));
+  assert.equal(characterQuestions.filter((item) => item.chinaFeatured).length, 40);
+  assert.equal(characterQuestions.filter((item) => item.worldFamous).length, 20);
+  assert.ok(characterQuestions.some((item) => item.answer === "大头儿子" && item.aliases.includes("头太元")));
 });
 
 test("动漫角色题公开图片但隐藏答案并要求当前玩家填全名", () => {
@@ -97,6 +99,41 @@ test("站神模式每人三颗生命和一次跳过且选项只对当前玩家�
   assert.equal(rules.publicRoom(room, active, 1000).game.question.options.length, 4);
   assert.equal(rules.publicRoom(room, other, 1000).game.question.options.length, 0);
   assert.equal(rules.publicRoom(room, other, 1000).game.question.answer, undefined);
+});
+
+test("站神模式连续答对五题奖励一次跳过并重新计算连胜", () => {
+  const room = makeRoom(2), active = room.game.activePlayerId;
+  const item = room.players.find((entry) => entry.id === active);
+  for (let index = 0; index < 5; index += 1) {
+    // 让同一玩家连续答题，单独验证个人连胜；其他玩家的回合不影响他的记录。
+    room.game.activePlayerId = active;
+    rules.submitSurvival(room, active, room.game.question.answer, 2000 + index * 10_000);
+    if (index < 4) rules.tick(room, room.game.deadline);
+  }
+  assert.equal(item.skips, 2);
+  assert.equal(item.earnedSkips, 1);
+  assert.equal(item.answerStreak, 0);
+  assert.equal(room.game.result.skipAwarded, true);
+});
+
+test("答错、超时和主动跳过都会中断连续答对记录", () => {
+  const room = makeRoom(3), active = room.game.activePlayerId, item = room.players.find((entry) => entry.id === active);
+  item.answerStreak = 4;
+  rules.submitSurvival(room, active, "错误答案", 2000);
+  assert.equal(item.answerStreak, 0);
+  rules.tick(room, room.game.deadline);
+  const skipper = room.players.find((entry) => entry.id === room.game.activePlayerId); skipper.answerStreak = 3;
+  rules.skipSurvival(room, skipper.id, 9000); assert.equal(skipper.answerStreak, 0);
+});
+
+test("所有领域抽题统一执行中国优先与全球知名例外规则", () => {
+  assert.equal(questions.questionPackInfo().localePolicy, "china-first");
+  for (const category of rules.CATEGORIES) {
+    const suitable = questions.LOCAL_QUESTIONS.filter((item) => item.category === category && questions.chinaFirstQuestion(item));
+    assert.ok(suitable.length >= 20, `${category}的中国优先题不足`);
+  }
+  assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.category === "音乐" && item.chinaFeatured).length >= 50);
+  assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.category === "美食" && item.chinaFeatured).length >= 50);
 });
 
 test("站神模式可以连续传递同一道题且每次重新获得20秒", () => {

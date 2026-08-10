@@ -1,4 +1,4 @@
-const { CATEGORIES, getQuestionBank, questionPackInfo } = require("./questions");
+const { CATEGORIES, getQuestionBank, questionPackInfo, chinaFirstQuestion } = require("./questions");
 const CHALLENGES = require("./challenges");
 
 const SURVIVAL_SECONDS = 20;
@@ -43,7 +43,7 @@ function eligibleQuestions(game, forcedCategory = null) {
   const bank = getQuestionBank();
   const categories = forcedCategory ? [forcedCategory] : game.settings.categories;
   const packMatch = (question) => game.settings.pack === "all" || (game.settings.pack === "classic" ? question.pack !== "party" && question.pack !== "current" : question.pack === "party");
-  return bank.filter((question) => categories.includes(question.category) && packMatch(question) && !game.usedKnowledgeKeys.includes(question.knowledgeKey) && !RECENT_KNOWLEDGE_KEYS.includes(question.knowledgeKey));
+  return bank.filter((question) => categories.includes(question.category) && packMatch(question) && chinaFirstQuestion(question) && !game.usedKnowledgeKeys.includes(question.knowledgeKey) && !RECENT_KNOWLEDGE_KEYS.includes(question.knowledgeKey));
 }
 
 function pickQuestion(game, forcedCategory = null) {
@@ -97,7 +97,7 @@ function normalize(value) {
 function isCorrect(question, value) { const clean = normalize(value); return [question.answer, ...(question.aliases || [])].some((answer) => normalize(answer) === clean); }
 
 function resetPlayers(players, mode) {
-  players.forEach((item) => Object.assign(item, { lives: STARTING_LIVES, skips: mode === "survival" ? SURVIVAL_SKIPS : 0, correct: 0, score: 0, eliminated: false, ghostScore: 0, lastReactionAt: 0 }));
+  players.forEach((item) => Object.assign(item, { lives: STARTING_LIVES, skips: mode === "survival" ? SURVIVAL_SKIPS : 0, answerStreak: 0, earnedSkips: 0, correct: 0, score: 0, eliminated: false, ghostScore: 0, lastReactionAt: 0 }));
 }
 
 function createGame(players, settings = defaultSettings(), random = Math.random, now = Date.now(), previousKnowledgeKeys = []) {
@@ -158,10 +158,13 @@ function submitSurvival(room, playerId, value, now = Date.now()) {
   if (game.activePlayerId !== playerId) throw new Error("现在还没有轮到你");
   const item = player(room, playerId);
   const correct = isCorrect(game.question, value);
-  if (correct) { item.correct += 1; item.score += 100; }
-  else { item.lives -= 1; eliminateIfNeeded(room, item); }
+  let skipAwarded = false;
+  if (correct) {
+    item.correct += 1; item.score += 100; item.answerStreak += 1;
+    if (item.answerStreak >= 5) { item.skips += 1; item.earnedSkips += 1; item.answerStreak = 0; skipAwarded = true; }
+  } else { item.answerStreak = 0; item.lives -= 1; eliminateIfNeeded(room, item); }
   game.activePlayerId = nextAliveId(room, playerId) || playerId;
-  setResult(room, { playerId, value: String(value || ""), correct, lostLife: !correct }, now);
+  setResult(room, { playerId, value: String(value || ""), correct, lostLife: !correct, skipAwarded }, now);
 }
 
 function skipSurvival(room, playerId, now = Date.now()) {
@@ -170,6 +173,7 @@ function skipSurvival(room, playerId, now = Date.now()) {
   const item = player(room, playerId);
   if (item.skips < 1) throw new Error("你的跳过机会已经用完");
   item.skips -= 1;
+  item.answerStreak = 0;
   game.activePlayerId = nextAliveId(room, playerId) || playerId;
   game.deadline = now + SURVIVAL_SECONDS * 1000;
   game.result = null;
@@ -299,7 +303,7 @@ function finishResult(room, now) {
 
 function timeoutSurvival(room, now) {
   const item = player(room, room.game.activePlayerId);
-  item.lives -= 1; eliminateIfNeeded(room, item);
+  item.answerStreak = 0; item.lives -= 1; eliminateIfNeeded(room, item);
   const oldId = item.id;
   room.game.activePlayerId = nextAliveId(room, oldId) || oldId;
   setResult(room, { playerId: oldId, value: "未作答", correct: false, lostLife: true, reason: "timeout" }, now);
