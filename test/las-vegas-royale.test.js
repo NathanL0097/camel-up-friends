@@ -19,6 +19,8 @@ test("豪华版按官方结构生成三轮、八颗骰子和赌场奖金", () =>
   assert.ok(game.casinos.every((casino) => casino.money.length === 2));
   const totals = game.casinos.map((casino) => casino.money.reduce((sum, value) => sum + value, 0));
   assert.deepEqual(totals, [...totals].sort((a, b) => a - b));
+  assert.ok(game.animationEvents.some((event) => event.type === "round-start"));
+  assert.equal(game.animationEvents.filter((event) => event.type === "chips").length, players.length);
 });
 
 test("随机模块不会同时抽到同一实体板的正反面", () => {
@@ -75,4 +77,23 @@ test("秘密猜拳与黑箱奖励不会通过公开状态泄底", () => {
   room.game.pending = { type: "blackChoose", actorId: "a", piles: [[0, 5], [1, 2, 3, 4]] };
   const publicPiles = rules.publicRoom(room, "a").game.pending.piles;
   assert.deepEqual(publicPiles, [[null, null], [null, null, null, null]]);
+});
+
+test("所有主掷骰结果先写入统一动画事件队列", () => {
+  const room = { code: "ABC234", hostId: "a", players, game: rules.createGame(players, { mode: "base", tileCount: 0 }) };
+  const before = room.game.animationEvents.length;
+  rules.roll(room, "a");
+  const event = room.game.animationEvents.at(-1);
+  assert.equal(room.game.animationEvents.length, before + 1);
+  assert.equal(event.type, "dice-roll");
+  assert.deepEqual(event.dice.map((item) => item.face), room.game.currentRoll.map((item) => item.face));
+  assert.ok(event.dice.every((item) => item.face >= 1 && item.face <= 6));
+});
+
+test("公开房间状态携带有序动画事件供所有玩家同步播放", () => {
+  const room = { code: "ABC234", hostId: "a", players, game: rules.createGame(players) };
+  rules.roll(room, "a");
+  const events = rules.publicRoom(room, "b").game.animationEvents;
+  assert.ok(events.length > 0);
+  assert.deepEqual(events.map((event) => event.id), [...events.map((event) => event.id)].sort((a, b) => a - b));
 });

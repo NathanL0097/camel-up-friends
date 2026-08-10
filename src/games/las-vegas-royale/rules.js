@@ -42,6 +42,12 @@ const requireActive = (game, playerId) => {
   if (game.pending) throw new Error("请先完成当前板块效果");
 };
 const log = (game, text) => game.log.unshift(text);
+const animate = (game, type, detail = {}) => {
+  game.eventSeq = (game.eventSeq || 0) + 1;
+  game.animationEvents ||= [];
+  game.animationEvents.push({ id: game.eventSeq, type, at: Date.now(), ...detail });
+  if (game.animationEvents.length > 100) game.animationEvents.splice(0, game.animationEvents.length - 100);
+};
 const playerState = (game, id) => game.playerState[id];
 const weight = (item) => item.big ? 2 : 1;
 const casinoWeights = (casino) => {
@@ -57,10 +63,12 @@ const untiedRanking = (casino) => {
   return Object.entries(values).filter(([, count]) => frequencies[count] === 1).sort((a, b) => b[1] - a[1]);
 };
 const uniqueLeader = (casino) => untiedRanking(casino)[0]?.[0] || null;
-const addCash = (game, playerId, value) => {
+const addCash = (game, playerId, value, reason = "赌场奖励", countsAsCard = false) => {
   if (!playerState(game, playerId)) return;
+  if (!value) return;
   playerState(game, playerId).cash += value;
-  playerState(game, playerId).awards += 1;
+  if (countsAsCard) playerState(game, playerId).awards += 1;
+  animate(game, "money", { playerId, amount: value, reason });
 };
 
 function makeDeck() {
@@ -98,15 +106,20 @@ function setupRound(game) {
   game.currentRoll = null;
   game.pending = null;
   game.settlement = null;
+  animate(game, "round-start", { round: game.round });
   Object.values(game.playerState).forEach((state) => {
     state.supply = Array.from({ length: 7 }, (_, i) => ({ id: `${state.id}-r${game.round}-d${i}`, big: false }));
     state.supply.push({ id: `${state.id}-r${game.round}-big`, big: true });
     state.chips += 2;
+    animate(game, "chips", { playerId: state.id, amount: 2, reason: `第${game.round}轮筹码` });
   });
   if (game.turnOrder.length === 2) {
     const neutral = Array.from({ length: 7 }, (_, i) => ({ id: `neutral-r${game.round}-${i}`, playerId: "__neutral", big: false }));
     neutral.push({ id: `neutral-r${game.round}-big`, playerId: "__neutral", big: true });
-    neutral.forEach((item) => game.casinos[die() - 1].dice.push(item));
+    const faces = neutral.map((item) => {
+      const face = die(); game.casinos[face - 1].dice.push(item); return { face, big: item.big };
+    });
+    animate(game, "dice-roll", { playerId: "__neutral", dice: faces, reason: "中立骰入场" });
   }
   for (const casino of game.casinos) {
     if (casino.tile?.id === "A2") casino.tile.state.jackpot = 30;
@@ -127,7 +140,7 @@ function createGame(players, settings = defaults()) {
     status: "playing", round: 1, turnOrder: players.map((p) => p.id), turnIndex: 0,
     settings: { ...defaults(), ...settings, tileCount: settings.mode === "base" ? 0 : Math.max(1, Math.min(6, Number(settings.tileCount) || 3)) },
     playerState: {}, roundMoney: [makeRoundMoney(deck), makeRoundMoney(deck), makeRoundMoney(deck)],
-    bank: deck, casinos: [], currentRoll: null, pending: null, settlement: null, log: []
+    bank: deck, casinos: [], currentRoll: null, pending: null, settlement: null, log: [], eventSeq: 0, animationEvents: []
   };
   players.forEach((player, index) => {
     game.playerState[player.id] = { id: player.id, color: COLORS[index], cash: 0, chips: 0, awards: 0, supply: [] };
@@ -144,6 +157,7 @@ function roll(room, playerId) {
   if (game.currentRoll) throw new Error("请先选择一个点数");
   if (game.powerToken === playerId) game.powerToken = null;
   game.currentRoll = state.supply.map((item) => ({ ...item, face: die() }));
+  animate(game, "dice-roll", { playerId, dice: game.currentRoll.map(({ face, big }) => ({ face, big })), reason: "行动掷骰" });
   log(game, `${room.players.find((p) => p.id === playerId).name} 掷出了 ${game.currentRoll.map((d) => d.face).join("、")}`);
 }
 
@@ -165,6 +179,7 @@ function place(room, playerId, rawFace) {
   const state = playerState(game, playerId);
   const moved = removeSupply(state, rolled.map((item) => item.id)).map((item) => ({ ...item, playerId }));
   game.casinos[face - 1].dice.push(...moved);
+  animate(game, "dice-place", { playerId, casino: face, dice: moved.map(({ big }) => ({ face, big })), reason: "骰子进驻赌场" });
   game.currentRoll = null;
   log(game, `${room.players.find((p) => p.id === playerId).name} 将 ${moved.length} 颗骰子放进 ${face} 号赌场${moved.some((d) => d.big) ? "（含 Biggy）" : ""}。`);
   refreshPowerToken(game);
@@ -178,7 +193,7 @@ function pass(room, playerId) {
   const state = playerState(game, playerId);
   const hasLegalFace = game.currentRoll.some((item) => item.face !== game.closedCasino);
   if (hasLegalFace && state.chips < 1) throw new Error("你没有筹码");
-  if (hasLegalFace) state.chips -= 1;
+  if (hasLegalFace) { state.chips -= 1; animate(game, "chips", { playerId, amount: -1, reason: "支付筹码跳过" }); }
   game.currentRoll = null;
   log(game, hasLegalFace
     ? `${room.players.find((p) => p.id === playerId).name} 支付 1 枚筹码，放弃本次结果。`
@@ -196,14 +211,18 @@ function usePowerPlay(room, playerId, rawFace) {
   if (!state.supply.length) throw new Error("没有可放置的骰子");
   const item = state.supply.shift();
   game.casinos[face - 1].dice.push({ ...item, playerId });
+  animate(game, "dice-place", { playerId, casino: face, dice: [{ face, big: item.big }], reason: "强势控场" });
   game.powerToken = null;
   log(game, `${room.players.find((p) => p.id === playerId).name} 使用强势控场，将一颗骰子翻到 ${face}。`);
   activateTile(room, playerId, face, [{ ...item, playerId }]);
 }
 
-function reward(game, playerId, cash = 0, chips = 0) {
-  addCash(game, playerId, cash);
-  playerState(game, playerId).chips += chips;
+function reward(game, playerId, cash = 0, chips = 0, reason = "豪华板块奖励") {
+  addCash(game, playerId, cash, reason);
+  if (chips) {
+    playerState(game, playerId).chips += chips;
+    animate(game, "chips", { playerId, amount: chips, reason });
+  }
 }
 
 function activateTile(room, playerId, face, moved, chained = false) {
@@ -217,11 +236,16 @@ function activateTile(room, playerId, face, moved, chained = false) {
     case "A1": game.pending = { type: "luckyChoose", actorId: playerId, casino: face }; break;
     case "A2": {
       const a = die(); const b = die();
-      if (a + b === 7 || a === b) { reward(game, playerId, tile.state.jackpot); log(game, `累积大奖命中 ${tile.state.jackpot}K！`); tile.state.jackpot = 30; }
+      animate(game, "dice-roll", { playerId, dice: [{ face: a, black: true }, { face: b, black: true }], reason: "累积大奖判定" });
+      if (a + b === 7 || a === b) { reward(game, playerId, tile.state.jackpot, 0, "累积大奖"); log(game, `累积大奖命中 ${tile.state.jackpot}K！`); tile.state.jackpot = 30; }
       else { tile.state.jackpot = Math.min(80, tile.state.jackpot + 10); log(game, `未命中，奖池升至 ${tile.state.jackpot}K。`); }
       finishTurn(room); break;
     }
-    case "B2": game.pending = { type: "fifty", actorId: playerId, casino: face, last: die() + die(), step: 1, reward: 0 }; break;
+    case "B2": {
+      const dice = [die(), die()];
+      animate(game, "dice-roll", { playerId, dice: dice.map((value) => ({ face: value, black: true })), reason: "猜高猜低起始点数" });
+      game.pending = { type: "fifty", actorId: playerId, casino: face, last: dice[0] + dice[1], step: 1, reward: 0 }; break;
+    }
     case "C1": {
       const ownWeight = casino.dice.filter((d) => d.playerId === playerId).reduce((sum, d) => sum + weight(d), 0);
       if (tile.state.available && ownWeight >= 5) { tile.state.available = false; tile.state.ownerId = playerId; log(game, `${actorName} 拿到了五骰同堂的 100K 奖励标记。`); }
@@ -229,7 +253,7 @@ function activateTile(room, playerId, face, moved, chained = false) {
     }
     case "D1": {
       const occupied = game.casinos.filter((c) => c.dice.some((d) => d.playerId === playerId)).length;
-      occupied <= 2 ? reward(game, playerId, 0, occupied) : reward(game, playerId, occupied * 10);
+      occupied <= 2 ? reward(game, playerId, 0, occupied, "发薪日") : reward(game, playerId, occupied * 10, 0, "发薪日");
       log(game, `发薪日结算：覆盖 ${occupied} 座赌场。`); finishTurn(room); break;
     }
     case "D2": refreshPowerToken(game); finishTurn(room); break;
@@ -254,7 +278,11 @@ function activateTile(room, playerId, face, moved, chained = false) {
       break;
     case "G2": game.pending = { type: "doubleDown", actorId: playerId, casino: face, max: casino.dice.filter((d) => d.playerId === playerId).length }; break;
     case "H1": game.pending = { type: "niceDice", actorId: playerId, casino: face, dieIds: moved.map((d) => d.id) }; break;
-    case "H2": game.pending = { type: "myChoice", actorId: playerId, casino: face, options: [...new Set([die(), die()])] }; break;
+    case "H2": {
+      const dice = [die(), die()];
+      animate(game, "dice-roll", { playerId, dice: dice.map((value) => ({ face: value, black: true })), reason: "任我选判定" });
+      game.pending = { type: "myChoice", actorId: playerId, casino: face, options: [...new Set(dice)] }; break;
+    }
     default: finishTurn(room);
   }
 }
@@ -304,16 +332,18 @@ function resolvePending(room, playerId, payload = {}) {
     case "luckyGuess": {
       const guess = Number(payload.count);
       if (guess !== pending.secretCount) {
-        if (pending.secretCount === 1) reward(game, pending.ownerId, 0, 2);
-        else reward(game, pending.ownerId, pending.secretCount === 2 ? 30 : 40);
+        animate(game, "reveal", { playerId: pending.ownerId, reason: `握有${pending.secretCount}枚，猜测失败` });
+        if (pending.secretCount === 1) reward(game, pending.ownerId, 0, 2, "幸运一拳");
+        else reward(game, pending.ownerId, pending.secretCount === 2 ? 30 : 40, 0, "幸运一拳");
         log(game, "猜错了，幸运一拳的奖励由激活者获得。");
-      } else log(game, "猜中了！幸运一拳没有发出奖励。");
+      } else { animate(game, "reveal", { playerId: pending.ownerId, reason: `握有${pending.secretCount}枚，猜中了` }); log(game, "猜中了！幸运一拳没有发出奖励。"); }
       game.pending = null; finishTurn(room); return;
     }
     case "fifty": {
-      if (payload.choice === "cashout") { reward(game, playerId, pending.reward); game.pending = null; finishTurn(room); return; }
+      if (payload.choice === "cashout") { reward(game, playerId, pending.reward, 0, "猜高猜低收手"); game.pending = null; finishTurn(room); return; }
       if (!["higher", "lower"].includes(payload.choice)) throw new Error("请选择收手、猜大或猜小");
-      const next = die() + die();
+      const nextDice = [die(), die()]; const next = nextDice[0] + nextDice[1];
+      animate(game, "dice-roll", { playerId, dice: nextDice.map((face) => ({ face, black: true })), reason: payload.choice === "higher" ? "猜更大" : "猜更小" });
       const won = payload.choice === "higher" ? next > pending.last : next < pending.last;
       if (!won) { log(game, `猜高猜低失败（${pending.last} → ${next}），本次无奖励。`); game.pending = null; finishTurn(room); return; }
       const step = Math.min(5, pending.step + 1);
@@ -327,7 +357,7 @@ function resolvePending(room, playerId, payload = {}) {
       game.closedCasino = target;
       casino.tile.state.step = Math.min(5, (casino.tile.state.step || 0) + 1);
       const prize = [0, 0, 10, 20, 0, 40][casino.tile.state.step];
-      if (prize) reward(game, playerId, prize);
+      if (prize) reward(game, playerId, prize, 0, "禁止入场赛道奖励");
       game.pending = null; finishTurn(room); return;
     }
     case "block": {
@@ -343,8 +373,8 @@ function resolvePending(room, playerId, payload = {}) {
       if (source < 1 || source > 6 || source === game.closedCasino || !game.casinos[source - 1].blankDice || slot < 0 || slot >= casino.tile.state.slots.length) throw new Error("请选择未封锁赌场中的灰骰和有效奖励格");
       game.casinos[source - 1].blankDice -= 1;
       const kind = casino.tile.state.slots.splice(slot, 1)[0];
-      if (kind === "chip") reward(game, playerId, 0, 1);
-      if (kind === "30") reward(game, playerId, 30);
+      if (kind === "chip") reward(game, playerId, 0, 1, "让分局");
+      if (kind === "30") reward(game, playerId, 30, 0, "让分局");
       if (kind === "choice") manipulateOwnDie(game, playerId, payload);
       game.pending = null; refreshPowerToken(game); finishTurn(room); return;
     }
@@ -369,9 +399,9 @@ function resolvePending(room, playerId, payload = {}) {
     case "myChoice": {
       const option = Number(payload.option);
       if (!pending.options.includes(option)) throw new Error("请选择黑骰掷出的结果");
-      if (option === 1) reward(game, playerId, 0, 1);
-      else if (option === 2) reward(game, playerId, 0, 2);
-      else if (option === 3) reward(game, playerId, 30);
+      if (option === 1) reward(game, playerId, 0, 1, "任我选");
+      else if (option === 2) reward(game, playerId, 0, 2, "任我选");
+      else if (option === 3) reward(game, playerId, 30, 0, "任我选");
       else if (option === 4) {
         const target = Number(payload.casino);
         if (target < 1 || target > 6 || target === game.closedCasino || !game.casinos[target - 1].tile || target === pending.casino) throw new Error("请选择另一块未封锁的豪华板块");
@@ -382,6 +412,7 @@ function resolvePending(room, playerId, payload = {}) {
     }
     case "primeTime": {
       const selected = Array.isArray(payload.indices) ? payload.indices.map(Number) : [];
+      animate(game, "dice-place", { playerId, casino: null, dice: pending.roll.filter((_face, index) => selected.includes(index)).map((face) => ({ face, black: true })), reason: "黄金时刻额外骰" });
       pending.roll.forEach((face, index) => {
         if (selected.includes(index) && game.closedCasino !== face) game.casinos[face - 1].dice.push({ id: `prime-${Date.now()}-${index}`, playerId, big: false, extra: true });
       });
@@ -397,7 +428,8 @@ function resolvePending(room, playerId, payload = {}) {
       const pile = Number(payload.pile);
       if (![0, 1].includes(pile)) throw new Error("请选择一组黑箱奖励");
       const rewards = ["chip", "chip", 40, 60, 80, 100];
-      pending.piles[pile].forEach((i) => rewards[i] === "chip" ? reward(game, playerId, 0, 1) : reward(game, playerId, rewards[i]));
+      animate(game, "reveal", { playerId, reason: `黑箱${pile === 0 ? "A" : "B"}组揭晓` });
+      pending.piles[pile].forEach((i) => rewards[i] === "chip" ? reward(game, playerId, 0, 1, "黑箱奖励") : reward(game, playerId, rewards[i], 0, "黑箱奖励"));
       game.pending = null; game.settlement.casinoIndex += 1; continueSettlement(room); return;
     }
     default: throw new Error("未知的板块选择");
@@ -434,7 +466,9 @@ function continueSettlement(room) {
     const casino = primeCasinos[settlement.primeIndex++];
     const winnerId = uniqueLeader(casino);
     if (winnerId && !winnerId.startsWith("__")) {
-      game.pending = { type: "primeTime", actorId: winnerId, casino: casino.number, roll: [die(), die()] };
+      const roll = [die(), die()];
+      animate(game, "dice-roll", { playerId: winnerId, dice: roll.map((face) => ({ face, black: true })), reason: "黄金时刻判定" });
+      game.pending = { type: "primeTime", actorId: winnerId, casino: casino.number, roll };
       return;
     }
     return continueSettlement(room);
@@ -447,8 +481,11 @@ function continueSettlement(room) {
       const counts = game.turnOrder.map((id) => weights[id] || 0); const low = Math.min(...counts);
       game.turnOrder.filter((id) => (weights[id] || 0) === low).forEach((id) => {
         const state = playerState(game, id); const due = Math.min(50, state.cash + state.chips * 10);
+        const beforeCash = state.cash; const beforeChips = state.chips;
         const chipPay = Math.min(state.chips, Math.ceil(Math.max(0, due - state.cash) / 10));
         state.chips -= chipPay; state.cash = Math.max(0, state.cash - (due - chipPay * 10));
+        if (beforeCash !== state.cash) animate(game, "money", { playerId: id, amount: state.cash - beforeCash, reason: "霉运临头罚款" });
+        if (beforeChips !== state.chips) animate(game, "chips", { playerId: id, amount: state.chips - beforeChips, reason: "霉运临头罚款" });
       });
     }
   }
@@ -458,22 +495,22 @@ function continueSettlement(room) {
     const winners = ranking.map(([id]) => id.startsWith("__") ? null : id);
     casino.money.forEach((value, index) => {
       const rankedId = ranking[index]?.[0] || null;
-      if (winners[index]) addCash(game, winners[index], value);
+      if (winners[index]) addCash(game, winners[index], value, `${casino.number}号赌场派彩`, true);
       if (rankedId) settlement.awards.push({ casino: casino.number, playerId: rankedId, value });
     });
     // 起始玩家按赌场等级从6号向1号寻找，因此在全部赌场结算后再确定。
-    if (casino.tile?.id === "C1" && casino.tile.state.ownerId) addCash(game, casino.tile.state.ownerId, 100);
+    if (casino.tile?.id === "C1" && casino.tile.state.ownerId) addCash(game, casino.tile.state.ownerId, 100, "五骰同堂");
     if (casino.tile?.id === "G2") {
       const side = { dice: game.doubleDown[casino.number] || [], blankDice: 0 };
       const sideRanks = untiedRanking(side).filter(([id]) => !id.startsWith("__"));
-      if (sideRanks[0]) addCash(game, sideRanks[0][0], 60);
-      if (sideRanks[1]) addCash(game, sideRanks[1][0], 30);
+      if (sideRanks[0]) addCash(game, sideRanks[0][0], 60, "双倍下注第一名");
+      if (sideRanks[1]) addCash(game, sideRanks[1][0], 30, "双倍下注第二名");
     }
     if (casino.tile?.id === "H1") {
       const payouts = { 1: [0, 1], 2: [0, 2], 3: [30, 0], 4: [40, 0], 5: [50, 0], 6: [60, 0] };
       game.niceDice.filter((d) => d.face === casino.number).forEach((d) => reward(game, d.playerId, ...payouts[d.face]));
     }
-    if (casino.tile?.id === "H2" && casino.tile.state.goldenOwner) addCash(game, casino.tile.state.goldenOwner, 60);
+    if (casino.tile?.id === "H2" && casino.tile.state.goldenOwner) addCash(game, casino.tile.state.goldenOwner, 60, "任我选金色奖励格");
     if (casino.tile?.id === "G1" && winners[0]) {
       const winnerId = winners[0]; const left = game.turnOrder[(game.turnOrder.indexOf(winnerId) + 1) % game.turnOrder.length];
       game.pending = { type: "blackDivide", actorId: left, winnerId, casino: casino.number };
@@ -524,6 +561,7 @@ function publicRoom(room, viewerId) {
       status: game.status, round: game.round, currentTurnId: activeId(game), currentRoll: game.currentRoll,
       casinos: game.casinos, closedCasino: game.closedCasino, bar: game.bar, niceDice: game.niceDice,
       doubleDown: game.doubleDown, powerToken: game.powerToken, pending: safePending, log: game.log.slice(0, 40),
+      animationEvents: game.animationEvents.slice(-100),
       lastSettlement: game.lastSettlement || null,
       finalRanking: game.finalRanking || null
     }

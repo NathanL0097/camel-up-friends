@@ -4,6 +4,9 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
   const emit = (action, payload = {}) => socket.emit("game:action", { action, payload });
   const COLOR_NAMES = { ruby: "红宝石", cyan: "霓虹蓝", gold: "金色", violet: "紫晶", emerald: "翡翠" };
   let previous = null;
+  let lastPresentedEventId = 0;
+  const eventQueue = [];
+  let eventPlaying = false;
   let audioContext = null;
   function sound(kind) {
     audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
@@ -18,6 +21,8 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
   }
 
   function renderLobby(room) {
+    previous = room;
+    lastPresentedEventId = 0;
     const mine = room.hostId === getMyId();
     const settings = room.settings || { mode: "royale", tileCount: 3 };
     $("rulesContent").innerHTML = rulesMarkup();
@@ -41,6 +46,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
       </header>
       <div id="vegasFinish" class="vegas-finish hidden"></div>
       <div id="vegasPayout" class="vegas-payout hidden"></div>
+      <div id="vegasEventStage" class="vegas-event-stage hidden"><div class="vegas-event-card"><div id="vegasEventKicker" class="event-kicker"></div><h3 id="vegasEventTitle"></h3><div id="vegasEventVisual" class="event-visual"></div><p id="vegasEventDetail"></p></div></div>
       <section id="vegasPlayers" class="vegas-players"></section>
       <main class="vegas-table">
         <div id="casinoGrid" class="casino-grid"></div>
@@ -216,11 +222,69 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     $("closeVegasPayout").onclick = () => box.classList.add("hidden");
   }
 
+  const pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+  function eventPlayer(room, id) { return id?.startsWith("__") ? playerName(room, id) : playerName(room, id); }
+  function eventDiceMarkup(dice, hidden = false) {
+    return dice.map((item, index) => `<span class="event-die ${item.big ? "biggy" : ""} ${item.black ? "black" : ""}" style="--delay:${index * 55}ms"><i>${hidden ? "?" : item.face}</i>${item.big ? "<b>×2</b>" : ""}</span>`).join("");
+  }
+
+  async function presentEvent(room, event) {
+    const stage = $("vegasEventStage"), visual = $("vegasEventVisual"), title = $("vegasEventTitle"), detail = $("vegasEventDetail"), kicker = $("vegasEventKicker");
+    if (!stage) return;
+    stage.className = `vegas-event-stage ${event.type}`; visual.className = "event-visual";
+    kicker.textContent = event.reason || "赌场播报"; detail.textContent = "";
+    if (event.type === "dice-roll") {
+      title.textContent = `${eventPlayer(room, event.playerId)} 正在掷骰`;
+      visual.innerHTML = eventDiceMarkup(event.dice || [], true); sound("roll");
+      await pause(850);
+      visual.classList.add("revealed"); visual.innerHTML = eventDiceMarkup(event.dice || [], false);
+      detail.textContent = `结果：${(event.dice || []).map((item) => item.face).join("、")}`;
+      await pause(900);
+    } else if (event.type === "dice-place") {
+      title.textContent = `${eventPlayer(room, event.playerId)} 放置骰子`;
+      visual.innerHTML = eventDiceMarkup(event.dice || [], false); detail.textContent = event.casino ? `飞向 ${event.casino} 号赌场` : event.reason;
+      sound("place"); await pause(250); visual.classList.add("flying"); await pause(850);
+    } else if (event.type === "money") {
+      const gain = event.amount > 0;
+      title.textContent = gain ? "奖金正在派发" : "罚款正在收取";
+      visual.innerHTML = `<span class="event-banknote face-down">BANK</span>`; await pause(420);
+      visual.innerHTML = `<span class="event-banknote ${gain ? "gain" : "loss"}">${gain ? "+" : "−"}$${Math.abs(event.amount)}K</span>`;
+      detail.textContent = `${eventPlayer(room, event.playerId)} · ${event.reason}`; sound("cash"); await pause(1050);
+    } else if (event.type === "chips") {
+      const gain = event.amount > 0;
+      title.textContent = gain ? "筹码奖励" : "支付筹码";
+      visual.innerHTML = `<span class="event-chip ${gain ? "gain" : "loss"}">${gain ? "+" : "−"}${Math.abs(event.amount)}</span>`;
+      detail.textContent = `${eventPlayer(room, event.playerId)} · ${event.reason}`; sound(gain ? "cash" : "place"); await pause(950);
+    } else if (event.type === "reveal") {
+      title.textContent = "结果揭晓"; visual.innerHTML = '<span class="event-reveal-card">?</span>'; await pause(500);
+      visual.classList.add("revealed"); visual.innerHTML = '<span class="event-reveal-card open">✓</span>'; detail.textContent = event.reason; await pause(850);
+    } else if (event.type === "round-start") {
+      title.textContent = `第 ${event.round} 轮开场`; visual.innerHTML = '<span class="event-marquee">WELCOME</span>'; detail.textContent = "奖金、筹码与赌场模块正在入场"; await pause(1050);
+    }
+    stage.classList.add("leaving"); await pause(230); stage.classList.add("hidden"); stage.classList.remove("leaving");
+  }
+
+  async function playEventQueue(room) {
+    if (eventPlaying) return;
+    eventPlaying = true;
+    while (eventQueue.length) await presentEvent(room, eventQueue.shift());
+    eventPlaying = false;
+  }
+
+  function queuePresentation(room) {
+    const events = room.game.animationEvents || [];
+    if (!previous?.game && previous !== null) lastPresentedEventId = 0;
+    else if (previous === null && lastPresentedEventId === 0) lastPresentedEventId = Math.max(0, ...events.map((event) => event.id));
+    const fresh = events.filter((event) => event.id > lastPresentedEventId);
+    if (!fresh.length) return;
+    lastPresentedEventId = fresh[fresh.length - 1].id; eventQueue.push(...fresh); playEventQueue(room);
+  }
+
   function render(room) {
     show("game"); const game = room.game;
     $("rulesContent").innerHTML = rulesMarkup();
     $("vegasCode").textContent = room.code; $("vegasRound").innerHTML = `<span>ROUND</span><b>${game.round} / 3</b>`;
-    renderPlayers(room); $("casinoGrid").innerHTML = game.casinos.map((casino) => renderCasino(room, casino)).join(""); renderArena(room); renderPayout(room);
+    renderPlayers(room); $("casinoGrid").innerHTML = game.casinos.map((casino) => renderCasino(room, casino)).join(""); renderArena(room); renderPayout(room); queuePresentation(room);
     $("roundStatus").innerHTML = `<p><span>当前回合</span><b>${escapeHtml(playerName(room, game.currentTurnId))}</b></p><p><span>封锁赌场</span><b>${game.closedCasino ? `${game.closedCasino}号` : "无"}</b></p><p><span>强势控场</span><b>${game.powerToken ? escapeHtml(playerName(room, game.powerToken)) : "无人持有"}</b></p>`;
     $("vegasLog").innerHTML = game.log.map((line) => `<p>${escapeHtml(line)}</p>`).join(""); renderFinish(room); previous = room;
   }
