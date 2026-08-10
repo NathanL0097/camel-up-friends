@@ -16,6 +16,11 @@
   .game:has(.vegas-shell){overflow-x:hidden}.vegas-shell{min-width:0;padding:0 8px 24px}.vegas-shell:before{inset:54px 0 0}.vegas-head,.vegas-players,.vegas-table,.vegas-bottom{min-width:0;width:100%;max-width:none}.vegas-head{grid-template-columns:1fr auto;margin-bottom:9px;gap:8px}.vegas-head h2{font-size:21px}.vegas-kicker{font-size:7px}.vegas-head .game-head-actions{grid-column:1/3;justify-content:flex-end}.vegas-round{padding:6px 10px}.vegas-players{display:flex;overflow-x:auto;scroll-snap-type:x mandatory}.vegas-player{min-width:180px;scroll-snap-align:start}.vegas-table{display:flex;flex-direction:column;padding:10px;border-radius:24px;overflow:visible;background:linear-gradient(180deg,#12443f,#082923)}.vegas-table:after{inset:6px;border-radius:18px}.casino-grid{order:2;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:230px}.casino-card{min-height:170px;padding:9px}.casino-sign>span{width:32px;height:32px;font-size:19px}.casino-sign b{font-size:9px}.money-cards{position:static;margin-top:7px}.money-cards span{flex:1;text-align:center;font-size:10px}.royale-tile{align-items:flex-start}.casino-dice{min-height:52px}.dice-arena{position:absolute;top:18px;left:10px;right:10px;transform:none;width:auto;min-height:190px;border-radius:24px;padding:16px}.roll-actions{max-width:100%}.vegas-action{font-size:10px;padding:9px 10px}.vegas-select{font-size:10px;padding:8px}.vegas-bottom{grid-template-columns:1fr;margin-top:10px}.vegas-panel{padding:11px}.vegas-log>div{display:block;max-height:140px}.vegas-log p{min-width:0}.vegas-lobby-settings{grid-template-columns:1fr}.vegas-lobby-settings header,.vegas-lobby-settings footer{grid-column:1}.vegas-lobby-settings button{width:100%}
 }
 
+/* 翻滚由骰子外层承担，避免动画最后一帧覆盖 show-1至show-6的真实六面朝向。 */
+.rolled-dice .die-cube{animation:none}.rolled-dice .die-cube-wrap{animation:tray-cube-land 1.15s cubic-bezier(.12,.72,.18,1) both}.rolled-dice .die-cube-wrap:nth-child(2n){animation-delay:70ms}.rolled-dice .die-cube-wrap:nth-child(3n){animation-delay:135ms}
+.event-visual .event-cube .die-cube,.event-visual.revealed .event-cube .die-cube{animation:none}.event-visual .event-cube{animation:event-cube-tumble 1.2s cubic-bezier(.12,.72,.18,1) var(--delay) both}.event-visual.revealed .event-cube{animation:event-cube-reveal .48s ease-out both}
+@keyframes tray-cube-land{0%{opacity:0;transform:translate3d(-70px,-105px,0) rotate(-310deg) scale(.45)}58%{opacity:1;transform:translate3d(12px,8px,0) rotate(22deg) scale(1.12)}78%{transform:translate3d(-5px,-4px,0) rotate(-7deg) scale(.98)}100%{opacity:1;transform:none}}@keyframes event-cube-tumble{0%{opacity:0;transform:translate3d(-95px,-220px,0) rotate(-620deg) scale(.3)}62%{opacity:1;transform:translate3d(20px,12px,0) rotate(35deg) scale(1.12)}82%{transform:translate3d(-8px,-5px,0) rotate(-9deg) scale(.98)}100%{opacity:1;transform:none}}@keyframes event-cube-reveal{0%{filter:brightness(2);transform:translateY(-10px) scale(1.25)}55%{transform:translateY(5px) scale(.96)}100%{filter:none;transform:none}}
+
 @media(max-width:430px){.casino-grid{grid-template-columns:1fr}.casino-card{min-height:150px}.vegas-player{min-width:165px}.dice-arena{min-height:198px}.casino-grid{margin-top:238px}.vegas-head .ghost-button{padding:7px 9px;font-size:9px}}
 
 .vegas-payout{position:fixed;z-index:80;left:50%;top:50%;width:min(520px,calc(100% - 24px));max-height:78vh;overflow:auto;transform:translate(-50%,-50%);padding:25px;border:2px solid #f7ce6b;border-radius:22px;background:radial-gradient(circle at 50% 0,#3f376b,#11172e 55%,#090d1e);color:#fff;box-shadow:0 0 0 9999px #050817b8,0 25px 80px #000;animation:vegas-payout-in .48s cubic-bezier(.2,.85,.25,1) both}.vegas-payout>button{position:absolute;right:12px;top:10px;width:30px;height:30px;border:1px solid #fff4;border-radius:50%;background:#fff1;color:#fff;font-size:19px;cursor:pointer}.payout-kicker{color:#e8b84c;font-size:9px;letter-spacing:3px}.vegas-payout h3{margin:5px 0 14px;font:900 25px Georgia,serif}.vegas-payout p{display:grid;grid-template-columns:85px 1fr auto;gap:10px;margin:0;padding:9px 4px;border-bottom:1px solid #ffffff14;font-size:10px}.vegas-payout p span{color:#9da7c5}.vegas-payout p strong{color:#ffd169}.vegas-payout>small{display:block;margin-top:13px;color:#9da7c5;font-size:9px}@keyframes vegas-payout-in{from{opacity:0;transform:translate(-50%,-43%) scale(.88)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
@@ -52,3 +57,45 @@
 /* 掷骰未落定前不显示伪造的“1点”；选择层保持实体六边形比例。 */
 .event-visual .event-cube.mystery .cube-pips,.event-visual .event-cube.mystery .die-face small,.event-visual .event-cube.mystery .die-number{visibility:hidden}
 @media(min-width:761px){.vegas-table.choosing-casino .casino-grid{grid-template-rows:repeat(2,minmax(230px,300px));align-content:center}}
+
+/* 2026-08 实物环形牌桌：六块梯形赌场拼成外环，中央始终保留骰盅和掷骰结果。 */
+.event-controls{min-height:42px;margin-top:16px}.event-controls:empty{display:none}.event-controls .event-confirm{padding:12px 22px;border-color:#ffe39a;background:linear-gradient(135deg,#d69b31,#9c5e17);font-size:12px;box-shadow:0 8px 25px #0007,0 0 24px #f6bf5266}.vegas-event-stage.dice-roll .vegas-event-card{min-height:390px}.vegas-event-stage.dice-roll .event-visual{min-height:125px;padding:20px 34px;border-radius:22px;background:radial-gradient(ellipse,#31415f,#121829 72%);box-shadow:inset 0 0 35px #000a,0 14px 30px #0006}.vegas-event-stage.dice-roll .event-cube{--die-size:64px;margin:24px 17px}.vegas-event-stage.dice-roll .event-cube.biggy{--die-size:92px}.vegas-event-stage.dice-roll .die-number{display:none}
+
+@media(min-width:1051px){
+  .vegas-table{min-height:880px;overflow:visible;background:radial-gradient(circle at center,#102a2c 0 24%,#123d39 25% 54%,#092823 75%)}
+  .casino-grid,.vegas-table.choosing-casino .casino-grid{position:absolute;z-index:3;inset:24px;display:block;width:auto;height:auto;margin:0;padding:0;border:0;border-radius:0;background:none;box-shadow:none;overflow:visible}
+  .casino-grid:before,.vegas-table.choosing-casino .casino-grid:before{display:none}
+  .casino-card,.vegas-table.choosing-casino .casino-card{--angle:0deg;--counter:0deg;position:absolute;left:50%;top:50%;width:350px;height:235px;min-height:235px;margin:0;padding:22px 40px;transform:translate(-50%,-50%) rotate(var(--angle)) translateY(-292px);clip-path:polygon(14% 0,86% 0,100% 100%,0 100%);overflow:hidden}
+  .casino-card:nth-child(1){--angle:0deg;--counter:0deg}.casino-card:nth-child(2){--angle:60deg;--counter:-60deg}.casino-card:nth-child(3){--angle:120deg;--counter:-120deg}.casino-card:nth-child(4){--angle:180deg;--counter:-180deg}.casino-card:nth-child(5){--angle:240deg;--counter:-240deg}.casino-card:nth-child(6){--angle:300deg;--counter:-300deg}
+  .casino-sector-content{position:relative;height:100%;transform:rotate(var(--counter));transform-origin:50% 50%}
+  .casino-card:before{inset:6px;clip-path:polygon(14% 0,86% 0,100% 100%,0 100%)}
+  .casino-card:after{inset:12px;clip-path:polygon(14% 0,86% 0,100% 100%,0 100%)}
+  .casino-sign{max-width:205px}.money-cards{right:34px;top:28px}.casino-dice{min-height:62px;max-height:82px}.casino-dice-group .die-cube-wrap{--die-size:27px;margin:6px 4px}.casino-dice-group .die-cube-wrap.biggy{--die-size:43px}
+  .dice-arena{z-index:12;top:50%;width:420px;min-height:260px;clip-path:polygon(25% 3%,75% 3%,98% 28%,98% 72%,75% 97%,25% 97%,2% 72%,2% 28%);border-radius:0;border-width:10px}
+  .dice-arena:before{clip-path:inherit;border-radius:0}.dice-arena:after{top:8px}
+  .rolled-dice{min-height:90px}.rolled-dice .die-cube-wrap{--die-size:43px;margin:12px 9px}.rolled-dice .die-cube-wrap.biggy{--die-size:65px}.rolled-dice .die-number{display:none}
+  .vegas-table.choosing-casino .casino-card:not(.selectable){opacity:.56;filter:grayscale(.35) brightness(.72)}
+  .vegas-table.choosing-casino .casino-card.selectable{z-index:5;cursor:pointer;filter:brightness(1.12) saturate(1.18) drop-shadow(0 0 18px #ffd466)}
+  .vegas-table.choosing-casino .casino-card.selectable:hover{filter:brightness(1.22) saturate(1.25) drop-shadow(0 0 28px #ffe08a)}
+}
+
+@media(max-width:1050px){
+  .casino-sector-content{height:100%}
+  .vegas-table.choosing-casino .casino-grid{position:relative;z-index:3;inset:auto;width:100%;height:auto;margin-top:280px;padding:0;border:0;background:none;box-shadow:none;overflow:visible}
+  .vegas-table.choosing-casino .casino-grid:before{display:none}
+  .vegas-table.choosing-casino .casino-card{height:220px;min-height:220px}
+  .vegas-table.choosing-casino .casino-card.selectable{filter:brightness(1.12) drop-shadow(0 0 14px #ffd466)}
+}
+
+@media(max-width:760px){
+  .vegas-table.choosing-casino .casino-grid{margin-top:245px;padding:0}
+  .vegas-table.choosing-casino .casino-card{height:190px;min-height:190px}
+  .vegas-event-stage.dice-roll .vegas-event-card{min-height:340px}.vegas-event-stage.dice-roll .event-visual{padding:12px 8px}.vegas-event-stage.dice-roll .event-cube{--die-size:43px;margin:16px 8px}.vegas-event-stage.dice-roll .event-cube.biggy{--die-size:62px}.event-controls .event-confirm{width:100%;font-size:11px}
+}
+
+/* 最终动画层：外层翻滚、内层保留点数朝向；选择态不再破坏环形定位。 */
+.rolled-dice .die-cube{animation:none}.rolled-dice .die-cube-wrap{animation:tray-cube-land-v2 1.15s cubic-bezier(.12,.72,.18,1) both}.rolled-dice .die-cube-wrap:nth-child(2n){animation-delay:70ms}.rolled-dice .die-cube-wrap:nth-child(3n){animation-delay:135ms}
+.event-visual .event-cube .die-cube,.event-visual.revealed .event-cube .die-cube{animation:none}.event-visual .event-cube{animation:event-cube-tumble-v2 1.2s cubic-bezier(.12,.72,.18,1) var(--delay) both}.event-visual.revealed .event-cube{animation:event-cube-reveal-v2 .48s ease-out both}
+@keyframes tray-cube-land-v2{0%{opacity:0;transform:translate3d(-70px,-105px,0) rotate(-310deg) scale(.45)}58%{opacity:1;transform:translate3d(12px,8px,0) rotate(22deg) scale(1.12)}78%{transform:translate3d(-5px,-4px,0) rotate(-7deg) scale(.98)}100%{opacity:1;transform:none}}@keyframes event-cube-tumble-v2{0%{opacity:0;transform:translate3d(-95px,-220px,0) rotate(-620deg) scale(.3)}62%{opacity:1;transform:translate3d(20px,12px,0) rotate(35deg) scale(1.12)}82%{transform:translate3d(-8px,-5px,0) rotate(-9deg) scale(.98)}100%{opacity:1;transform:none}}@keyframes event-cube-reveal-v2{0%{filter:brightness(2);transform:translateY(-10px) scale(1.25)}55%{transform:translateY(5px) scale(.96)}100%{filter:none;transform:none}}
+@media(min-width:1051px){.vegas-table.choosing-casino .casino-card,.vegas-table.choosing-casino .casino-card.selectable,.vegas-table.choosing-casino .casino-card:not(.selectable),.vegas-table.choosing-casino .casino-card.selectable:hover{transform:translate(-50%,-50%) rotate(var(--angle)) translateY(-292px)!important}}
+@media(min-width:1051px){.vegas-table .casino-card.casino-1{--angle:0deg;--counter:0deg}.vegas-table .casino-card.casino-2{--angle:60deg;--counter:-60deg}.vegas-table .casino-card.casino-3{--angle:120deg;--counter:-120deg}.vegas-table .casino-card.casino-4{--angle:180deg;--counter:-180deg}.vegas-table .casino-card.casino-5{--angle:240deg;--counter:-240deg}.vegas-table .casino-card.casino-6{--angle:300deg;--counter:-300deg}}

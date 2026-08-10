@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const rules = require("../src/games/las-vegas-royale/rules");
 const { definition } = require("../src/games/las-vegas-royale");
 
@@ -132,4 +133,14 @@ test("公开房间状态携带有序动画事件供所有玩家同步播放", ()
   const events = rules.publicRoom(room, "b").game.animationEvents;
   assert.ok(events.length > 0);
   assert.deepEqual(events.map((event) => event.id), [...events.map((event) => event.id)].sort((a, b) => a - b));
+});
+
+test("客户端使用环形赌场、六面立方骰子与手动确认结果", () => {
+  const client = fs.readFileSync(require.resolve("../public/games/las-vegas-royale.js"), "utf8");
+  const css = fs.readFileSync(require.resolve("../public/games/las-vegas-royale.css"), "utf8");
+  assert.match(client, /casino-sector-content/);
+  assert.match(client, /我已看清 · 开始选择赌场/);
+  assert.match(client, /die-face face-/);
+  assert.match(css, /translateY\(-292px\)/);
+  assert.match(css, /event-cube-tumble-v2/);
 });

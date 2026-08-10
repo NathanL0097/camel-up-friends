@@ -46,7 +46,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
       </header>
       <div id="vegasFinish" class="vegas-finish hidden"></div>
       <div id="vegasPayout" class="vegas-payout hidden"></div>
-      <div id="vegasEventStage" class="vegas-event-stage hidden"><div class="vegas-event-card"><div id="vegasEventKicker" class="event-kicker"></div><h3 id="vegasEventTitle"></h3><div id="vegasEventVisual" class="event-visual"></div><p id="vegasEventDetail"></p></div></div>
+      <div id="vegasEventStage" class="vegas-event-stage hidden"><div class="vegas-event-card"><div id="vegasEventKicker" class="event-kicker"></div><h3 id="vegasEventTitle"></h3><div id="vegasEventVisual" class="event-visual"></div><p id="vegasEventDetail"></p><div id="vegasEventControls" class="event-controls"></div></div></div>
       <section id="vegasPlayers" class="vegas-players"></section>
       <main class="vegas-table">
         <div id="casinoGrid" class="casino-grid"></div>
@@ -101,13 +101,13 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     const tile = casino.tile;
     const rolledFaces = new Set(game.currentRoll?.map((item) => item.face) || []);
     const selectable = game.currentTurnId === getMyId() && rolledFaces.has(casino.number) && game.closedCasino !== casino.number && !game.pending;
-    return `<article class="casino-card casino-${casino.number} ${game.closedCasino === casino.number ? "closed" : ""} ${selectable ? "selectable" : ""}" data-casino="${casino.number}" ${selectable ? 'role="button" tabindex="0"' : ""}>
+    return `<article class="casino-card casino-${casino.number} ${game.closedCasino === casino.number ? "closed" : ""} ${selectable ? "selectable" : ""}" data-casino="${casino.number}" ${selectable ? 'role="button" tabindex="0"' : ""}><div class="casino-sector-content">
       <div class="casino-sign"><span>${casino.number}</span><div><small>CASINO</small><b>${["日落大道", "埃及艳后", "海市蜃楼", "金色马蹄", "霓虹宫殿", "幸运之星"][casino.number - 1]}</b></div></div>
       <div class="money-cards">${casino.money.map((value) => `<span>$${value}K</span>`).join("")}</div>
       ${tile ? `<div class="royale-tile" title="${escapeHtml(tile.name)}"><span>${tile.icon}</span><div><small>豪华板块 ${tile.id}</small><b>${escapeHtml(tile.name)}</b></div>${tile.state.jackpot ? `<em>$${tile.state.jackpot}K</em>` : ""}</div>` : ""}
       <div class="casino-dice">${dice || "<span class=\"empty-table\">等待骰子入场</span>"}${casino.blankDice ? `<div class="blank-dice">灰骰 × ${casino.blankDice}</div>` : ""}</div>
       ${game.closedCasino === casino.number ? "<div class=\"closed-stamp\">禁止入场</div>" : ""}
-      ${selectable ? `<div class="casino-select-callout">选择 ${casino.number} 点</div>` : ""}
+      ${selectable ? `<div class="casino-select-callout">选择 ${casino.number} 点</div>` : ""}</div>
     </article>`;
   }
 
@@ -242,18 +242,23 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
   }
 
   async function presentEvent(room, event) {
-    const stage = $("vegasEventStage"), visual = $("vegasEventVisual"), title = $("vegasEventTitle"), detail = $("vegasEventDetail"), kicker = $("vegasEventKicker");
+    const stage = $("vegasEventStage"), visual = $("vegasEventVisual"), title = $("vegasEventTitle"), detail = $("vegasEventDetail"), kicker = $("vegasEventKicker"), controls = $("vegasEventControls");
     if (!stage) return;
     stage.className = `vegas-event-stage ${event.type}`; visual.className = "event-visual";
-    kicker.textContent = event.reason || "赌场播报"; detail.textContent = "";
+    kicker.textContent = event.reason || "赌场播报"; detail.textContent = ""; controls.innerHTML = "";
     if (event.type === "dice-roll") {
       title.textContent = `${eventPlayer(room, event.playerId)} 正在掷骰`;
       const color = room.players.find((player) => player.id === event.playerId)?.color || "";
       visual.innerHTML = eventDiceMarkup(event.dice || [], true, color); sound("roll");
-      await pause(850);
+      await pause(1250);
       visual.classList.add("revealed"); visual.innerHTML = eventDiceMarkup(event.dice || [], false, color);
-      detail.textContent = `结果：${(event.dice || []).map((item) => item.face).join("、")}`;
-      await pause(900);
+      title.textContent = `${eventPlayer(room, event.playerId)} 掷出的结果`;
+      detail.textContent = `结果：${(event.dice || []).map((item) => item.face).join("、")}。骰子会保留在中央，看清后再选择赌场。`;
+      await pause(1600);
+      await new Promise((resolve) => {
+        const button = actionButton(event.playerId === getMyId() ? "我已看清 · 开始选择赌场" : "看清结果 · 返回牌桌", resolve, "event-confirm");
+        controls.append(button);
+      });
     } else if (event.type === "dice-place") {
       title.textContent = `${eventPlayer(room, event.playerId)} 放置骰子`;
       const color = room.players.find((player) => player.id === event.playerId)?.color || "";
@@ -269,12 +274,12 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
       title.textContent = gain ? "奖金正在派发" : "罚款正在收取";
       visual.innerHTML = `<span class="event-banknote face-down">BANK</span>`; await pause(420);
       visual.innerHTML = `<span class="event-banknote ${gain ? "gain" : "loss"}">${gain ? "+" : "−"}$${Math.abs(event.amount)}K</span>`;
-      detail.textContent = `${eventPlayer(room, event.playerId)} · ${event.reason}`; sound("cash"); await pause(1050);
+      detail.textContent = `${eventPlayer(room, event.playerId)} · ${event.reason}`; sound("cash"); await pause(1800);
     } else if (event.type === "chips") {
       const gain = event.amount > 0;
       title.textContent = gain ? "筹码奖励" : "支付筹码";
       visual.innerHTML = `<span class="event-chip ${gain ? "gain" : "loss"}">${gain ? "+" : "−"}${Math.abs(event.amount)}</span>`;
-      detail.textContent = `${eventPlayer(room, event.playerId)} · ${event.reason}`; sound(gain ? "cash" : "place"); await pause(950);
+      detail.textContent = `${eventPlayer(room, event.playerId)} · ${event.reason}`; sound(gain ? "cash" : "place"); await pause(1600);
     } else if (event.type === "reveal") {
       title.textContent = "结果揭晓"; visual.innerHTML = '<span class="event-reveal-card">?</span>'; await pause(500);
       visual.classList.add("revealed"); visual.innerHTML = '<span class="event-reveal-card open">✓</span>'; detail.textContent = event.reason; await pause(850);
