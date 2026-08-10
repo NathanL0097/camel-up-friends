@@ -23,9 +23,17 @@ function choiceSet(game) {
     game.seenWords = [];
     available = WORDS;
   }
-  const choices = shuffle(available, game.random).slice(0, 3).map((item) => ({ ...item }));
-  game.seenWords.push(...choices.map((item) => item.word));
-  return choices;
+  // 每次固定给一个直观词、一个聚会词和一个挑战词，避免三个备选全是
+  // 同类家具或全是难画成语；某一档临时用尽时再由全库补足。
+  const choices = [];
+  for (const difficulty of ["easy", "medium", "hard"]) {
+    const pool = available.filter((item) => item.difficulty === difficulty && !choices.some((choice) => choice.word === item.word));
+    if (pool.length) choices.push(shuffle(pool, game.random)[0]);
+  }
+  if (choices.length < 3) choices.push(...shuffle(available.filter((item) => !choices.some((choice) => choice.word === item.word)), game.random).slice(0, 3 - choices.length));
+  const shuffledChoices = shuffle(choices, game.random).map((item) => ({ ...item }));
+  game.seenWords.push(...shuffledChoices.map((item) => item.word));
+  return shuffledChoices;
 }
 
 function currentArtistId(game) {

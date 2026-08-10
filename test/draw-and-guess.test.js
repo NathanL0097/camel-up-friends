@@ -22,19 +22,19 @@ test("开局安排每人三次作画并重置积分", () => {
   assert.deepEqual(room.players.map((player) => player.score), [0, 0, 0]);
 });
 
-test("词库覆盖丰富领域且刷新不会立刻重复", () => {
+test("新版聚会词库超过两千词且刷新不会立刻重复", () => {
   const room = makeRoom(2);
   const artistId = room.game.artistId;
   const firstWords = room.game.wordChoices.map((choice) => choice.word);
-  assert.ok(rules.WORDS.length >= 1000);
+  assert.ok(rules.WORDS.length >= 2000);
   assert.ok(new Set(rules.WORDS.map((item) => item.category)).size >= 15);
   assert.equal(new Set(rules.WORDS.map((item) => item.word)).size, rules.WORDS.length);
-  assert.ok(rules.WORDS.some((item) => item.category === "中国城市"));
-  assert.equal(rules.WORDS.find((item) => item.word === "北京").category, "中国城市");
-  assert.equal(rules.WORDS.find((item) => item.word === "伦敦").category, "世界城市");
-  assert.equal(rules.WORDS.find((item) => item.word === "古筝").category, "中国文化");
+  assert.equal(rules.WORDS.find((item) => item.word === "北京").category, "地点交通");
+  assert.equal(rules.WORDS.find((item) => item.word === "伦敦").category, "地点交通");
+  assert.equal(rules.WORDS.find((item) => item.word === "古筝").category, "文化记忆");
   assert.equal(rules.WORDS.some((item) => item.word === "双簧管"), false);
-  assert.ok(rules.WORDS.some((item) => item.category === "中国城市"));
+  assert.ok(["踩到香蕉皮", "麦克风没关", "上班打卡", "吃瓜群众", "黑神话悟空", "嫦娥奔月"].every((word) => rules.WORDS.some((item) => item.word === word)));
+  assert.deepEqual(new Set(room.game.wordChoices.map((choice) => choice.difficulty)), new Set(["easy", "medium", "hard"]));
   assert.equal(rules.WORDS.some((item) => item.word === "鸟和鸟笼"), false);
   assert.equal(rules.WORDS.some((item) => item.word === "蛋糕和蜡烛"), false);
   assert.equal(rules.WORDS.some((item) => item.word === "河马跳芭蕾"), false);

@@ -1,3 +1,5 @@
+const { CURATED_PARTY_GROUPS } = require("./party-words-v2");
+
 const GROUPS = {
   "动物": "长颈鹿 企鹅 刺猬 袋鼠 海豚 章鱼 孔雀 蜗牛 松鼠 斑马 河马 鳄鱼 树懒 猫头鹰 变色龙 啄木鸟 北极熊 大熊猫 萤火虫 寄居蟹",
   "美食": "火锅 冰淇淋 汉堡包 爆米花 生日蛋糕 珍珠奶茶 煎鸡蛋 西瓜 甜甜圈 方便面 北京烤鸭 小笼包 臭豆腐 棉花糖 披萨 寿司 麻辣烫 烤红薯 糖葫芦 螺蛳粉",
@@ -109,11 +111,63 @@ const REPLACEMENT_GROUPS = {
   "建筑地标": "长城 故宫 埃菲尔铁塔 比萨斜塔 大本钟 自由女神像 金字塔 悉尼歌剧院 凯旋门 斗兽场 狮身人面像 天坛 布达拉宫 东方明珠 兵马俑 天安门 钟楼 鼓楼 水塔",
   "常见动物": "小狗 小猫 兔子 松鼠 狐狸 狮子 老虎 大象 长颈鹿 斑马 熊猫 考拉 海豹 海豚 鲸鱼 乌龟 青蛙 蜜蜂 蝴蝶 金鱼"
 };
-// 全新词库只采用单一、可画、常见的名词、人物、地点与明确动作。
-// 旧的脑洞组合、双物品组合和拟人化组合不参与游戏。
-const entries = [...Object.entries(EXTRA_GROUPS), ...Object.entries(REPLACEMENT_GROUPS)]
-  .flatMap(([category, value]) => value.split(/\s+/).filter(Boolean).map((word) => ({ category: CATEGORY_OVERRIDES[word] || category, word })))
-  .filter((item) => !EXCLUDED_WORDS.has(item.word));
+const SAFE_ORIGINAL_GROUPS = new Set(["动物", "美食", "生活", "地点", "职业", "动作", "自然", "时尚", "艺术", "体育", "游戏", "影视娱乐", "旅行", "校园", "幻想", "节日", "四字成语"]);
+const FORBIDDEN_COMBINATION = /(?:和|与|以及|或者)/;
+const FORBIDDEN_PROMPTS = new Set(["鸟和鸟笼", "蛋糕和蜡烛", "河马跳芭蕾", "太阳和月亮", "猫和老鼠"]);
+
+function broadCategory(group, word) {
+  const override = CATEGORY_OVERRIDES[word];
+  const source = `${group} ${override || ""}`;
+  if (/成语|俗语/.test(source)) return "成语俗语";
+  if (/游戏|网络|热词/.test(source)) return "游戏网络";
+  if (/幻想|奇幻|太空/.test(source)) return "奇幻想象";
+  if (/角色|人物|职业|名人|西游|神话/.test(source)) return "人物角色";
+  if (/动物|鸟类|昆虫|海洋/.test(source) && !/用品/.test(source)) return "动物";
+  if (/美食|水果|蔬菜|食材|主食|甜点|饮料/.test(source)) return "食物";
+  if (/影视|动画|舞台|娱乐|音乐|乐器|艺术|美术/.test(source)) return "文娱艺术";
+  if (/体育|运动/.test(source)) return "体育运动";
+  if (/自然|天气|天象|植物|花卉|奇观/.test(source)) return "自然天气";
+  if (/地点|建筑|城市|国家|旅行|交通|道路/.test(source)) return "地点交通";
+  if (/节日|节庆|中国文化|童年/.test(source)) return "文化记忆";
+  if (/服装|鞋帽|配饰|时尚/.test(source)) return "服饰装扮";
+  if (/校园/.test(source)) return "校园生活";
+  if (/动作|现场|日常|场景|情绪|社交|囧事|上班|校园|居家|朋友|城市生活|反差/.test(source)) return "动作场景";
+  return "日常物品";
+}
+
+function difficultyFor(group) {
+  if (/成语|经典角色|童话角色|建筑地标|国家地区|世界城市|贵圈|幻想/.test(group)) return "hard";
+  if (/动作|场景|人物|职业|文化|艺术|体育|游戏|舞台|旅行|校园/.test(group)) return "medium";
+  return "easy";
+}
+
+function expandGroups(groups, suppliedDifficulty = null) {
+  return groups.flatMap(([group, value]) => value.split(/\s+/).filter(Boolean).map((word) => ({
+    category: broadCategory(group, word),
+    difficulty: suppliedDifficulty || difficultyFor(group),
+    word
+  })));
+}
+
+// 基础物品负责“好画”，真实动作和固定表达负责“好笑”。旧的随机脑洞组合、
+// 双物品拼接及专业器械不参与游戏。
+const baseEntries = expandGroups([...Object.entries(EXTRA_GROUPS), ...Object.entries(REPLACEMENT_GROUPS)]);
+const classicEntries = expandGroups(Object.entries(GROUPS).filter(([group]) => SAFE_ORIGINAL_GROUPS.has(group)));
+const partyEntries = CURATED_PARTY_GROUPS.flatMap(({ category, difficulty, words }) => words.split(/\s+/).filter(Boolean).map((word) => ({ category: broadCategory(category, word), difficulty, word })));
+const entries = [...baseEntries, ...classicEntries, ...partyEntries].filter((item) =>
+  !EXCLUDED_WORDS.has(item.word)
+  && !FORBIDDEN_PROMPTS.has(item.word)
+  && !FORBIDDEN_COMBINATION.test(item.word)
+  && [...item.word].length >= 2
+  && [...item.word].length <= 9
+);
 const WORDS = [...new Map(entries.map((item) => [item.word, item])).values()];
 
-module.exports = { GROUPS, EXTRA_GROUPS, REPLACEMENT_GROUPS, PARTY_GROUPS, CATEGORY_OVERRIDES, WORDS };
+const WORD_BANK_INFO = Object.freeze({
+  count: WORDS.length,
+  categories: new Set(WORDS.map((item) => item.category)).size,
+  difficulty: Object.fromEntries(["easy", "medium", "hard"].map((level) => [level, WORDS.filter((item) => item.difficulty === level).length])),
+  version: "2026.08.10-party-v2"
+});
+
+module.exports = { GROUPS, EXTRA_GROUPS, REPLACEMENT_GROUPS, PARTY_GROUPS, CATEGORY_OVERRIDES, WORDS, WORD_BANK_INFO };
