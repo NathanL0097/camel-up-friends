@@ -7,7 +7,6 @@ const { definition: skyLanding } = require("./sky-landing");
 const { definition: eldritchFiles } = require("./eldritch-files");
 const { definition: liarsTavern } = require("./liars-tavern");
 const { definition: quizArena } = require("./quiz-arena");
-const { definition: casinoNight } = require("./casino-night");
 
 const games = new Map([
   [camelRace.id, camelRace],
@@ -18,8 +17,7 @@ const games = new Map([
   [skyLanding.id, skyLanding],
   [eldritchFiles.id, eldritchFiles],
   [liarsTavern.id, liarsTavern],
-  [quizArena.id, quizArena],
-  [casinoNight.id, casinoNight]
+  [quizArena.id, quizArena]
 ]);
 
 function getGame(gameId) {
