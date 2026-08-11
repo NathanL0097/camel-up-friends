@@ -18,7 +18,7 @@ const definition = {
     roll: (room, playerId) => rules.roll(room, playerId),
     place: (room, playerId, payload) => rules.place(room, playerId, payload.face),
     pass: (room, playerId) => rules.pass(room, playerId),
-    power: (room, playerId, payload) => rules.usePowerPlay(room, playerId, payload.face),
+    power: (room, playerId, payload) => rules.usePowerPlay(room, playerId, payload),
     resolve: (room, playerId, payload) => rules.resolvePending(room, playerId, payload)
   }
 };
