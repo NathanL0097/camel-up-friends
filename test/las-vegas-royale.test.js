@@ -135,6 +135,22 @@ test("所有主掷骰结果先写入统一动画事件队列", () => {
   assert.ok(event.dice.every((item) => item.face >= 1 && item.face <= 6));
 });
 
+test("豪华板块先解释触发原因再播放特殊掷骰与判定", () => {
+  const room = { code: "ABC234", hostId: "a", players, game: rules.createGame(players, { mode: "base", tileCount: 0 }) };
+  room.game.casinos[0].tile = { ...rules.TILES.find((tile) => tile.id === "A2"), state: { jackpot: 30 } };
+  const item = room.game.playerState.a.supply[0];
+  room.game.currentRoll = [{ ...item, face: 1 }];
+  const before = room.game.animationEvents.length;
+  const originalRandom = Math.random;
+  Math.random = () => 0; // 两颗黑骰固定为1、1，确保命中对子并产生派彩事件。
+  try { rules.place(room, "a", 1); } finally { Math.random = originalRandom; }
+  const types = room.game.animationEvents.slice(before).map((event) => event.type);
+  assert.deepEqual(types.slice(0, 5), ["dice-place", "tile-activate", "dice-roll", "judgement", "money"]);
+  const rollEvent = room.game.animationEvents.slice(before).find((event) => event.type === "dice-roll");
+  assert.match(rollEvent.explanation, /对子/);
+  assert.match(rollEvent.outcome, /=/);
+});
+
 test("公开房间状态携带有序动画事件供所有玩家同步播放", () => {
   const room = { code: "ABC234", hostId: "a", players, game: rules.createGame(players) };
   rules.roll(room, "a");
@@ -155,6 +171,9 @@ test("客户端使用环形赌场、清晰骰点、主动玩家确认与板块�
   assert.match(client, /pauseTileDemo/);
   assert.doesNotMatch(client, /setInterval\(\(\) => paintStep\(step \+ 1\), 2200\)/);
   assert.match(client, /face-choice/);
+  assert.match(client, /tile-activate/);
+  assert.match(client, /waitForEventContinue/);
+  assert.match(client, /5200/);
   assert.match(client, /casino-banknote/);
   assert.match(client, /die-face face-/);
   assert.match(css, /--sector:polygon/);

@@ -270,40 +270,59 @@ function activateTile(room, playerId, face, moved, chained = false) {
   if (!tile || (!chained && face > 3)) return finishTurn(room);
   const actorName = room.players.find((p) => p.id === playerId)?.name || "玩家";
   log(game, `${actorName} 激活了「${tile.name}」。`);
+  animate(game, "tile-activate", {
+    playerId, casino: face, tileId: tile.id, tileName: tile.name, tileIcon: tile.icon,
+    trigger: tile.guide?.trigger, action: tile.guide?.action
+  });
   switch (tile.id) {
     case "A1": game.pending = { type: "luckyChoose", actorId: playerId, casino: face }; break;
     case "A2": {
       const a = die(); const b = die();
-      animate(game, "dice-roll", { playerId, dice: [{ face: a, black: true }, { face: b, black: true }], reason: "累积大奖判定" });
-      if (a + b === 7 || a === b) { reward(game, playerId, tile.state.jackpot, 0, "累积大奖"); log(game, `累积大奖命中 ${tile.state.jackpot}K！`); tile.state.jackpot = 30; }
-      else { tile.state.jackpot = Math.min(80, tile.state.jackpot + 10); log(game, `未命中，奖池升至 ${tile.state.jackpot}K。`); }
+      const total = a + b; const hit = total === 7 || a === b; const jackpot = tile.state.jackpot;
+      animate(game, "dice-roll", {
+        playerId, dice: [{ face: a, black: true }, { face: b, black: true }], reason: "累积大奖 · 掷2颗黑骰",
+        explanation: "因为你激活了「累积大奖」：掷出对子，或两颗骰子合计为7，才能赢得当前奖池。",
+        outcome: `${a} + ${b} = ${total}${a === b ? "，同时还是对子" : ""}`
+      });
+      animate(game, "judgement", {
+        playerId, tileName: tile.name, title: hit ? "累积大奖命中！" : "本次没有命中",
+        formula: `${a} + ${b} = ${total}${a === b ? " · 对子" : ""}`,
+        explanation: hit ? `满足${a === b ? "对子" : "合计为7"}的条件，因此获得当前奖池 $${jackpot}K。` : `既不是对子，合计也不等于7，因此本次不派彩；奖池将从 $${jackpot}K 增加到 $${Math.min(80, jackpot + 10)}K。`
+      });
+      if (hit) { reward(game, playerId, jackpot, 0, "累积大奖"); log(game, `累积大奖命中 ${jackpot}K！`); tile.state.jackpot = 30; }
+      else { tile.state.jackpot = Math.min(80, jackpot + 10); log(game, `未命中，奖池升至 ${tile.state.jackpot}K。`); }
       finishTurn(room); break;
     }
     case "B2": {
       const dice = [die(), die()];
-      animate(game, "dice-roll", { playerId, dice: dice.map((value) => ({ face: value, black: true })), reason: "猜高猜低起始点数" });
+      animate(game, "dice-roll", { playerId, dice: dice.map((value) => ({ face: value, black: true })), reason: "猜高猜低 · 建立起始点数", explanation: "两颗黑骰的合计将成为起始点数。看清之后，你要猜下一次合计更高还是更低。", outcome: `${dice[0]} + ${dice[1]} = ${dice[0] + dice[1]}，这是本次起始点数。` });
       game.pending = { type: "fifty", actorId: playerId, casino: face, last: dice[0] + dice[1], step: 1, reward: 0 }; break;
     }
     case "C1": {
       const ownWeight = casino.dice.filter((d) => d.playerId === playerId).reduce((sum, d) => sum + weight(d), 0);
-      if (tile.state.available && ownWeight >= 5) { tile.state.available = false; tile.state.ownerId = playerId; log(game, `${actorName} 拿到了五骰同堂的 100K 奖励标记。`); }
+      const earned = tile.state.available && ownWeight >= 5;
+      if (earned) { tile.state.available = false; tile.state.ownerId = playerId; log(game, `${actorName} 拿到了五骰同堂的 100K 奖励标记。`); }
+      animate(game, "judgement", { playerId, tileName: tile.name, title: earned ? "达到5票，奖励已锁定" : "尚未达到5票", formula: `当前 ${ownWeight} / 5 票`, explanation: earned ? "普通骰算1票、Biggy算2票；你已达到5票，本轮结束时会获得$100K。" : `还差${5 - ownWeight}票才能取得本轮唯一的$100K奖励。` });
       finishTurn(room); break;
     }
     case "D1": {
       const occupied = game.casinos.filter((c) => c.dice.some((d) => d.playerId === playerId)).length;
+      animate(game, "judgement", { playerId, tileName: tile.name, title: "发薪日统计完成", formula: `已占据 ${occupied} 座赌场`, explanation: occupied <= 2 ? `只占据${occupied}座，因此获得${occupied}枚筹码。` : `占据至少3座，因此按每座$10K获得$${occupied * 10}K。` });
       occupied <= 2 ? reward(game, playerId, 0, occupied, "发薪日") : reward(game, playerId, occupied * 10, 0, "发薪日");
       log(game, `发薪日结算：覆盖 ${occupied} 座赌场。`); finishTurn(room); break;
     }
     case "D2": refreshPowerToken(game); finishTurn(room); break;
     case "E1": game.pending = { type: "noEntry", actorId: playerId, casino: face }; break;
     case "E2": {
+      let removed = 0;
       for (const id of game.turnOrder) {
         if (id === playerId || (game.bar[id] || []).length >= 2) continue;
         const target = playerState(game, id);
-        if (target.supply.length) (game.bar[id] ||= []).push(target.supply.shift());
+        if (target.supply.length) { (game.bar[id] ||= []).push(target.supply.shift()); removed += 1; }
       }
       const returned = game.bar[playerId] || [];
       playerState(game, playerId).supply.push(...returned); game.bar[playerId] = [];
+      animate(game, "judgement", { playerId, tileName: tile.name, title: "等待区骰子已经调整", formula: `对手扣下 ${removed} 颗 · 你取回 ${returned.length} 颗`, explanation: `每名符合条件的对手被暂扣1颗剩余骰；你等待区中的${returned.length}颗骰已经全部回到手中。` });
       finishTurn(room); break;
     }
     case "F1":
@@ -318,7 +337,7 @@ function activateTile(room, playerId, face, moved, chained = false) {
     case "H1": game.pending = { type: "niceDice", actorId: playerId, casino: face, dieIds: moved.map((d) => d.id) }; break;
     case "H2": {
       const dice = [die(), die()];
-      animate(game, "dice-roll", { playerId, dice: dice.map((value) => ({ face: value, black: true })), reason: "任我选判定" });
+      animate(game, "dice-roll", { playerId, dice: dice.map((value) => ({ face: value, black: true })), reason: "任我选 · 产生可选效果", explanation: "两颗黑骰出现的点数，就是你稍后可以二选一的板块效果。", outcome: `出现 ${dice.join("、")} 点；接下来从对应效果中选择一个。` });
       game.pending = { type: "myChoice", actorId: playerId, casino: face, options: [...new Set(dice)] }; break;
     }
     default: finishTurn(room);
@@ -403,8 +422,17 @@ function resolvePending(room, playerId, payload = {}) {
       if (payload.choice === "cashout") { reward(game, playerId, pending.reward, 0, "猜高猜低收手"); game.pending = null; finishTurn(room); return; }
       if (!["higher", "lower"].includes(payload.choice)) throw new Error("请选择收手、猜大或猜小");
       const nextDice = [die(), die()]; const next = nextDice[0] + nextDice[1];
-      animate(game, "dice-roll", { playerId, dice: nextDice.map((face) => ({ face, black: true })), reason: payload.choice === "higher" ? "猜更大" : "猜更小" });
+      animate(game, "dice-roll", {
+        playerId, dice: nextDice.map((face) => ({ face, black: true })), reason: payload.choice === "higher" ? "猜高 · 验证结果" : "猜低 · 验证结果",
+        explanation: `上一轮合计为 ${pending.last}，你选择了“${payload.choice === "higher" ? "下一次更高" : "下一次更低"}”。`,
+        outcome: `${nextDice[0]} + ${nextDice[1]} = ${next}`
+      });
       const won = payload.choice === "higher" ? next > pending.last : next < pending.last;
+      animate(game, "judgement", {
+        playerId, tileName: "猜高猜低", title: won ? "猜对了" : "猜错了",
+        formula: `${pending.last} → ${next} · ${payload.choice === "higher" ? "猜更高" : "猜更低"}`,
+        explanation: won ? `新合计符合你的判断，奖金提高到$${[0, 10, 20, 30, 40, 60][Math.min(5, pending.step + 1)]}K；你可以收手或继续。` : "新合计不符合你的判断，本次累积奖金归零。"
+      });
       if (!won) { log(game, `猜高猜低失败（${pending.last} → ${next}），本次无奖励。`); game.pending = null; finishTurn(room); return; }
       const step = Math.min(5, pending.step + 1);
       game.pending = { ...pending, last: next, step, reward: [0, 10, 20, 30, 40, 60][step] };
@@ -417,6 +445,7 @@ function resolvePending(room, playerId, payload = {}) {
       game.closedCasino = target;
       casino.tile.state.step = Math.min(5, (casino.tile.state.step || 0) + 1);
       const prize = [0, 0, 10, 20, 0, 40][casino.tile.state.step];
+      animate(game, "judgement", { playerId, tileName: "禁止入场", title: `${target}号赌场已被封锁`, formula: `奖励轨：第 ${casino.tile.state.step} 格`, explanation: prize ? `所有玩家暂时不能把骰子放入${target}号赌场；你同时获得$${prize}K轨道奖励。` : `所有玩家暂时不能把骰子放入${target}号赌场。本格没有额外金钱奖励。` });
       if (prize) reward(game, playerId, prize, 0, "禁止入场赛道奖励");
       game.pending = null; finishTurn(room); return;
     }
@@ -425,6 +454,7 @@ function resolvePending(room, playerId, payload = {}) {
       if (!pending.clusters.includes(cluster) || target < 1 || target > 6 || target === game.closedCasino) throw new Error("请选择有效的灰骰组和未封锁赌场");
       casino.tile.state.clusters.splice(casino.tile.state.clusters.indexOf(cluster), 1);
       game.casinos[target - 1].blankDice += cluster;
+      animate(game, "dice-place", { playerId: "__blank", casino: target, dice: Array.from({ length: cluster }, () => ({ face: target, black: true })), reason: `堵住它 · 放置${cluster}颗灰骰` });
       game.pending = null; refreshPowerToken(game); finishTurn(room); return;
     }
     case "handicap": {
@@ -443,6 +473,7 @@ function resolvePending(room, playerId, payload = {}) {
       const own = casino.dice.filter((d) => d.playerId === playerId).slice(0, count);
       casino.dice = casino.dice.filter((d) => !own.some((x) => x.id === d.id));
       (game.doubleDown[pending.casino] ||= []).push(...own);
+      animate(game, "judgement", { playerId, tileName: "双倍下注", title: `${count}颗骰子移入副桌`, formula: `主桌减少 ${count} 颗 · 副桌增加 ${count} 颗`, explanation: count ? "这些骰子不再参加主赌场排名；赛段结束时，它们在副桌独立争夺第一$60K、第二$30K。" : "你选择不移动骰子，本次所有骰子继续留在主赌场。" });
       game.pending = null; refreshPowerToken(game); finishTurn(room); return;
     }
     case "niceDice": {
@@ -454,6 +485,7 @@ function resolvePending(room, playerId, payload = {}) {
       if (occupied) game.casinos[occupied.face - 1].dice.push(occupied);
       game.niceDice = game.niceDice.filter((d) => d.face !== pending.casino);
       game.niceDice.push({ ...item, face: pending.casino });
+      animate(game, "judgement", { playerId, tileName: "妙骰", title: `${pending.casino}点妙骰格已占据`, formula: `${pending.casino}点 → ${pending.casino <= 2 ? `${pending.casino}枚筹码` : `$${pending.casino * 10}K`}`, explanation: "这颗骰子离开主赌场排名区；若保持到赛段结算，你将获得该格显示的奖励。" });
       game.pending = null; refreshPowerToken(game); finishTurn(room); return;
     }
     case "myChoice": {
@@ -527,7 +559,8 @@ function continueSettlement(room) {
     const winnerId = uniqueLeader(casino);
     if (winnerId && !winnerId.startsWith("__")) {
       const roll = [die(), die()];
-      animate(game, "dice-roll", { playerId: winnerId, dice: roll.map((face) => ({ face, black: true })), reason: "黄金时刻判定" });
+      animate(game, "tile-activate", { playerId: winnerId, casino: casino.number, tileId: casino.tile.id, tileName: casino.tile.name, tileIcon: casino.tile.icon, trigger: "赛段结算开始，这座赌场存在唯一领先者，因此触发黄金时刻。", action: "唯一领先者掷2颗黑骰，再选择是否把黑骰加入对应点数赌场。" });
+      animate(game, "dice-roll", { playerId: winnerId, dice: roll.map((face) => ({ face, black: true })), reason: "黄金时刻 · 额外黑骰", explanation: "因为该玩家是黄金时刻赌场的唯一领先者，可以掷2颗黑骰，并选择是否把它们放入点数对应的赌场。", outcome: `黑骰点数为 ${roll.join("、")}；接下来选择要使用的骰子。` });
       game.pending = { type: "primeTime", actorId: winnerId, casino: casino.number, roll };
       return;
     }
@@ -539,7 +572,10 @@ function continueSettlement(room) {
     for (const casino of game.casinos.filter((c) => c.tile?.id === "C2")) {
       const weights = casinoWeights(casino);
       const counts = game.turnOrder.map((id) => weights[id] || 0); const low = Math.min(...counts);
-      game.turnOrder.filter((id) => (weights[id] || 0) === low).forEach((id) => {
+      const punished = game.turnOrder.filter((id) => (weights[id] || 0) === low);
+      animate(game, "tile-activate", { playerId: punished[0], casino: casino.number, tileId: casino.tile.id, tileName: casino.tile.name, tileIcon: casino.tile.icon, trigger: "赛段进入派彩前，需要先结算霉运临头。", action: "比较所有玩家在本赌场的票数；票数最少者支付最多$50K。" });
+      animate(game, "judgement", { playerId: punished[0], tileName: casino.tile.name, title: "最低票数已经确认", formula: `最低 ${low} 票 · ${punished.length}人受罚`, explanation: `${punished.map((id) => room.players.find((player) => player.id === id)?.name || "玩家").join("、")}并列最低，因此分别支付最多$50K。` });
+      punished.forEach((id) => {
         const state = playerState(game, id); const due = Math.min(50, state.cash + state.chips * 10);
         const beforeCash = state.cash; const beforeChips = state.chips;
         const chipPay = Math.min(state.chips, Math.ceil(Math.max(0, due - state.cash) / 10));
@@ -573,6 +609,7 @@ function continueSettlement(room) {
     if (casino.tile?.id === "H2" && casino.tile.state.goldenOwner) addCash(game, casino.tile.state.goldenOwner, 60, "任我选金色奖励格");
     if (casino.tile?.id === "G1" && winners[0]) {
       const winnerId = winners[0]; const left = game.turnOrder[(game.turnOrder.indexOf(winnerId) + 1) % game.turnOrder.length];
+      animate(game, "tile-activate", { playerId: winnerId, casino: casino.number, tileId: casino.tile.id, tileName: casino.tile.name, tileIcon: casino.tile.icon, trigger: "本赌场已完成排名并产生第一名，因此触发黑箱奖励。", action: "第一名左边的玩家先把6项奖励分成两组；第一名随后只能选择其中一组。" });
       game.pending = { type: "blackDivide", actorId: left, winnerId, casino: casino.number };
       return;
     }

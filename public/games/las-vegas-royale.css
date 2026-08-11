@@ -213,3 +213,23 @@
   .tile-demo-stage{padding:14px 9px 12px}.tile-demo-node small{font-size:7px}.tile-demo-node b{width:33px;height:33px}.tile-demo-mover{font-size:17px}.tile-guide-list{grid-template-columns:1fr}.tile-demo-stage>strong{font-size:11px}
   .dice-arena .roll-actions.face-choice{width:min(100%,300px);max-width:300px;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:0}.dice-arena .roll-actions.face-choice .vegas-action{font-size:9px;padding:7px 3px}
 }
+
+/* 游戏过程说明层：先解释原因，再展示动作与结果。 */
+.vegas-event-card{width:min(610px,calc(100vw - 28px));min-height:340px;box-sizing:border-box}
+.vegas-event-card>p{max-width:520px;min-height:44px;color:#d8dcef;font-size:14px;line-height:1.75}.vegas-event-card>p b{color:#ffe09a}
+.event-controls{min-height:38px;margin-top:14px}.event-controls .event-confirm{padding:10px 18px;border-color:#f2d17e;background:#9b621f;font-size:11px;box-shadow:0 0 18px #eab84f55}
+.event-tile-trigger{display:flex;align-items:center;gap:14px;min-width:270px;padding:16px 20px;border:1px solid #e5bd6a88;border-radius:15px;background:linear-gradient(145deg,#6c3157,#24182e);box-shadow:0 12px 24px #0008}.event-tile-trigger>span{display:grid;place-items:center;width:58px;height:58px;border-radius:14px;background:#0b0c12aa;font-size:30px}.event-tile-trigger small,.event-tile-trigger b{display:block;text-align:left}.event-tile-trigger small{color:#d1b47d;font-size:9px;letter-spacing:.12em}.event-tile-trigger b{margin-top:3px;color:#fff0cd;font-size:20px}
+.event-formula{min-width:290px;padding:18px 24px;border:1px solid #e5bd6a88;border-radius:15px;background:radial-gradient(circle at 50% 0,#654327,#17141a 70%);box-shadow:0 12px 24px #0008}.event-formula small,.event-formula strong{display:block}.event-formula small{color:#d5b578;font-size:10px;letter-spacing:.15em}.event-formula strong{margin-top:8px;color:#fff0c6;font:900 27px/1.2 Georgia,"Noto Sans SC",serif}
+.event-roll-brief{display:flex;align-items:center;gap:13px;padding:15px 20px;border:1px solid #ffffff25;border-radius:14px;background:#080a12aa}.event-roll-brief span{font-size:34px}.event-roll-brief b{color:#f4e9d2;font-size:15px}
+
+/* 赌场内容拥有自己的裁切与滚动区，不允许骰子伸进中央骰盅图层。 */
+@media(min-width:1051px){
+  .casino-sector-content{overflow:hidden}
+  .casino-2 .casino-sector-content,.casino-3 .casino-sector-content{right:24px;width:235px}
+  .casino-5 .casino-sector-content,.casino-6 .casino-sector-content{left:24px;width:235px}
+  .casino-2 .casino-dice,.casino-3 .casino-dice{align-self:flex-end;width:180px;max-width:180px}
+  .casino-5 .casino-dice,.casino-6 .casino-dice{align-self:flex-start;width:180px;max-width:180px}
+  .casino-dice-group{max-width:100%;overflow-x:auto;overflow-y:hidden}
+}
+
+@media(max-width:760px){.vegas-event-card{min-height:330px;padding:23px 17px}.vegas-event-card>p{font-size:13px}.event-tile-trigger,.event-formula{min-width:0;width:100%;box-sizing:border-box}}

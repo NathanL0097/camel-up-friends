@@ -291,6 +291,10 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
   }
 
   const pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+  async function waitForEventContinue(controls, label, minimumReadingTime = 4000) {
+    await pause(minimumReadingTime);
+    await new Promise((resolve) => controls.append(actionButton(label, resolve, "event-confirm")));
+  }
   function eventPlayer(room, id) { return id?.startsWith("__") ? playerName(room, id) : playerName(room, id); }
   function eventDiceMarkup(dice, hidden = false, color = "") {
     return dice.map((item, index) => dieHtml({ ...item, face: hidden ? 1 : item.face }, `event-cube ${hidden ? "mystery" : ""} ${item.black ? "black" : ""}`, color).replace('class="die-cube ', `style="--delay:${index * 55}ms" class="die-cube `)).join("");
@@ -303,45 +307,62 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     if (!stage) return;
     stage.className = `vegas-event-stage ${event.type}`; visual.className = "event-visual";
     kicker.textContent = event.reason || "赌场播报"; detail.textContent = ""; controls.innerHTML = "";
-    if (event.type === "dice-roll") {
-      title.textContent = `${eventPlayer(room, event.playerId)} 正在掷骰`;
+    if (event.type === "tile-activate") {
+      title.textContent = `${event.casino}号赌场触发「${event.tileName}」`;
+      visual.innerHTML = `<div class="event-tile-trigger"><span>${event.tileIcon || "◆"}</span><div><small>豪华板块 ${escapeHtml(event.tileId || "")}</small><b>${escapeHtml(event.tileName || "特殊效果")}</b></div></div>`;
+      detail.innerHTML = `<b>为什么发生：</b>${escapeHtml(event.trigger || `${eventPlayer(room, event.playerId)} 的骰子进入了这座赌场。`)}<br><b>接下来：</b>${escapeHtml(event.action || "按中央提示完成板块效果。")}`;
+      await waitForEventContinue(controls, "我明白为什么触发 · 查看效果", 5200);
+    } else if (event.type === "dice-roll") {
+      const normalRoll = event.reason === "行动掷骰";
+      title.textContent = normalRoll ? `${eventPlayer(room, event.playerId)} 准备掷出剩余骰子` : event.reason;
       const color = room.players.find((player) => player.id === event.playerId)?.color || "";
+      detail.textContent = normalRoll ? "这些骰子决定本回合可以选择哪些赌场。先看掷骰过程，落定后再判断。" : (event.explanation || "这是豪华板块要求进行的特殊掷骰，结果将决定接下来的效果。");
+      visual.innerHTML = `<div class="event-roll-brief"><span>${normalRoll ? "🎲" : "⚫"}</span><b>${normalRoll ? `准备掷出 ${(event.dice || []).length} 颗骰子` : "先理解为什么要掷这2颗黑骰"}</b></div>`;
+      await pause(normalRoll ? 1800 : 3200);
       visual.innerHTML = eventDiceMarkup(event.dice || [], true, color); sound("roll");
-      await pause(1250);
+      await pause(1800);
       visual.classList.add("revealed"); visual.innerHTML = eventDiceMarkup(event.dice || [], false, color);
-      title.textContent = `${eventPlayer(room, event.playerId)} 掷出的结果`;
-      detail.textContent = `结果：${(event.dice || []).map((item) => item.face).join("、")}。骰子会保留在中央，看清后再选择赌场。`;
-      await pause(1600);
-      await new Promise((resolve) => {
-        const button = actionButton(event.playerId === getMyId() ? "我已看清 · 开始选择赌场" : "看清结果 · 返回牌桌", resolve, "event-confirm");
-        controls.append(button);
-      });
+      title.textContent = normalRoll ? `${eventPlayer(room, event.playerId)} 的骰子已经落定` : "特殊黑骰已经落定";
+      detail.innerHTML = normalRoll ? `<b>点数：</b>${(event.dice || []).map((item) => item.face).join("、")}<br>相同点数的骰子必须一起进入对应赌场。结果会保留在中央，确认后再选择。` : `<b>掷骰结果：</b>${escapeHtml(event.outcome || (event.dice || []).map((item) => item.face).join("、"))}<br>${escapeHtml(event.explanation || "请根据这个结果继续处理板块效果。")}`;
+      await waitForEventContinue(controls, normalRoll ? "我已看清 · 开始选择赌场" : "我已看懂黑骰结果 · 继续判定", normalRoll ? 3800 : 5200);
     } else if (event.type === "dice-place") {
-      title.textContent = `${eventPlayer(room, event.playerId)} 放置骰子`;
+      const count = (event.dice || []).length;
+      title.textContent = `${eventPlayer(room, event.playerId)} 选择了${event.casino ? `${event.casino}号赌场` : "额外放置"}`;
       const color = room.players.find((player) => player.id === event.playerId)?.color || "";
-      visual.innerHTML = eventDiceMarkup(event.dice || [], false, color); detail.textContent = event.casino ? `飞向 ${event.casino} 号赌场` : event.reason;
-      sound("place"); await pause(250); visual.classList.add("flying"); await pause(850);
+      visual.innerHTML = eventDiceMarkup(event.dice || [], false, color); detail.textContent = event.casino ? `本次所有 ${event.casino} 点骰子，共 ${count} 颗，必须一起进入 ${event.casino} 号赌场。` : event.reason;
+      await pause(1700); sound("place"); visual.classList.add("flying"); await pause(1300);
+      detail.textContent = event.casino ? `${count}颗骰子已经全部落位。接下来检查这座赌场是否带有豪华板块。` : `${event.reason}已经完成。`;
+      await pause(2800);
     } else if (event.type === "dice-kick") {
       title.textContent = "Biggy 发动踢骰";
       const color = room.players.find((player) => player.id === event.targetPlayerId)?.color || "";
-      visual.innerHTML = eventDiceMarkup(event.dice || [], false, color); detail.textContent = `${eventPlayer(room, event.targetPlayerId)} 的普通骰被踢回骰池`;
-      sound("place"); await pause(250); visual.classList.add("kicked"); await pause(1000);
+      visual.innerHTML = eventDiceMarkup(event.dice || [], false, color); detail.textContent = `Biggy进入${event.casino}号赌场，因此可以把${eventPlayer(room, event.targetPlayerId)}的一颗普通骰踢回骰池。`;
+      await pause(2200); sound("place"); visual.classList.add("kicked"); await pause(1400);
+      detail.textContent = "被踢中的普通骰已经回到该玩家手中，之后仍可重新掷出。"; await pause(2800);
+    } else if (event.type === "judgement") {
+      title.textContent = event.title || "板块判定完成";
+      visual.innerHTML = `<div class="event-formula"><small>${escapeHtml(event.tileName || "豪华板块")}</small><strong>${escapeHtml(event.formula || "结果已确认")}</strong></div>`;
+      detail.innerHTML = `<b>判定说明：</b>${escapeHtml(event.explanation || "板块效果已经完成计算。")}`;
+      await waitForEventContinue(controls, "我已看懂判定 · 继续", 5200);
     } else if (event.type === "money") {
       const gain = event.amount > 0;
       title.textContent = gain ? "奖金正在派发" : "罚款正在收取";
-      visual.innerHTML = `<span class="event-banknote face-down">BANK</span>`; await pause(420);
+      detail.textContent = `${eventPlayer(room, event.playerId)} · 原因：${event.reason}`;
+      visual.innerHTML = `<span class="event-banknote face-down">BANK</span>`; await pause(1500);
       visual.innerHTML = `<span class="event-banknote ${gain ? "gain" : "loss"}">${gain ? "+" : "−"}$${Math.abs(event.amount)}K</span>`;
-      detail.textContent = `${eventPlayer(room, event.playerId)} · ${event.reason}`; sound("cash"); await pause(1800);
+      detail.innerHTML = `<b>${escapeHtml(eventPlayer(room, event.playerId))}</b> 因为「${escapeHtml(event.reason)}」${gain ? "获得" : "支付"} <b>$${Math.abs(event.amount)}K</b>。金额已计入资产。`;
+      sound("cash"); await waitForEventContinue(controls, "我已看清派彩 · 继续", 4800);
     } else if (event.type === "chips") {
       const gain = event.amount > 0;
       title.textContent = gain ? "筹码奖励" : "支付筹码";
       visual.innerHTML = `<span class="event-chip ${gain ? "gain" : "loss"}">${gain ? "+" : "−"}${Math.abs(event.amount)}</span>`;
-      detail.textContent = `${eventPlayer(room, event.playerId)} · ${event.reason}`; sound(gain ? "cash" : "place"); await pause(1600);
+      detail.textContent = `${eventPlayer(room, event.playerId)} 因为「${event.reason}」${gain ? "获得" : "支付"}${Math.abs(event.amount)}枚筹码。`;
+      sound(gain ? "cash" : "place"); await pause(4300);
     } else if (event.type === "reveal") {
-      title.textContent = "结果揭晓"; visual.innerHTML = '<span class="event-reveal-card">?</span>'; await pause(500);
-      visual.classList.add("revealed"); visual.innerHTML = '<span class="event-reveal-card open">✓</span>'; detail.textContent = event.reason; await pause(850);
+      title.textContent = "结果即将揭晓"; visual.innerHTML = '<span class="event-reveal-card">?</span>'; detail.textContent = "先确认参与者的选择，再翻开最终结果。"; await pause(1800);
+      visual.classList.add("revealed"); visual.innerHTML = '<span class="event-reveal-card open">✓</span>'; detail.textContent = event.reason; await pause(3600);
     } else if (event.type === "round-start") {
-      title.textContent = `第 ${event.round} 轮开场`; visual.innerHTML = '<span class="event-marquee">WELCOME</span>'; detail.textContent = "奖金、筹码与赌场模块正在入场"; await pause(1050);
+      title.textContent = `第 ${event.round} 轮开场`; visual.innerHTML = '<span class="event-marquee">WELCOME</span>'; detail.textContent = "先查看六座赌场的新奖金与豪华板块。本轮每位玩家获得2枚筹码，随后从起始玩家开始行动。"; await pause(4800);
     }
     stage.classList.add("leaving"); await pause(230); stage.classList.add("hidden"); stage.classList.remove("leaving");
   }
