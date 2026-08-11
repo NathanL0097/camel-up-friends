@@ -10,6 +10,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
   let eventPlaying = false;
   let tileDemoTimer = null;
   let audioContext = null;
+  let boardResizeFrame = null;
   function sound(kind) {
     audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
     if (audioContext.state === "suspended") audioContext.resume();
@@ -460,7 +461,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     show("game"); const game = room.game;
     $("rulesContent").innerHTML = rulesMarkup();
     $("vegasCode").textContent = room.code; $("vegasRound").innerHTML = `<span>ROUND</span><b>${game.round} / 3</b>`;
-    renderPlayers(room); $("casinoGrid").innerHTML = game.casinos.map((casino) => renderCasino(room, casino)).join(""); renderArena(room); renderPayout(room); queuePresentation(room);
+    renderPlayers(room); $("casinoGrid").innerHTML = game.casinos.map((casino) => renderCasino(room, casino)).join(""); renderArena(room); fitBoardToViewport(); renderPayout(room); queuePresentation(room);
     const choosing = game.currentTurnId === getMyId() && game.currentRoll?.length && !game.pending;
     document.querySelector(".vegas-table")?.classList.toggle("choosing-casino", Boolean(choosing));
     document.querySelectorAll(".casino-card.selectable").forEach((card) => {
@@ -476,6 +477,36 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     $("roundStatus").innerHTML = `<p><span>当前回合</span><b>${escapeHtml(playerName(room, game.currentTurnId))}</b></p><p><span>封锁赌场</span><b>${game.closedCasino ? `${game.closedCasino}号` : "无"}</b></p><p><span>强势控场</span><b>${game.powerToken ? escapeHtml(playerName(room, game.powerToken)) : "无人持有"}</b></p><p><span>淘汰等待区</span><b>${escapeHtml(waitingDice || "空")}</b></p>`;
     $("vegasLog").innerHTML = game.log.map((line) => `<p>${escapeHtml(line)}</p>`).join(""); renderFinish(room); previous = room;
   }
+
+  function fitBoardToViewport() {
+    const table = document.querySelector(".vegas-table");
+    const grid = $("casinoGrid");
+    if (!table || !grid) return;
+    const ringLayout = getComputedStyle(grid).position === "absolute" && grid.offsetWidth >= 800;
+    if (!ringLayout) {
+      table.style.removeProperty("--board-fit");
+      table.style.removeProperty("min-height");
+      table.classList.remove("board-fitted");
+      return;
+    }
+    // 桌面浏览器放大后，媒体查询仍可能保留桌面环形版图；按真实可视宽度整体缩放，
+    // 外环和中央骰盅使用同一比例，避免左右赌场及按钮被裁切。
+    const viewportWidth = window.visualViewport?.width || window.innerWidth;
+    const availableWidth = Math.min(viewportWidth, table.getBoundingClientRect().width || viewportWidth);
+    const scale = Math.max(.65, Math.min(1, (availableWidth - 140) / 850));
+    table.style.setProperty("--board-fit", scale.toFixed(3));
+    table.classList.toggle("board-fitted", scale < .995);
+    if (scale < .995) table.style.setProperty("min-height", `${Math.ceil(780 * scale + 80)}px`);
+    else table.style.removeProperty("min-height");
+  }
+
+  function scheduleBoardFit() {
+    cancelAnimationFrame(boardResizeFrame);
+    boardResizeFrame = requestAnimationFrame(fitBoardToViewport);
+  }
+
+  window.addEventListener("resize", scheduleBoardFit);
+  window.visualViewport?.addEventListener("resize", scheduleBoardFit);
 
   return { prepare: () => previous, renderLobby, render };
 };

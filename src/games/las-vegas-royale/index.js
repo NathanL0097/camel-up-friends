@@ -5,7 +5,7 @@ const definition = {
   title: "拉斯维加斯骰城·豪华规则",
   icon: "🎰",
   description: "掷骰进驻六座赌场，用多数、逼平与特殊板块争夺最高奖金。",
-  clientScript: "/games/las-vegas-royale.js",
+  clientScript: "/games/las-vegas-royale.js?v=20260811-fit2",
   minPlayers: 2,
   maxPlayers: 6,
   minimumToStart: 2,
