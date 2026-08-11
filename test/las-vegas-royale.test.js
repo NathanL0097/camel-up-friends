@@ -39,8 +39,9 @@ test("随机模块不会同时抽到同一实体板的正反面", () => {
 test("全部豪华板块都随公开状态提供可查看的完整玩法说明", () => {
   assert.equal(rules.TILES.length, 16);
   assert.ok(rules.TILES.every((tile) => typeof tile.rule === "string" && tile.rule.length >= 35));
+  assert.ok(rules.TILES.every((tile) => ["trigger", "action", "result", "example"].every((key) => tile.guide?.[key]?.length >= 12)));
   const room = { code: "ABC234", hostId: "a", players, game: rules.createGame(players, { mode: "royale", tileCount: 6 }) };
-  assert.ok(rules.publicRoom(room, "a").game.casinos.filter((casino) => casino.tile).every((casino) => casino.tile.rule));
+  assert.ok(rules.publicRoom(room, "a").game.casinos.filter((casino) => casino.tile).every((casino) => casino.tile.rule && casino.tile.guide?.example));
 });
 
 test("房主可以选择无模块基础局或官方三模块豪华局", () => {
@@ -149,6 +150,8 @@ test("客户端使用环形赌场、清晰骰点、主动玩家确认与板块�
   assert.match(client, /我已看清 · 开始选择赌场/);
   assert.match(client, /event\.reason === "行动掷骰" && event\.playerId !== getMyId\(\)/);
   assert.match(client, /showTileRules/);
+  assert.match(client, /tile-demo-stage/);
+  assert.match(client, /face-choice/);
   assert.match(client, /casino-banknote/);
   assert.match(client, /die-face face-/);
   assert.match(css, /--sector:polygon/);

@@ -7,6 +7,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
   let lastPresentedEventId = 0;
   const eventQueue = [];
   let eventPlaying = false;
+  let tileDemoTimer = null;
   let audioContext = null;
   function sound(kind) {
     audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
@@ -66,8 +67,10 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
 
   $("vegasInvite").onclick = copyInvite;
   $("vegasRules").onclick = () => $("rulesDialog").showModal();
-  $("closeVegasTile").onclick = () => $("vegasTileDialog").close();
-  $("vegasTileDialog").onclick = (event) => { if (event.target === $("vegasTileDialog")) $("vegasTileDialog").close(); };
+  function stopTileDemo() { clearInterval(tileDemoTimer); tileDemoTimer = null; }
+  $("closeVegasTile").onclick = () => { stopTileDemo(); $("vegasTileDialog").close(); };
+  $("vegasTileDialog").onclick = (event) => { if (event.target === $("vegasTileDialog")) { stopTileDemo(); $("vegasTileDialog").close(); } };
+  $("vegasTileDialog").addEventListener("close", stopTileDemo);
 
   const PIP_POSITIONS = { 1:[5], 2:[1,9], 3:[1,5,9], 4:[1,3,7,9], 5:[1,3,5,7,9], 6:[1,3,4,6,7,9] };
   function dieFaceHtml(face) {
@@ -122,8 +125,26 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     const casino = room.game.casinos.find((item) => item.tile?.id === tileId);
     if (!casino?.tile) return;
     const tile = casino.tile;
-    $("vegasTileRule").innerHTML = `<div class="tile-rule-kicker">ROYAL CASINO TILE · ${escapeHtml(tile.id)}</div><div class="tile-rule-title"><span>${tile.icon}</span><div><small>${casino.number}号赌场豪华板块</small><h3>${escapeHtml(tile.name)}</h3></div></div><p>${escapeHtml(tile.rule || "本板块会在骰子放入后触发特殊效果，请按中央操作提示完成。")}</p>${tile.state.jackpot ? `<div class="tile-live-state">当前累积奖池 <strong>$${tile.state.jackpot}K</strong></div>` : ""}<small class="tile-rule-note">点击板块只查看说明，不会放置骰子或消耗行动。</small>`;
+    const guide = tile.guide || { trigger: "骰子进入板块后触发。", action: tile.rule, result: "按中央提示完成效果。", example: "实际可选内容会在触发后显示。" };
+    const steps = [
+      ["①", "什么时候触发", guide.trigger], ["②", "你需要做什么", guide.action],
+      ["③", "最后怎么算", guide.result], ["④", "举个例子", guide.example]
+    ];
+    stopTileDemo();
+    $("vegasTileRule").innerHTML = `<div class="tile-rule-kicker">ROYAL CASINO TILE · ${escapeHtml(tile.id)}</div><div class="tile-rule-title"><span>${tile.icon}</span><div><small>${casino.number}号赌场豪华板块</small><h3>${escapeHtml(tile.name)}</h3></div></div><div class="tile-demo-stage" style="--demo-step:0"><div class="tile-demo-track">${steps.map(([icon, label], index) => `<div class="tile-demo-node ${index === 0 ? "active" : ""}" data-step="${index}"><b>${icon}</b><small>${escapeHtml(label)}</small></div>`).join("")}</div><div class="tile-demo-mover">🎲</div><strong id="tileDemoCaption">${escapeHtml(steps[0][2])}</strong></div><div class="tile-guide-list">${steps.map(([icon, label, text], index) => `<article class="${index === 0 ? "active" : ""}" data-step="${index}"><b>${icon} ${escapeHtml(label)}</b><p>${escapeHtml(text)}</p></article>`).join("")}</div>${tile.state.jackpot ? `<div class="tile-live-state">当前累积奖池 <strong>$${tile.state.jackpot}K</strong></div>` : ""}<button type="button" id="replayTileDemo" class="replay-tile-demo">↻ 重新演示</button><small class="tile-rule-note">这段演示只在你的屏幕播放，不会打断其他玩家，也不会消耗行动。</small>`;
+    let step = 0;
+    const paintStep = (next) => {
+      step = next % steps.length;
+      const stage = $("vegasTileRule").querySelector(".tile-demo-stage");
+      if (!stage) return;
+      stage.style.setProperty("--demo-step", step);
+      $("tileDemoCaption").textContent = steps[step][2];
+      $("vegasTileRule").querySelectorAll("[data-step]").forEach((item) => item.classList.toggle("active", Number(item.dataset.step) === step));
+    };
+    const play = () => { stopTileDemo(); paintStep(0); tileDemoTimer = setInterval(() => paintStep(step + 1), 2200); };
+    $("replayTileDemo").onclick = play;
     $("vegasTileDialog").showModal();
+    play();
   }
 
   function optionSelect(options, id = "pendingSelect") {
@@ -208,7 +229,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     $("turnPrompt").innerHTML = game.pending ? `<span>豪华板块</span><strong>${pendingLabel(game.pending.type)}</strong>` : mine ? `<span>轮到你</span><strong>${game.currentRoll ? "选择一个点数，全部放入对应赌场" : "掷出你剩余的全部骰子"}</strong>` : `<span>等待行动</span><strong>${escapeHtml(playerName(room, game.currentTurnId))} 的回合</strong>`;
     const activeColor = room.players.find((player) => player.id === game.currentTurnId)?.color || "";
     $("rolledDice").innerHTML = game.currentRoll?.length ? game.currentRoll.map((item) => dieHtml(item, "rolling", activeColor)).join("") : "<span class=\"arena-placeholder\">🎲</span>";
-    const area = $("rollActions"); area.innerHTML = "";
+    const area = $("rollActions"); area.innerHTML = ""; area.classList.remove("face-choice");
     if (game.pending) return renderPending(room, game.pending, pendingMine);
     if (!mine) { area.innerHTML = "<div class=\"waiting-choice\">赌场正在等待下一次掷骰…</div>"; return; }
     const me = room.players.find((p) => p.id === getMyId());
@@ -220,6 +241,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
       }
       return;
     }
+    area.classList.add("face-choice");
     [...new Set(game.currentRoll.map((d) => d.face))].sort().forEach((face) => {
       const count = game.currentRoll.filter((d) => d.face === face).length;
       const closed = game.closedCasino === face;
