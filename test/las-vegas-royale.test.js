@@ -141,6 +141,7 @@ test("客户端使用环形赌场、六面立方骰子与手动确认结果", ()
   assert.match(client, /casino-sector-content/);
   assert.match(client, /我已看清 · 开始选择赌场/);
   assert.match(client, /die-face face-/);
-  assert.match(css, /translateY\(-292px\)/);
-  assert.match(css, /event-cube-tumble-v2/);
+  assert.match(css, /--sector:polygon/);
+  assert.match(css, /DICE ARENA/);
+  assert.match(css, /die-cube\.show-6 \.face-6/);
 });
