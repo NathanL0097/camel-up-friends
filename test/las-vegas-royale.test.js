@@ -36,6 +36,13 @@ test("随机模块不会同时抽到同一实体板的正反面", () => {
   }
 });
 
+test("全部豪华板块都随公开状态提供可查看的完整玩法说明", () => {
+  assert.equal(rules.TILES.length, 16);
+  assert.ok(rules.TILES.every((tile) => typeof tile.rule === "string" && tile.rule.length >= 35));
+  const room = { code: "ABC234", hostId: "a", players, game: rules.createGame(players, { mode: "royale", tileCount: 6 }) };
+  assert.ok(rules.publicRoom(room, "a").game.casinos.filter((casino) => casino.tile).every((casino) => casino.tile.rule));
+});
+
 test("房主可以选择无模块基础局或官方三模块豪华局", () => {
   const room = { hostId: "a", settings: rules.defaults(), game: null };
   rules.configure(room, "a", { mode: "base", tileCount: 6 });
@@ -135,11 +142,14 @@ test("公开房间状态携带有序动画事件供所有玩家同步播放", ()
   assert.deepEqual(events.map((event) => event.id), [...events.map((event) => event.id)].sort((a, b) => a - b));
 });
 
-test("客户端使用环形赌场、六面立方骰子与手动确认结果", () => {
+test("客户端使用环形赌场、清晰骰点、主动玩家确认与板块规则按钮", () => {
   const client = fs.readFileSync(require.resolve("../public/games/las-vegas-royale.js"), "utf8");
   const css = fs.readFileSync(require.resolve("../public/games/las-vegas-royale.css"), "utf8");
   assert.match(client, /casino-sector-content/);
   assert.match(client, /我已看清 · 开始选择赌场/);
+  assert.match(client, /event\.reason === "行动掷骰" && event\.playerId !== getMyId\(\)/);
+  assert.match(client, /showTileRules/);
+  assert.match(client, /casino-banknote/);
   assert.match(client, /die-face face-/);
   assert.match(css, /--sector:polygon/);
   assert.match(css, /DICE ARENA/);

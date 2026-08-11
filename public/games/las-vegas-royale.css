@@ -136,3 +136,51 @@
   .casino-sign{order:1;flex:0 0 auto}.money-cards{position:static;order:2;display:flex;align-self:flex-start;justify-content:flex-start;margin:2px 0;gap:5px}.royale-tile{order:3;flex:0 0 auto;margin:3px 0}.casino-dice{order:4;flex:1 1 auto;width:100%;min-height:56px;max-height:90px}.casino-3 .casino-sign,.casino-4 .casino-sign,.casino-5 .casino-sign{order:4}.casino-3 .money-cards,.casino-4 .money-cards,.casino-5 .money-cards{order:3}.casino-3 .royale-tile,.casino-4 .royale-tile,.casino-5 .royale-tile{order:2}.casino-3 .casino-dice,.casino-4 .casino-dice,.casino-5 .casino-dice{order:1}
   .casino-sign>span{flex:0 0 40px}.casino-sign b{font-size:12px}.casino-sign small{font-size:7px}.money-cards span{background:linear-gradient(145deg,#41394e,#211d29);color:#f5d78a}.empty-table{font-size:7px}.casino-select-callout{bottom:7px}.dice-arena .roll-actions{max-width:292px}.dice-arena .vegas-action{padding:6px 7px;font-size:8px}
 }
+
+/* v4 版图信息直接印在梯形赌场上：霓虹招牌、长方形纸币与可查看的豪华板块。 */
+.cube-pips{inset:10%}.pip{width:46%;box-shadow:inset 1px 1px 1px #fff8,0 1px 2px #0008}
+.casino-sign{background:transparent;border:0;box-shadow:none}
+.casino-sign>div{min-width:0}
+.casino-sign b{font-family:"STKaiti","KaiTi","Noto Serif SC",Georgia,serif;font-weight:900;letter-spacing:.12em;line-height:1.05}
+.casino-sign small{margin-top:3px;font-family:Georgia,serif;font-weight:700;letter-spacing:.2em;opacity:.72}
+.casino-1 .casino-sign b,.casino-4 .casino-sign b{color:#ffd36f;text-shadow:0 0 7px #e79233,0 2px 3px #000}
+.casino-2 .casino-sign b,.casino-6 .casino-sign b{color:#8bdcff;text-shadow:0 0 7px #2fa8e7,0 2px 3px #000}
+.casino-3 .casino-sign b{color:#d8a1ff;text-shadow:0 0 7px #a151df,0 2px 3px #000}
+.casino-5 .casino-sign b{color:#8ef0a7;text-shadow:0 0 7px #40bd70,0 2px 3px #000}
+.money-cards{display:flex;gap:6px;align-items:center}
+.money-cards .casino-banknote{position:relative;isolation:isolate;display:grid;grid-template-rows:auto 1fr auto;place-items:center;width:96px;height:39px;box-sizing:border-box;padding:3px 8px!important;overflow:hidden;border:1px solid #d8c68a!important;border-radius:3px!important;background:linear-gradient(135deg,#302b43,#191827 60%,#372c43)!important;color:#f5e4a9!important;box-shadow:0 3px 8px #0009,inset 0 0 0 2px #ffffff0d!important;transform:rotate(1.5deg)!important}
+.money-cards .casino-banknote:nth-child(2){transform:rotate(-1.5deg)!important}
+.casino-banknote:before{content:"";position:absolute;z-index:-1;inset:3px;border:1px solid #d8c68a66;background:radial-gradient(circle at 8% 50%,#d8c68a22 0 7px,transparent 8px),radial-gradient(circle at 92% 50%,#d8c68a22 0 7px,transparent 8px);pointer-events:none}
+.casino-banknote small{font:700 5px/1 Georgia,serif;letter-spacing:.18em;color:#d4c38f}
+.casino-banknote b{font:900 14px/.95 Georgia,serif;letter-spacing:-.03em;color:#fff4c8;text-shadow:0 1px 2px #000}
+.casino-banknote i{font:700 4px/1 Georgia,serif;letter-spacing:.15em;color:#b9a975}
+.royale-tile{appearance:none;width:100%;min-width:0;box-sizing:border-box;cursor:pointer;text-align:left;font-family:inherit;transition:transform .18s,filter .18s,border-color .18s}
+.royale-tile:hover,.royale-tile:focus-visible{transform:translateY(-1px);filter:brightness(1.22);border-color:#f2ce78;outline:none}
+.royale-tile>i{margin-left:auto;padding:3px 6px;border:1px solid #dfbd7466;border-radius:99px;color:#ffe3a1;font-size:7px;font-style:normal;font-weight:900;white-space:nowrap}
+.royale-tile div{min-width:0}.royale-tile b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vegas-tile-dialog{width:min(520px,calc(100vw - 28px));box-sizing:border-box;padding:0;border:1px solid #d2ad69;border-radius:22px;background:radial-gradient(circle at 15% 5%,#56375a,#17131e 58%,#090a0e);color:#f8ecd3;box-shadow:0 28px 90px #000e,inset 0 0 0 5px #ffffff08;overflow:hidden}
+.vegas-tile-dialog::backdrop{background:#030407cc;backdrop-filter:blur(5px)}
+.vegas-tile-dialog .tile-dialog-close{position:absolute;z-index:2;right:13px;top:12px;width:34px;height:34px;border:1px solid #fff3;border-radius:50%;background:#0b0b10aa;color:#fff;font-size:22px;cursor:pointer}
+.vegas-tile-dialog #vegasTileRule{padding:30px 30px 26px}
+.tile-rule-kicker{color:#e3bd6f;font:800 9px/1 Georgia,serif;letter-spacing:.18em}
+.tile-rule-title{display:flex;align-items:center;gap:14px;margin:18px 0 15px}.tile-rule-title>span{display:grid;place-items:center;width:58px;height:58px;border:1px solid #f0c86d88;border-radius:16px;background:linear-gradient(145deg,#8c3768,#34213f);font-size:29px;box-shadow:0 8px 20px #0008}.tile-rule-title small{color:#baa98d;font-size:10px}.tile-rule-title h3{margin:2px 0 0;color:#fff3cf;font:900 25px/1.1 "STKaiti","KaiTi","Noto Serif SC",serif;letter-spacing:.08em}.vegas-tile-dialog p{margin:0;padding:17px 18px;border:1px solid #d0ad6950;border-radius:13px;background:#05060988;color:#f3ead9;font-size:14px;line-height:1.8}.tile-live-state{margin-top:12px;padding:10px 14px;border-radius:10px;background:#d29c3422;color:#f4d58f}.tile-live-state strong{float:right;color:#ffe8a6}.tile-rule-note{display:block;margin-top:14px;color:#948b80;font-size:9px}
+
+@media(min-width:1051px){
+  .casino-sign b{font-size:18px}.casino-sign small{font-size:6px}
+  .casino-sign>span{flex-basis:38px;width:38px;height:38px;font-size:23px}
+  .money-cards{align-self:stretch;justify-content:flex-start;margin:1px 0}
+  .casino-1 .money-cards,.casino-4 .money-cards{justify-content:center}
+  .casino-2 .money-cards,.casino-3 .money-cards{justify-content:flex-end}
+  .casino-5 .money-cards,.casino-6 .money-cards{justify-content:flex-start}
+  .casino-2 .money-cards .casino-banknote,.casino-3 .money-cards .casino-banknote,.casino-5 .money-cards .casino-banknote,.casino-6 .money-cards .casino-banknote{width:88px}
+}
+
+@media(max-width:760px){
+  .cube-pips{inset:8%}.pip{width:48%}
+  .casino-sign b{font-size:12px!important}.casino-sign small{font-size:5px!important;letter-spacing:.12em}
+  .money-cards{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .money-cards .casino-banknote{width:100%;height:35px;padding:3px 4px!important}
+  .casino-banknote b{font-size:11px}.casino-banknote small{font-size:4px}.casino-banknote i{font-size:3.5px}
+  .royale-tile{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px;padding:5px 6px}.royale-tile>i{font-size:6px;padding:2px 4px}
+  .vegas-tile-dialog #vegasTileRule{padding:25px 20px 21px}.vegas-tile-dialog p{font-size:13px}.tile-rule-title h3{font-size:22px}
+}

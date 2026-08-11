@@ -47,6 +47,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
       <div id="vegasFinish" class="vegas-finish hidden"></div>
       <div id="vegasPayout" class="vegas-payout hidden"></div>
       <div id="vegasEventStage" class="vegas-event-stage hidden"><div class="vegas-event-card"><div id="vegasEventKicker" class="event-kicker"></div><h3 id="vegasEventTitle"></h3><div id="vegasEventVisual" class="event-visual"></div><p id="vegasEventDetail"></p><div id="vegasEventControls" class="event-controls"></div></div></div>
+      <dialog id="vegasTileDialog" class="vegas-tile-dialog"><button id="closeVegasTile" class="tile-dialog-close" aria-label="关闭豪华板块说明">×</button><div id="vegasTileRule"></div></dialog>
       <section id="vegasPlayers" class="vegas-players"></section>
       <main class="vegas-table">
         <div id="casinoGrid" class="casino-grid"></div>
@@ -65,6 +66,8 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
 
   $("vegasInvite").onclick = copyInvite;
   $("vegasRules").onclick = () => $("rulesDialog").showModal();
+  $("closeVegasTile").onclick = () => $("vegasTileDialog").close();
+  $("vegasTileDialog").onclick = (event) => { if (event.target === $("vegasTileDialog")) $("vegasTileDialog").close(); };
 
   const PIP_POSITIONS = { 1:[5], 2:[1,9], 3:[1,5,9], 4:[1,3,7,9], 5:[1,3,5,7,9], 6:[1,3,4,6,7,9] };
   function dieFaceHtml(face) {
@@ -102,9 +105,9 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     const rolledFaces = new Set(game.currentRoll?.map((item) => item.face) || []);
     const selectable = game.currentTurnId === getMyId() && rolledFaces.has(casino.number) && game.closedCasino !== casino.number && !game.pending;
     return `<article class="casino-card casino-${casino.number} ${game.closedCasino === casino.number ? "closed" : ""} ${selectable ? "selectable" : ""}" data-casino="${casino.number}" ${selectable ? 'role="button" tabindex="0"' : ""}><div class="casino-sector-content">
-      <div class="casino-sign"><span>${casino.number}</span><div><small>CASINO</small><b>${["日落大道", "埃及艳后", "海市蜃楼", "金色马蹄", "霓虹宫殿", "幸运之星"][casino.number - 1]}</b></div></div>
-      <div class="money-cards">${casino.money.map((value) => `<span>$${value}K</span>`).join("")}</div>
-      ${tile ? `<div class="royale-tile" title="${escapeHtml(tile.name)}"><span>${tile.icon}</span><div><small>豪华板块 ${tile.id}</small><b>${escapeHtml(tile.name)}</b></div>${tile.state.jackpot ? `<em>$${tile.state.jackpot}K</em>` : ""}</div>` : ""}
+      <div class="casino-sign"><span>${casino.number}</span><div><b>${["日落大道", "埃及艳后", "海市蜃楼", "金色马蹄", "霓虹宫殿", "幸运之星"][casino.number - 1]}</b><small>LAS VEGAS CASINO</small></div></div>
+      <div class="money-cards">${casino.money.map((value) => `<span class="casino-banknote"><small>LAS VEGAS</small><b>${value},000</b><i>CASINO DOLLARS</i></span>`).join("")}</div>
+      ${tile ? `<button type="button" class="royale-tile" data-tile="${tile.id}" aria-label="查看${escapeHtml(tile.name)}玩法"><span>${tile.icon}</span><div><small>豪华板块 ${tile.id}</small><b>${escapeHtml(tile.name)}</b></div>${tile.state.jackpot ? `<em>$${tile.state.jackpot}K</em>` : ""}<i>查看玩法</i></button>` : ""}
       <div class="casino-dice">${dice || "<span class=\"empty-table\">等待骰子入场</span>"}${casino.blankDice ? `<div class="blank-dice">灰骰 × ${casino.blankDice}</div>` : ""}</div>
       ${game.closedCasino === casino.number ? "<div class=\"closed-stamp\">禁止入场</div>" : ""}
       ${selectable ? `<div class="casino-select-callout">选择 ${casino.number} 点</div>` : ""}</div>
@@ -113,6 +116,14 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
 
   function actionButton(label, onclick, className = "") {
     const button = document.createElement("button"); button.className = `vegas-action ${className}`; button.textContent = label; button.onclick = onclick; return button;
+  }
+
+  function showTileRules(room, tileId) {
+    const casino = room.game.casinos.find((item) => item.tile?.id === tileId);
+    if (!casino?.tile) return;
+    const tile = casino.tile;
+    $("vegasTileRule").innerHTML = `<div class="tile-rule-kicker">ROYAL CASINO TILE · ${escapeHtml(tile.id)}</div><div class="tile-rule-title"><span>${tile.icon}</span><div><small>${casino.number}号赌场豪华板块</small><h3>${escapeHtml(tile.name)}</h3></div></div><p>${escapeHtml(tile.rule || "本板块会在骰子放入后触发特殊效果，请按中央操作提示完成。")}</p>${tile.state.jackpot ? `<div class="tile-live-state">当前累积奖池 <strong>$${tile.state.jackpot}K</strong></div>` : ""}<small class="tile-rule-note">点击板块只查看说明，不会放置骰子或消耗行动。</small>`;
+    $("vegasTileDialog").showModal();
   }
 
   function optionSelect(options, id = "pendingSelect") {
@@ -242,6 +253,8 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
   }
 
   async function presentEvent(room, event) {
+    // 普通行动掷骰只由行动玩家进入放大确认层；其他玩家直接看中央骰盅中的同步结果。
+    if (event.type === "dice-roll" && event.reason === "行动掷骰" && event.playerId !== getMyId()) return;
     const stage = $("vegasEventStage"), visual = $("vegasEventVisual"), title = $("vegasEventTitle"), detail = $("vegasEventDetail"), kicker = $("vegasEventKicker"), controls = $("vegasEventControls");
     if (!stage) return;
     stage.className = `vegas-event-stage ${event.type}`; visual.className = "event-visual";
@@ -316,6 +329,10 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
       const choose = () => { sound("place"); emit("place", { face: Number(card.dataset.casino) }); };
       card.onclick = choose;
       card.onkeydown = (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); choose(); } };
+    });
+    document.querySelectorAll(".royale-tile").forEach((button) => {
+      button.onclick = (event) => { event.stopPropagation(); showTileRules(room, button.dataset.tile); };
+      button.onkeydown = (event) => { event.stopPropagation(); };
     });
     $("roundStatus").innerHTML = `<p><span>当前回合</span><b>${escapeHtml(playerName(room, game.currentTurnId))}</b></p><p><span>封锁赌场</span><b>${game.closedCasino ? `${game.closedCasino}号` : "无"}</b></p><p><span>强势控场</span><b>${game.powerToken ? escapeHtml(playerName(room, game.powerToken)) : "无人持有"}</b></p>`;
     $("vegasLog").innerHTML = game.log.map((line) => `<p>${escapeHtml(line)}</p>`).join(""); renderFinish(room); previous = room;
