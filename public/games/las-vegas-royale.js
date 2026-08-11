@@ -131,8 +131,10 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
       ["③", "最后怎么算", guide.result], ["④", "举个例子", guide.example]
     ];
     stopTileDemo();
-    $("vegasTileRule").innerHTML = `<div class="tile-rule-kicker">ROYAL CASINO TILE · ${escapeHtml(tile.id)}</div><div class="tile-rule-title"><span>${tile.icon}</span><div><small>${casino.number}号赌场豪华板块</small><h3>${escapeHtml(tile.name)}</h3></div></div><div class="tile-demo-stage" style="--demo-step:0"><div class="tile-demo-track">${steps.map(([icon, label], index) => `<div class="tile-demo-node ${index === 0 ? "active" : ""}" data-step="${index}"><b>${icon}</b><small>${escapeHtml(label)}</small></div>`).join("")}</div><div class="tile-demo-mover">🎲</div><strong id="tileDemoCaption">${escapeHtml(steps[0][2])}</strong></div><div class="tile-guide-list">${steps.map(([icon, label, text], index) => `<article class="${index === 0 ? "active" : ""}" data-step="${index}"><b>${icon} ${escapeHtml(label)}</b><p>${escapeHtml(text)}</p></article>`).join("")}</div>${tile.state.jackpot ? `<div class="tile-live-state">当前累积奖池 <strong>$${tile.state.jackpot}K</strong></div>` : ""}<button type="button" id="replayTileDemo" class="replay-tile-demo">↻ 重新演示</button><small class="tile-rule-note">这段演示只在你的屏幕播放，不会打断其他玩家，也不会消耗行动。</small>`;
+    $("vegasTileRule").innerHTML = `<div class="tile-rule-kicker">ROYAL CASINO TILE · ${escapeHtml(tile.id)}</div><div class="tile-rule-title"><span>${tile.icon}</span><div><small>${casino.number}号赌场豪华板块</small><h3>${escapeHtml(tile.name)}</h3></div></div><div class="tile-demo-stage" style="--demo-step:0"><div class="tile-demo-track">${steps.map(([icon, label], index) => `<button type="button" class="tile-demo-node ${index === 0 ? "active" : ""}" data-step="${index}"><b>${icon}</b><small>${escapeHtml(label)}</small></button>`).join("")}</div><div class="tile-demo-mover">🎲</div><strong id="tileDemoCaption">${escapeHtml(steps[0][2])}</strong><div class="tile-demo-progress"><i></i></div><small id="tileDemoTiming" class="tile-demo-timing"></small></div><div class="tile-guide-list">${steps.map(([icon, label, text], index) => `<article class="${index === 0 ? "active" : ""}" data-step="${index}"><b>${icon} ${escapeHtml(label)}</b><p>${escapeHtml(text)}</p></article>`).join("")}</div>${tile.state.jackpot ? `<div class="tile-live-state">当前累积奖池 <strong>$${tile.state.jackpot}K</strong></div>` : ""}<div class="tile-demo-controls"><button type="button" id="pauseTileDemo" class="replay-tile-demo">Ⅱ 暂停</button><button type="button" id="replayTileDemo" class="replay-tile-demo">↻ 从头演示</button></div><small class="tile-rule-note">每一步至少停留8秒；文字较长时会自动延长。点击任意步骤可停住阅读。这段演示只在你的屏幕播放。</small>`;
     let step = 0;
+    let paused = false;
+    const readingTime = (text) => Math.max(8000, Math.min(13000, 3500 + String(text).length * 160));
     const paintStep = (next) => {
       step = next % steps.length;
       const stage = $("vegasTileRule").querySelector(".tile-demo-stage");
@@ -141,10 +143,30 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
       $("tileDemoCaption").textContent = steps[step][2];
       $("vegasTileRule").querySelectorAll("[data-step]").forEach((item) => item.classList.toggle("active", Number(item.dataset.step) === step));
     };
-    const play = () => { stopTileDemo(); paintStep(0); tileDemoTimer = setInterval(() => paintStep(step + 1), 2200); };
-    $("replayTileDemo").onclick = play;
+    const schedule = () => {
+      stopTileDemo();
+      if (paused) return;
+      const milliseconds = readingTime(steps[step][2]);
+      const stage = $("vegasTileRule").querySelector(".tile-demo-stage");
+      stage.style.setProperty("--demo-duration", `${milliseconds}ms`);
+      stage.classList.remove("counting"); void stage.offsetWidth; stage.classList.add("counting");
+      $("tileDemoTiming").textContent = `本步停留约 ${Math.ceil(milliseconds / 1000)} 秒`;
+      tileDemoTimer = setTimeout(() => { paintStep(step + 1); schedule(); }, milliseconds);
+    };
+    const setPaused = (value) => {
+      paused = value; stopTileDemo();
+      $("vegasTileRule").querySelector(".tile-demo-stage")?.classList.toggle("paused", paused);
+      $("pauseTileDemo").textContent = paused ? "▶ 继续（本步重新计时）" : "Ⅱ 暂停";
+      $("tileDemoTiming").textContent = paused ? "已暂停，你可以慢慢阅读" : "";
+      if (!paused) schedule();
+    };
+    $("pauseTileDemo").onclick = () => setPaused(!paused);
+    $("replayTileDemo").onclick = () => { paused = false; paintStep(0); setPaused(false); };
+    $("vegasTileRule").querySelectorAll(".tile-demo-node,.tile-guide-list article").forEach((item) => {
+      item.onclick = () => { paintStep(Number(item.dataset.step)); setPaused(true); };
+    });
     $("vegasTileDialog").showModal();
-    play();
+    schedule();
   }
 
   function optionSelect(options, id = "pendingSelect") {

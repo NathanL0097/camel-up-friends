@@ -190,17 +190,19 @@
 .tile-demo-stage{position:relative;margin:2px 0 14px;padding:17px 16px 15px;border:1px solid #ddb96955;border-radius:15px;background:radial-gradient(circle at calc(12.5% + var(--demo-step)*25%) 15%,#d99a4940,transparent 23%),linear-gradient(145deg,#120f17,#050609);overflow:hidden}
 .tile-demo-track{position:relative;z-index:2;display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
 .tile-demo-track:before{content:"";position:absolute;z-index:-1;left:10%;right:10%;top:19px;height:2px;background:linear-gradient(90deg,#705b3c,#e0bc6f,#705b3c)}
-.tile-demo-node{display:grid;place-items:center;gap:4px;min-width:0;color:#8d8375;text-align:center;transition:.25s}
+.tile-demo-node{appearance:none;display:grid;place-items:center;gap:4px;min-width:0;padding:0;border:0;background:transparent;color:#8d8375;font-family:inherit;text-align:center;cursor:pointer;transition:.25s}
 .tile-demo-node b{display:grid;place-items:center;width:38px;height:38px;border:2px solid #66583e;border-radius:50%;background:#15131a;color:#aa9876;font-size:14px;transition:.25s}
 .tile-demo-node small{font-size:8px;white-space:nowrap}.tile-demo-node.active{color:#ffe4aa}.tile-demo-node.active b{transform:scale(1.12);border-color:#ffe09a;background:#9a5d18;color:#fff;box-shadow:0 0 18px #e8ad4e99}
 .tile-demo-mover{position:absolute;z-index:4;left:calc(12.5% + var(--demo-step)*25%);top:7px;transform:translateX(-50%);font-size:20px;filter:drop-shadow(0 4px 5px #000);transition:left .55s cubic-bezier(.2,.8,.2,1);animation:tile-demo-hop .9s ease-in-out infinite alternate}
 .tile-demo-stage>strong{display:block;min-height:42px;margin-top:16px;padding:10px 12px;border-radius:9px;background:#ffffff09;color:#fff0cd;font-size:12px;line-height:1.65;text-align:center;transition:.25s}
+.tile-demo-progress{height:3px;margin:9px 12px 0;border-radius:99px;background:#ffffff12;overflow:hidden}.tile-demo-progress i{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#c17a27,#ffe09a)}.tile-demo-stage.counting .tile-demo-progress i{animation:tile-reading-progress var(--demo-duration) linear forwards}.tile-demo-stage.paused .tile-demo-progress i{animation-play-state:paused}.tile-demo-timing{display:block;margin-top:5px;color:#9c907f;font-size:7px;text-align:center}
 .tile-guide-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .tile-guide-list article{padding:10px 11px;border:1px solid #ffffff10;border-radius:10px;background:#08090d99;opacity:.62;transition:.25s}
 .tile-guide-list article.active{border-color:#e3bd6f88;background:#6a451d33;opacity:1;box-shadow:inset 3px 0 #e4b75e}
 .tile-guide-list article>b{color:#e1bd76;font-size:10px}.vegas-tile-dialog .tile-guide-list p{margin:5px 0 0;padding:0;border:0;border-radius:0;background:transparent;color:#ded5c7;font-size:11px;line-height:1.6}
-.replay-tile-demo{display:block;margin:13px auto 0;padding:7px 14px;border:1px solid #ddb96966;border-radius:99px;background:#16131b;color:#f2d695;font-size:9px;font-weight:900;cursor:pointer}.replay-tile-demo:hover{background:#6b461e}
+.tile-demo-controls{display:flex;justify-content:center;gap:8px;margin-top:13px}.replay-tile-demo{display:block;margin:0;padding:7px 14px;border:1px solid #ddb96966;border-radius:99px;background:#16131b;color:#f2d695;font-size:9px;font-weight:900;cursor:pointer}.replay-tile-demo:hover{background:#6b461e}
 @keyframes tile-demo-hop{to{transform:translate(-50%,-5px) rotate(8deg)}}
+@keyframes tile-reading-progress{to{width:100%}}
 
 /* 点数选择固定在骰盅的安全区内，最多六种点数也不会被六边形裁边。 */
 .dice-arena .roll-actions.face-choice{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;width:246px;max-width:246px;gap:6px;margin-top:-2px}

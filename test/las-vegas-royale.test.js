@@ -151,6 +151,9 @@ test("客户端使用环形赌场、清晰骰点、主动玩家确认与板块�
   assert.match(client, /event\.reason === "行动掷骰" && event\.playerId !== getMyId\(\)/);
   assert.match(client, /showTileRules/);
   assert.match(client, /tile-demo-stage/);
+  assert.match(client, /Math\.max\(8000, Math\.min\(13000/);
+  assert.match(client, /pauseTileDemo/);
+  assert.doesNotMatch(client, /setInterval\(\(\) => paintStep\(step \+ 1\), 2200\)/);
   assert.match(client, /face-choice/);
   assert.match(client, /casino-banknote/);
   assert.match(client, /die-face face-/);
