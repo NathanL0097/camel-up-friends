@@ -12,6 +12,9 @@
     let queuedPoints = [];
     let lastPoint = null;
     let lastSend = 0;
+    let renderedStrokeLengths = new Map();
+    let renderedTurn = null;
+    let renderFrame = null;
     const wordDifficultyNames = { easy: "直观", medium: "聚会", hard: "挑战" };
     const emitAction = (action, payload = {}) => socket.emit("game:action", { action, payload });
 
@@ -43,6 +46,10 @@
     canvas.addEventListener("pointermove", pointerMove);
     canvas.addEventListener("pointerup", pointerUp);
     canvas.addEventListener("pointercancel", pointerUp);
+    socket.on("draw:stroke", (payload) => {
+      if (!roomState?.game || roomState.game.phase !== "drawing" || payload.playerId === getMyId()) return;
+      queueRemoteStroke(payload);
+    });
 
     function setTool(next) {
       tool = next;
@@ -78,6 +85,7 @@
       if (!drawing || !canDraw()) return;
       const point = canvasPoint(event);
       drawLocalSegment(lastPoint, point);
+      if (!queuedPoints.length && lastPoint) queuedPoints.push(lastPoint);
       lastPoint = point;
       queuedPoints.push(point);
       if (Date.now() - lastSend >= 35) flushStroke();
@@ -112,6 +120,19 @@
       const { context, width, height } = setupCanvas();
       context.clearRect(0, 0, width, height);
       strokes.forEach((stroke) => drawStroke(context, stroke, width, height));
+      renderedStrokeLengths = new Map(strokes.map((stroke) => [stroke.id, stroke.points?.length || 0]));
+    }
+
+    function queueRemoteStroke(payload) {
+      if (!payload?.strokeId || !payload.points?.length) return;
+      const previousLength = renderedStrokeLengths.get(payload.strokeId) || 0;
+      const segment = { ...payload, points: payload.points };
+      renderedStrokeLengths.set(payload.strokeId, previousLength + payload.points.length);
+      cancelAnimationFrame(renderFrame);
+      renderFrame = requestAnimationFrame(() => {
+        const { context, width, height } = setupCanvas();
+        drawStroke(context, segment, width, height);
+      });
     }
 
     function drawStroke(context, stroke, width, height) {
@@ -228,7 +249,14 @@
         $("drawRestart")?.addEventListener("click", () => socket.emit("game:restart"));
       }
 
-      requestAnimationFrame(() => renderCanvas(game.strokes));
+      const turnKey = `${game.turnNumber}-${game.phase}`;
+      const currentLengths = new Map((game.strokes || []).map((stroke) => [stroke.id, stroke.points?.length || 0]));
+      const structuralChange = renderedTurn !== turnKey || renderedStrokeLengths.size !== currentLengths.size
+        || [...renderedStrokeLengths].some(([id, length]) => !currentLengths.has(id) || currentLengths.get(id) < length);
+      if (structuralChange) {
+        renderedTurn = turnKey;
+        requestAnimationFrame(() => renderCanvas(game.strokes));
+      }
       updateCountdown();
     }
 

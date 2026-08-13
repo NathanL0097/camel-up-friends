@@ -30,7 +30,7 @@ test("平台游戏注册表公开元数据但不公开服务端处理器", () =>
   assert.equal(catalog[1].title, "开盘！");
   assert.equal(catalog[1].clientScript, "/games/market-opening.js");
   assert.equal(catalog[2].title, "你画我猜");
-  assert.equal(catalog[2].clientScript, "/games/draw-and-guess.js");
+  assert.match(catalog[2].clientScript, /^\/games\/draw-and-guess\.js(?:\?v=[a-z0-9-]+)?$/i);
   assert.equal(catalog[3].title, "扑克之夜");
   assert.equal(catalog[3].maxPlayers, 9);
   assert.equal(catalog[4].title, "文明奇迹：双城对决");

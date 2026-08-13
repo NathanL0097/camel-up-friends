@@ -43,7 +43,10 @@ function eligibleQuestions(game, forcedCategory = null) {
   const bank = getQuestionBank();
   const categories = forcedCategory ? [forcedCategory] : game.settings.categories;
   const packMatch = (question) => game.settings.pack === "all" || (game.settings.pack === "classic" ? question.pack !== "party" && question.pack !== "current" : question.pack === "party");
-  return bank.filter((question) => categories.includes(question.category) && packMatch(question) && chinaFirstQuestion(question) && !game.usedKnowledgeKeys.includes(question.knowledgeKey) && !RECENT_KNOWLEDGE_KEYS.includes(question.knowledgeKey));
+  return bank.filter((question) => categories.includes(question.category) && packMatch(question) && chinaFirstQuestion(question)
+    && !game.retiredKnowledgeKeys.includes(question.knowledgeKey)
+    && !game.usedKnowledgeKeys.includes(question.knowledgeKey)
+    && !RECENT_KNOWLEDGE_KEYS.includes(question.knowledgeKey));
 }
 
 function pickQuestion(game, forcedCategory = null) {
@@ -61,7 +64,6 @@ function pickQuestion(game, forcedCategory = null) {
       choices = eligibleQuestions(game, null);
     } else {
       RECENT_KNOWLEDGE_KEYS.length = 0;
-      game.usedKnowledgeKeys = [];
       const categoryPools = game.settings.categories.map((category) => ({ category, questions: eligibleQuestions(game, category) })).filter((entry) => entry.questions.length);
       choices = categoryPools[Math.floor(game.random() * categoryPools.length)]?.questions || [];
     }
@@ -106,7 +108,7 @@ function createGame(players, settings = defaultSettings(), random = Math.random,
   const game = {
     status: "playing", mode: cleanSettings.mode, phase: "question", settings: cleanSettings,
     questionNumber: 0, turnOrder: shuffle(players.map((item) => item.id), random), activePlayerId: null,
-    question: null, usedQuestionIds: [], usedKnowledgeKeys: [...new Set(previousKnowledgeKeys)].filter((key) => typeof key === "string"), deadline: null, mainDeadline: null, mainRemaining: null,
+    question: null, usedQuestionIds: [], usedKnowledgeKeys: [], retiredKnowledgeKeys: [...new Set(previousKnowledgeKeys)].filter((key) => typeof key === "string"), deadline: null, mainDeadline: null, mainRemaining: null,
     questionStartedAt: null, answererId: null, attempts: [], result: null, reactions: [], categoryVote: null, ghostCategoryCursor: 0,
     ranking: [], championId: null, challenges: {}, challengeRerolls: {}, random, packInfo: questionPackInfo()
   };
@@ -175,8 +177,8 @@ function skipSurvival(room, playerId, now = Date.now()) {
   item.skips -= 1;
   item.answerStreak = 0;
   game.activePlayerId = nextAliveId(room, playerId) || playerId;
-  game.deadline = now + SURVIVAL_SECONDS * 1000;
   game.result = null;
+  if (!offerCategoryVote(room, now)) beginQuestion(room, now);
 }
 
 function buzz(room, playerId, now = Date.now()) {
@@ -229,9 +231,10 @@ function offerCategoryVote(room, now = Date.now()) {
   if (!ghosts.length) return false;
   const selector = ghosts[game.ghostCategoryCursor % ghosts.length];
   game.phase = "category-vote";
+  const availableCategories = game.settings.categories.filter((category) => packAllowsCategory(game.settings.pack, category));
   game.categoryVote = {
     selectorId: selector.id,
-    options: game.settings.categories.filter((category) => packAllowsCategory(game.settings.pack, category)),
+    options: shuffle(availableCategories, game.random).slice(0, Math.min(3, availableCategories.length)),
     deadline: now + VOTE_SECONDS * 1000
   };
   game.deadline = game.categoryVote.deadline;
@@ -351,6 +354,7 @@ function publicRoom(room, viewerId = null, now = Date.now()) {
     random: undefined,
     usedQuestionIds: undefined,
     usedKnowledgeKeys: undefined,
+    retiredKnowledgeKeys: undefined,
     question: source.question ? {
       id: source.question.id,
       category: source.question.category,

@@ -20,6 +20,14 @@ const PORT = Number(process.env.PORT || 3000);
 const characterImageCache = new Map();
 const database = createDatabase();
 const accessService = createPersistentAccessService({ database, fallback: createAccessService() });
+const retiredQuizKeys = new Set();
+const retiredQuizKeysReady = (async () => {
+  if (!database.enabled) return;
+  await database.ready();
+  const result = await database.query("SELECT knowledge_key FROM quiz_retired_questions");
+  result.rows.forEach((row) => retiredQuizKeys.add(row.knowledge_key));
+  console.log(`站神永久废题库已载入：${retiredQuizKeys.size}题`);
+})().catch((error) => console.error(`站神永久废题库载入失败：${error.message}`));
 accessService.ready().then(() => console.log(database.enabled ? "Neon 数据库已连接，权限与审计日志已持久化" : "未配置 DATABASE_URL，暂时使用内存权限存储")).catch((error) => console.error(`数据库初始化失败：${error.message}`));
 async function recordAudit(event) {
   try { await accessService.audit(event); } catch (error) { console.warn(`审计日志写入失败：${error.message}`); }
@@ -34,12 +42,33 @@ async function loadQuizHistory(room, player) {
   room.quizOwnerHash = quizOwnerHash(player.token);
   room.quizHistoryKeys = new Set();
   room.quizPersistedKeys = new Set();
+  await retiredQuizKeysReady;
+  retiredQuizKeys.forEach((key) => room.quizHistoryKeys.add(key));
   if (!database.enabled) return;
   await database.ready();
   const result = await database.query("SELECT knowledge_key FROM quiz_question_history WHERE owner_hash = $1", [room.quizOwnerHash]);
   for (const row of result.rows) {
     room.quizHistoryKeys.add(row.knowledge_key);
     room.quizPersistedKeys.add(row.knowledge_key);
+  }
+}
+
+async function retireQuizQuestion(room) {
+  if (room.gameId !== "quiz-arena" || !room.game?.question?.knowledgeKey) return;
+  const key = room.game.question.knowledgeKey;
+  if (retiredQuizKeys.has(key)) return;
+  retiredQuizKeys.add(key);
+  room.quizHistoryKeys?.add(key);
+  if (!database.enabled) return;
+  try {
+    await database.query(`
+      INSERT INTO quiz_retired_questions (knowledge_key, room_code)
+      VALUES ($1, $2)
+      ON CONFLICT (knowledge_key) DO NOTHING
+    `, [key, room.code]);
+  } catch (error) {
+    retiredQuizKeys.delete(key);
+    console.warn(`站神永久废题写入失败：${error.message}`);
   }
 }
 
@@ -262,6 +291,13 @@ function sendRoom(room) {
     if (client.data.roomCode === room.code) client.emit("room:update", roomService.publicRoom(room, client.data.playerId));
   }
   void persistQuizHistory(room);
+  void retireQuizQuestion(room);
+}
+
+function broadcastDrawStroke(room, payload) {
+  for (const client of io.sockets.sockets.values()) {
+    if (client.data.roomCode === room.code) client.emit("draw:stroke", payload);
+  }
 }
 
 function replyError(socket, error) {
@@ -355,7 +391,30 @@ io.on("connection", (socket) => {
       sendRoom(room);
     } catch (error) { replyError(socket, error); }
   };
-  socket.on("game:action", action((room, id, data) => roomService.applyGameAction(room, id, data.action, data.payload)));
+  socket.on("game:action", (data = {}) => {
+    if (data.action === "draw") {
+      try {
+        const room = rooms.get(socket.data.roomCode);
+        if (!room) throw new Error("房间已经关闭");
+        syncRoomConnections(room);
+        roomService.applyGameAction(room, socket.data.playerId, data.action, data.payload);
+        const points = Array.isArray(data.payload?.points) ? data.payload.points.slice(0, 32).map((point) => ({
+          x: Math.max(0, Math.min(1, Number(point.x) || 0)),
+          y: Math.max(0, Math.min(1, Number(point.y) || 0))
+        })) : [];
+        broadcastDrawStroke(room, {
+          playerId: socket.data.playerId,
+          strokeId: String(data.payload?.strokeId || "").slice(0, 50),
+          color: String(data.payload?.color || "").slice(0, 20),
+          width: Math.max(2, Math.min(24, Number(data.payload?.width) || 5)),
+          tool: ["eraser", "crayon"].includes(data.payload?.tool) ? data.payload.tool : "brush",
+          points
+        });
+      } catch (error) { replyError(socket, error); }
+      return;
+    }
+    action((room, id, message) => roomService.applyGameAction(room, id, message.action, message.payload))(data);
+  });
   // 兼容已打开的旧客户端；新游戏统一使用 game:action。
   for (const legacyAction of ["roll", "bet", "tile", "partner", "predict"]) {
     socket.on(`game:${legacyAction}`, action((room, id, data) => roomService.applyGameAction(room, id, legacyAction, data)));

@@ -56,13 +56,14 @@ test("每道动漫角色题都有受控图片查询且不会把搜索词发给�
   assert.ok(characterQuestions.every((item) => !item.imageUrl.includes("AniList") && !item.imageUrl.includes("search")));
 });
 
-test("海外音乐题使用中文题干但保留正式英文作品名", () => {
-  const trouble = questions.LOCAL_QUESTIONS.find((item) => item.id === "wikidata-song-performer-Q276585-Q26876");
-  const thriller = questions.LOCAL_QUESTIONS.find((item) => item.id === "wikidata-album-performer-Q44320-Q2831");
-  assert.match(trouble.prompt, /歌曲《I Knew You Were Trouble》的原唱或主要表演者是谁/);
-  assert.match(thriller.prompt, /音乐专辑《Thriller》由谁演唱或发行/);
-  assert.equal(trouble.answer, "泰勒·斯威夫特");
-  assert.ok(questions.questionPackInfo().properNounPolicy.includes("official-proper-nouns"));
+test("影视音乐只保留中国内容并彻底移除儿童童话题", () => {
+  const foreignMedia = /泰勒·斯威夫特|迈克尔·杰克逊|泰坦尼克号|盗梦空间|侏罗纪公园|千与千寻/;
+  const fairy = /童话|安徒生|格林|白雪公主|灰姑娘|小红帽|睡美人|匹诺曹|豌豆公主|拇指姑娘|长发公主|彼得潘|爱丽丝|小王子|儿童文学/;
+  assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.category === "影视").every((item) => item.chinaFeatured || item.source === "公开电影常识核验题"));
+  assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.category === "音乐").every((item) => item.chinaFeatured));
+  assert.ok(questions.LOCAL_QUESTIONS.every((item) => !foreignMedia.test(`${item.prompt} ${item.answer}`)));
+  assert.ok(questions.LOCAL_QUESTIONS.every((item) => !fairy.test(`${item.prompt} ${item.answer} ${item.explanation}`)));
+  assert.equal(questions.questionPackInfo().properNounPolicy, "china-film-music-only-no-fairy-tales");
 });
 
 test("中国影视生活常识与网络文化题显著扩充并保持人工核验选项", () => {
@@ -90,6 +91,15 @@ test("角色图片服务使用角色本名检索并由本站转发图像", () =>
   assert.doesNotMatch(server, /redirect\(302, imageUrl\)/);
 });
 
+test("任何正式出现的题都会进入数据库永久废题库", () => {
+  const server = fs.readFileSync(path.join(__dirname, "../server.js"), "utf8");
+  const database = fs.readFileSync(path.join(__dirname, "../src/platform/database.js"), "utf8");
+  assert.match(database, /CREATE TABLE IF NOT EXISTS quiz_retired_questions/);
+  assert.match(server, /retireQuizQuestion/);
+  assert.match(server, /INSERT INTO quiz_retired_questions/);
+  assert.match(server, /void retireQuizQuestion\(room\)/);
+});
+
 test("客户端使用环形站台、生命核心和淘汰坠落反馈", () => {
   const client = fs.readFileSync(path.join(__dirname, "../public/games/quiz-arena.js"), "utf8");
   const styles = fs.readFileSync(path.join(__dirname, "../public/games/quiz-arena.css"), "utf8");
@@ -98,7 +108,7 @@ test("客户端使用环形站台、生命核心和淘汰坠落反馈", () => {
   assert.match(client, /paintElimination/);
   assert.match(styles, /@keyframes quiz-seat-drop/);
   assert.match(styles, /@keyframes quiz-fall-avatar/);
-  assert.match(client, /同一房主跨房间长期去重/);
+  assert.match(client, /永久进入废题库/);
   assert.doesNotMatch(client, /"儿童动画角色"|时事政治|"科学", "科技"/);
 });
 
@@ -118,12 +128,12 @@ test("只有房主能选择模式、题包和至少一个领域", () => {
   assert.deepEqual(room.settings, { mode: "buzzer", pack: "party", categories: ["影视", "游戏与网络文化"] });
 });
 
-test("房主历史知识编号会在新一局继续排除", () => {
+test("永久废题编号会在所有新局继续排除", () => {
   const previous = questions.LOCAL_QUESTIONS.filter((item) => item.category === "地理").slice(0, 30).map((item) => item.knowledgeKey);
   const players = [{ id: "p1", name: "房主" }, { id: "p2", name: "朋友" }];
   const game = rules.createGame(players, { mode: "survival", pack: "classic", categories: ["地理"] }, () => 0, 1000, previous);
   assert.ok(!previous.includes(game.question.knowledgeKey));
-  assert.ok(previous.every((key) => game.usedKnowledgeKeys.includes(key)));
+  assert.ok(previous.every((key) => game.retiredKnowledgeKeys.includes(key)));
 });
 
 test("站神模式每人三颗生命和一次跳过且选项只对当前玩家公开", () => {
@@ -170,14 +180,15 @@ test("所有领域抽题统一执行中国优先与全球知名例外规则", ()
   assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.category === "美食" && item.chinaFeatured).length >= 50);
 });
 
-test("站神模式可以连续传递同一道题且每次重新获得20秒", () => {
+test("站神模式跳过后由下一位回答全新题目", () => {
   const room = makeRoom();
   const questionId = room.game.question.id, first = room.game.activePlayerId;
   rules.skipSurvival(room, first, 5000);
   const second = room.game.activePlayerId;
-  assert.notEqual(second, first); assert.equal(room.game.question.id, questionId); assert.equal(room.game.deadline, 25_000);
+  assert.notEqual(second, first); assert.notEqual(room.game.question.id, questionId); assert.equal(room.game.deadline, 25_000);
+  const secondQuestionId = room.game.question.id;
   rules.skipSurvival(room, second, 7000);
-  assert.equal(room.game.question.id, questionId); assert.equal(room.game.deadline, 27_000);
+  assert.notEqual(room.game.question.id, secondQuestionId); assert.equal(room.game.deadline, 27_000);
   assert.equal(room.players.find((item) => item.id === first).skips, 0);
   rules.skipSurvival(room, room.game.activePlayerId, 7500);
   assert.throws(() => rules.skipSurvival(room, first, 8000), /跳过机会/);
@@ -254,6 +265,7 @@ test("每一题均由捣蛋鬼轮流指定下一题领域", () => {
   const room = makeRoom(4); room.players[2].eliminated = true; room.players[2].lives = 0; room.players[3].eliminated = true; room.players[3].lives = 0;
   room.game.phase = "result"; room.game.deadline = 5000;
   rules.tick(room, 5000); assert.equal(room.game.phase, "category-vote"); assert.equal(room.game.categoryVote.selectorId, "p3");
+  assert.equal(room.game.categoryVote.options.length, 3);
   const chosen = room.game.categoryVote.options[1]; rules.voteCategory(room, "p3", chosen, 5100);
   assert.equal(room.game.phase, "question"); assert.equal(room.game.question.category, chosen);
   room.game.phase = "result"; room.game.deadline = 6000;

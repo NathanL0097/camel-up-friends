@@ -17,6 +17,17 @@ const NETWORK_WORDS = /互联网|网络用语|社交媒体|视频网站|直播|�
 const COLD_DETAIL = /(第\s*\d+|第几|章节|本章|倒数第|哪一集|第几集|哪一季|赛季|哪一年|什么时候|何时|有多少|多少个|多少只|第一个|第二个|第三个|谁是.*第|何时去世|什么时候去世|出生于哪个国家|票房|奥斯卡.*提名|艾美奖|格莱美奖|排行榜第|广告中|书中|小说中|最后一幕|哪两名.*成员|哪支球队|哪位球员|哪位演员|饰演|扮演|情节|剧情|结局|杀了多少|专辑.*第|歌曲.*发行|电影.*出品|电影.*拍摄|赛季|冠军|比赛|得分|本垒打|联盟|球队|教练|运动员人数|摩托车|魔法部|格兰芬多|霍格沃茨|根据《战争机器》)/i;
 const META_OPTIONS = /(这些答案|以上都|都不是|两者|所有这些|这些都|以上皆是|以上都不是)/;
 const VAGUE_OPENING = /^(这个|这些|这种|这位|这项|以下哪项陈述)/;
+const CHILDREN_FAIRY = /童话|安徒生|格林|白雪公主|灰姑娘|小红帽|睡美人|匹诺曹|豌豆公主|拇指姑娘|长发公主|彼得潘|爱丽丝|小王子|儿童文学/;
+const FOREIGN_FILM = /泰坦尼克号|盗梦空间|侏罗纪公园|阿甘正传|指环王|千与千寻|这个杀手不太冷|楚门的世界|寄生虫|教父/;
+
+function allowedQuestionContent(question) {
+  const text = `${question.prompt || ""} ${question.answer || ""} ${question.explanation || ""}`;
+  if (CHILDREN_FAIRY.test(text)) return false;
+  if (FOREIGN_FILM.test(text)) return false;
+  if (question.category === "影视") return Boolean(question.chinaFeatured) || (question.source === "公开电影常识核验题" && !FOREIGN_FILM.test(text));
+  if (question.category === "音乐") return Boolean(question.chinaFeatured);
+  return true;
+}
 
 function refineCategory(question) {
   const text = `${question.prompt} ${question.answer}`;
@@ -40,17 +51,19 @@ function sourceFunScore(question) {
 
 const structuredQuestions = [...new Map(STRUCTURED_SOURCE.map((question) => [question.id, question])).values()]
   .filter((question) => validateQuestion(question).valid)
-  .map((question) => preserveOfficialProperNouns({ ...question, category: refineCategory(question) }));
+  .map((question) => preserveOfficialProperNouns({ ...question, category: refineCategory(question) }))
+  .filter(allowedQuestionContent);
 const curatedCandidates = CURATED_SOURCE.filter((question) => {
-  if (!validateQuestion(question).valid || COLD_DETAIL.test(question.prompt) || VAGUE_OPENING.test(question.prompt)) return false;
+  if (!validateQuestion(question).valid || !allowedQuestionContent(question) || VAGUE_OPENING.test(question.prompt)) return false;
   if (question.options.some((option) => META_OPTIONS.test(option))) return false;
   return (question.prompt.match(/[A-Za-z]+/g) || []).length <= 5;
 }).map((question) => ({ ...question, category: refineCategory(question) }));
-const neededCurated = 5000 - structuredQuestions.length - MANUAL_QUESTIONS.length - CHARACTER_QUESTIONS.length - CHINA_FEATURED_QUESTIONS.length - CHINA_EXPANSION_QUESTIONS.length;
+const manualQuestions = MANUAL_QUESTIONS.filter(allowedQuestionContent);
+const neededCurated = 5000 - structuredQuestions.length - manualQuestions.length - CHARACTER_QUESTIONS.length - CHINA_FEATURED_QUESTIONS.length - CHINA_EXPANSION_QUESTIONS.length;
 const curatedQuotas = new Map([
-  ["生活常识", 480], ["美食", 0], ["趣味冷知识", 180], ["地理", 270], ["历史", 260],
-  ["科学与科技", 340], ["自然动物", 200], ["文学艺术", 350], ["体育", 80],
-  ["音乐", 0], ["游戏与网络文化", 50], ["影视", 7]
+  ["生活常识", 560], ["美食", 0], ["趣味冷知识", 210], ["地理", 300], ["历史", 260],
+  ["科学与科技", 400], ["自然动物", 200], ["文学艺术", 350], ["体育", 100],
+  ["音乐", 0], ["游戏与网络文化", 60], ["影视", 0]
 ]);
 const selectedCurated = [];
 for (const [category, quota] of curatedQuotas) {
@@ -59,9 +72,15 @@ for (const [category, quota] of curatedQuotas) {
   if (pool.length < quota) throw new Error(`精品题源不足：${category} 需要 ${quota} 道，现有 ${pool.length} 道`);
   selectedCurated.push(...pool.slice(0, quota));
 }
+if (selectedCurated.length < neededCurated) {
+  const selectedIds = new Set(selectedCurated.map((question) => question.id));
+  selectedCurated.push(...curatedCandidates.filter((question) => !selectedIds.has(question.id))
+    .sort((a, b) => sourceFunScore(b) - sourceFunScore(a) || a.id.localeCompare(b.id))
+    .slice(0, neededCurated - selectedCurated.length));
+}
 if (neededCurated < 0 || selectedCurated.length !== neededCurated) throw new Error(`精品题源配额错误：需要 ${neededCurated} 道，实际 ${selectedCurated.length} 道`);
 
-const combinedQuestions = [...structuredQuestions, ...MANUAL_QUESTIONS, ...selectedCurated, ...CHINA_FEATURED_QUESTIONS, ...CHINA_EXPANSION_QUESTIONS, ...CHARACTER_QUESTIONS];
+const combinedQuestions = [...structuredQuestions, ...manualQuestions, ...selectedCurated, ...CHINA_FEATURED_QUESTIONS, ...CHINA_EXPANSION_QUESTIONS, ...CHARACTER_QUESTIONS].filter(allowedQuestionContent);
 function playabilityScore(question) {
   if (question.source?.startsWith("公开")) return 140;
   if (question.source === "全新角色图鉴题包") return 90;
@@ -121,12 +140,12 @@ function questionPackInfo() {
     localCount: LOCAL_QUESTIONS.length,
     remoteCount: remoteQuestions.length,
     total: LOCAL_QUESTIONS.length + remoteQuestions.length,
-    version: "2026.08.13-cn-first-proper-nouns-v6",
+    version: "2026.08.14-cn-only-retirement-v7",
     categories: CATEGORIES,
     independentCount: new Set(LOCAL_QUESTIONS.map((question) => question.knowledgeKey)).size,
     audited: true,
     localePolicy: "china-first",
-    properNounPolicy: "chinese-prompts-official-proper-nouns",
+    properNounPolicy: "china-film-music-only-no-fairy-tales",
     difficulty
   };
 }

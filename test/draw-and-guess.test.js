@@ -1,5 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const rules = require("../src/games/draw-and-guess/rules");
 
 function makeRoom(count = 3, now = 1_000_000) {
@@ -42,6 +44,8 @@ test("v3约三千题只保留可画名词且刷新不会立刻重复", () => {
   assert.equal(rules.WORDS.some((item) => item.word.includes("和")), false);
   assert.equal(rules.WORDS.some((item) => /踩到|自拍翻车|上班打卡|嫦娥奔月|画蛇添足/.test(item.word)), false);
   assert.equal(rules.WORDS.some((item) => ["舞龙", "舞狮", "跳房子", "跳绳", "倒计时"].includes(item.word)), false);
+  assert.ok(["苏格拉底", "曾国藩", "贾探春", "卢俊义", "太白金星"].every((word) => !rules.WORDS.some((item) => item.word === word)));
+  assert.ok(["熊大", "喜羊羊", "孙悟空", "皮卡丘", "钢铁侠"].every((word) => rules.WORDS.some((item) => item.word === word)));
   rules.refreshWords(room, artistId, 1_001_000);
   const nextWords = room.game.wordChoices.map((choice) => choice.word);
   assert.equal(nextWords.some((word) => firstWords.includes(word)), false);
@@ -125,6 +129,15 @@ test("画笔数据被限制在画布范围且只有画家可修改", () => {
   assert.equal(room.game.strokes.length, 0);
   rules.addStroke(room, artistId, { strokeId: "crayon-1", tool: "crayon", points: [{ x: .3, y: .4 }] });
   assert.equal(room.game.strokes[0].tool, "crayon");
+});
+
+test("画画过程使用增量笔迹广播而不是每段重发整间房", () => {
+  const server = fs.readFileSync(path.join(__dirname, "../server.js"), "utf8");
+  const client = fs.readFileSync(path.join(__dirname, "../public/games/draw-and-guess.js"), "utf8");
+  assert.match(server, /draw:stroke/);
+  assert.match(server, /data\.action === "draw"/);
+  assert.match(client, /socket\.on\("draw:stroke"/);
+  assert.match(client, /queueRemoteStroke/);
 });
 
 test("错误答案公开，正确答案保密并按剩余时间给双方计分", () => {

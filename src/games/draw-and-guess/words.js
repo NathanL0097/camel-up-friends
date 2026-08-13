@@ -115,6 +115,12 @@ const REPLACEMENT_GROUPS = {
 const SAFE_ORIGINAL_GROUPS = new Set(["动物", "美食", "生活", "地点", "职业", "自然", "科技", "时尚", "艺术", "旅行", "校园", "幻想", "节日"]);
 const FORBIDDEN_COMBINATION = /(?:和|与|以及|或者)/;
 const FORBIDDEN_PROMPTS = new Set(["鸟和鸟笼", "蛋糕和蜡烛", "河马跳芭蕾", "太阳和月亮", "猫和老鼠"]);
+const HARD_TO_DRAW_CHARACTERS = new Set(`苏格拉底 柏拉图 亚里士多德 亚历山大 凯撒 屋大维 埃及艳后 拿破仑 华盛顿 林肯 丘吉尔 甘地 米开朗琪罗 莎士比亚 牛顿 达尔文 爱因斯坦 居里夫人 爱迪生 特斯拉 贝多芬 莫扎特 梵高 毕加索 曾国藩 左宗棠 胡适 徐志摩 巴金 林则徐 屠呦呦 钱学森 郎平 刘翔 郎朗 沈腾 贾母 史湘云 贾探春 贾迎春 贾惜春 李纨 妙玉 晴雯 袭人 紫鹃 香菱 平儿 秦可卿 贾琏 贾政 王夫人 薛姨妈 焦大 贾环 卢俊义 吴用 公孙胜 秦明 呼延灼 花荣 柴进 李应 朱仝 董平 张清 徐宁 索超 戴宗 刘唐 史进 穆弘 雷横 燕青 太白金星 托塔天王 金角大王 银角大王 黄眉大王 蝎子精 蜘蛛精 玉兔精 九头虫 黑熊精 黄风怪 青牛精 赛太岁 六耳猕猴 镇元大仙 菩提祖师 东海龙王 女儿国国王 高老庄员外 土地公公`.split(/\s+/));
+const EASY_CHARACTER_REPLACEMENTS = `熊大 熊二 光头强 喜羊羊 灰太狼 懒羊羊 猪猪侠 黑猫警长 葫芦娃 舒克 贝塔 大头儿子 胡图图 孙悟空 猪八戒 哪吒 白骨精 牛魔王 铁扇公主 红孩儿 蝙蝠侠 蜘蛛侠 钢铁侠 超人 皮卡丘 哆啦A梦 柯南 蜡笔小新 小黄人 功夫熊猫 唐老鸭 加菲猫 海绵宝宝 派大星`.split(/\s+/).map((word) => ({ category: "人物角色", difficulty: "hard", word }));
+const DRAWABLE_REPLACEMENTS = `苹果 香蕉 西瓜 草莓 葡萄 菠萝 柠檬 桃子 梨子 芒果 胡萝卜 南瓜 茄子 黄瓜 玉米 蘑菇 白菜 土豆 洋葱 大蒜 熊猫 老虎 狮子 大象 长颈鹿 斑马 河马 鳄鱼 企鹅 海豚 章鱼 鲸鱼 鲨鱼 乌龟 青蛙 蝴蝶 蜜蜂 彩虹 瀑布 火山 雪山 沙漠 海浪 闪电 星星 月亮 太阳 云朵 大树 竹子 荷花 玫瑰 向日葵 仙人掌 蒲公英 风筝 气球 雨伞 闹钟 牙刷 剪刀 望远镜 吹风机 行李箱 灭火器 遥控器 充电器 洗衣机 冰箱 扫地机器人 保温杯 购物车 快递柜 垃圾桶 红绿灯 电话亭 自动售货机 公交车 火车 飞机 轮船 潜水艇 直升机 热气球 自行车 摩托车 消防车 救护车 拖拉机 挖掘机 城堡 灯塔 风车 水车 宝塔 凉亭 摩天轮 过山车 旋转木马 帐篷 木屋 树屋 长城 故宫 天坛 东方明珠 兵马俑`.split(/\s+/).map((word) => ({ category: "日常物品", difficulty: "easy", word }));
+const EXTRA_DRAWABLE_NOUNS = `菠萝蜜 百香果 牛油果 石榴 山竹 榴莲 哈密瓜 火龙果 猕猴桃 樱桃 蓝莓 柚子 莲藕 西兰花 菜花 芹菜 菠菜 辣椒 生姜 豆芽 豌豆 花生 核桃 板栗 瓜子 蜗牛 松鼠 孔雀 鸵鸟 鹦鹉 猫头鹰 啄木鸟 变色龙 袋鼠 考拉 北极熊 海豹 海狮 海星 海马 水母 螃蟹 龙虾 寄居蟹 螳螂 蜻蜓 萤火虫 瓢虫 蚂蚁 蜘蛛 蚊子 雪人 雪橇 冰山 冰川 洞穴 火山口 峡谷 草原 森林 竹林 稻田 麦田 果园 茶园 绿洲 沙丘 礁石 珊瑚 海岛 半岛 悬崖 池塘 小溪 温泉 彩霞 龙卷风 台风 沙尘暴 暴风雪 冰雹 大雾 日食 月食 流星 彗星 银河 黑洞 星云 宇航员 火箭 卫星 月球车 空间站 飞碟 机器人 无人机 智能手表 相机 耳机 麦克风 音箱 游戏手柄 充电宝 路由器 打印机 键盘 鼠标 显示器 投影仪 电饭锅 微波炉 烤箱 空气炸锅 榨汁机 咖啡机 电水壶 电风扇 空调 加湿器 吸尘器 吹风机 电蚊拍 热水器 沙发 茶几 衣柜 书桌 椅子 书架 鞋柜 床头柜 梳妆台 双层床 摇椅 屏风 地毯 窗帘 花瓶 鱼缸 落地灯 吊灯 挂钟 相框 牙膏 毛巾 浴巾 香皂 梳子 马桶 浴缸 淋浴头 洗脸盆 水龙头 扫把 拖把 簸箕 水桶 鸡毛掸子 菜刀 砧板 炒锅 汤锅 蒸笼 砂锅 饭碗 餐盘 筷子 叉子 勺子 锅铲 漏勺 擀面杖 开瓶器 削皮刀 保鲜盒 茶壶 酒杯 铅笔 钢笔 毛笔 蜡笔 橡皮 尺子 圆规 文具盒 笔记本 订书机 胶水 文件夹 便签纸 黑板 粉笔 锤子 螺丝刀 扳手 钳子 电钻 锯子 斧头 铁锹 梯子 手电筒 工具箱 安全帽 听诊器 体温计 注射器 口罩 绷带 创可贴 拐杖 轮椅 担架 急救箱 氧气瓶`.split(/\s+/).map((word) => ({ category: "日常物品", difficulty: "easy", word }));
+const NEW_DRAWABLE_NOUNS = `三脚架 自拍杆 电话机 收音机 留声机 唱片机 录像机 对讲机 传真机 碎纸机 复印机 打卡机 公文包 纸篓 名片 印章 日历 计算器 白板 公告栏 广告牌 取款机 售票机 检票闸机 充电桩 消防栓 报刊亭 邮筒 快递箱 传送带 冷藏柜 试衣间 收银台 购物篮 价签 条形码 发票 小票 优惠券 会员卡 护照 登机牌 火车票 电影票 邮票 明信片 信封 钥匙扣 存钱罐 音乐盒 水晶球 烛台 挂毯 地球仪 盆景 花篮 雕像 门铃 猫眼 钥匙孔 门槛 窗台 百叶窗 旋转门 自动门 卷帘门 烟囱 雨棚 排水管`.split(/\s+/).map((word) => ({ category: "日常物品", difficulty: "easy", word }));
+const UNIQUE_DRAWABLE_NOUNS = `自行车头盔 潜水面镜 野餐垫 烧烤夹 折叠桌椅 露营灯 防晒帽 充气泳圈 沙滩躺椅 救生浮标 宠物背带 猫咪隧道 仓鼠跑轮 宠物饮水机 自动喂食器 婴儿摇铃 儿童滑板车 玩具收银机 遥控赛车 泡泡棒 积木城堡 拼图板 磁力画板 手摇风车 纸皇冠 派对礼帽 彩带喷筒 奖牌挂绳 运动水壶 羽毛球筒 篮球记分牌 足球角旗 棒球手套 网球拍套 游泳浮板 滑雪护目镜 拳击头盔 射箭靶纸 登山安全绳 骑行反光衣 车载导航仪 行车记录仪 儿童安全座椅 汽车方向盘 汽车后视镜 公交刷卡机 地铁线路图 机场行李车 登机廊桥 火车卧铺 船舶救生圈`.split(/\s+/).map((word) => ({ category: "日常物品", difficulty: "easy", word }));
 
 function broadCategory(group, word) {
   const override = CATEGORY_OVERRIDES[word];
@@ -163,9 +169,10 @@ const baseEntries = expandGroups([
 ]);
 const classicEntries = expandGroups(Object.entries(GROUPS).filter(([group]) => SAFE_ORIGINAL_GROUPS.has(group)));
 const partyEntries = CURATED_PARTY_GROUPS.filter(({ category }) => SAFE_PARTY_GROUPS.has(category)).flatMap(({ category, difficulty, words }) => words.split(/\s+/).filter(Boolean).map((word) => ({ category: broadCategory(category, word), difficulty, word })));
-const entries = [...baseEntries, ...classicEntries, ...partyEntries].filter((item) =>
+const entries = [...baseEntries, ...classicEntries, ...partyEntries, ...EASY_CHARACTER_REPLACEMENTS, ...DRAWABLE_REPLACEMENTS, ...EXTRA_DRAWABLE_NOUNS, ...NEW_DRAWABLE_NOUNS, ...UNIQUE_DRAWABLE_NOUNS].filter((item) =>
   !EXCLUDED_WORDS.has(item.word)
   && !FORBIDDEN_PROMPTS.has(item.word)
+  && !HARD_TO_DRAW_CHARACTERS.has(item.word)
   && !FORBIDDEN_COMBINATION.test(item.word)
   && [...item.word].length >= 2
   && [...item.word].length <= 10
@@ -176,7 +183,7 @@ const WORD_BANK_INFO = Object.freeze({
   count: WORDS.length,
   categories: new Set(WORDS.map((item) => item.category)).size,
   difficulty: Object.fromEntries(["easy", "medium", "hard"].map((level) => [level, WORDS.filter((item) => item.difficulty === level).length])),
-  version: "2026.08.11-nouns-v3"
+  version: "2026.08.14-drawable-nouns-v4"
 });
 
 module.exports = { GROUPS, EXTRA_GROUPS, REPLACEMENT_GROUPS, PARTY_GROUPS, CATEGORY_OVERRIDES, WORDS, WORD_BANK_INFO };

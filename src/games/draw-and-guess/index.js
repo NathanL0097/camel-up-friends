@@ -5,7 +5,7 @@ const definition = {
   title: "你画我猜",
   icon: "🎨",
   description: "轮流作画、实时猜词，用脑洞和手速争夺最高分。",
-  clientScript: "/games/draw-and-guess.js",
+  clientScript: "/games/draw-and-guess.js?v=20260814-smooth4",
   minPlayers: 2,
   maxPlayers: 8,
   minimumToStart: 2,
