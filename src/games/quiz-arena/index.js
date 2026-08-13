@@ -5,7 +5,7 @@ const definition = {
   title: "站神答题王",
   icon: "⚡",
   description: "轮流守住三颗生命，或在逐字题干中抢下七次正确答案。",
-  clientScript: "/games/quiz-arena.js",
+  clientScript: "/games/quiz-arena.js?v=20260813-cn6",
   minPlayers: 2,
   maxPlayers: 6,
   minimumToStart: 2,

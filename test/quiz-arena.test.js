@@ -56,6 +56,40 @@ test("每道动漫角色题都有受控图片查询且不会把搜索词发给�
   assert.ok(characterQuestions.every((item) => !item.imageUrl.includes("AniList") && !item.imageUrl.includes("search")));
 });
 
+test("海外音乐题使用中文题干但保留正式英文作品名", () => {
+  const trouble = questions.LOCAL_QUESTIONS.find((item) => item.id === "wikidata-song-performer-Q276585-Q26876");
+  const thriller = questions.LOCAL_QUESTIONS.find((item) => item.id === "wikidata-album-performer-Q44320-Q2831");
+  assert.match(trouble.prompt, /歌曲《I Knew You Were Trouble》的原唱或主要表演者是谁/);
+  assert.match(thriller.prompt, /音乐专辑《Thriller》由谁演唱或发行/);
+  assert.equal(trouble.answer, "泰勒·斯威夫特");
+  assert.ok(questions.questionPackInfo().properNounPolicy.includes("official-proper-nouns"));
+});
+
+test("中国影视生活常识与网络文化题显著扩充并保持人工核验选项", () => {
+  const expanded = questions.LOCAL_QUESTIONS.filter((item) => item.source === "中国大众知识人工核验题");
+  assert.ok(expanded.filter((item) => item.category === "影视").length >= 90);
+  assert.ok(expanded.filter((item) => item.category === "生活常识").length >= 25);
+  assert.ok(expanded.filter((item) => item.category === "游戏与网络文化").length >= 30);
+  assert.ok(expanded.filter((item) => item.id.includes("school-science")).length >= 40);
+  assert.ok(expanded.filter((item) => item.id.includes("school-math")).length >= 20);
+  assert.ok(expanded.filter((item) => item.id.includes("school-sports")).length >= 20);
+  assert.ok(expanded.filter((item) => item.id.includes("school-geography")).length >= 30);
+  assert.ok(expanded.every((item) => item.chinaFeatured && item.options.length === 4 && new Set(item.options).size === 4));
+  assert.ok(expanded.some((item) => item.prompt.includes("霸王别姬")));
+  assert.ok(expanded.some((item) => item.prompt.includes("身份证号码")));
+  assert.ok(expanded.some((item) => item.prompt.includes("YYDS")));
+});
+
+test("角色图片服务使用角色本名检索并由本站转发图像", () => {
+  const server = fs.readFileSync(path.join(__dirname, "../server.js"), "utf8");
+  const characters = fs.readFileSync(path.join(__dirname, "../src/games/quiz-arena/characters-v3.js"), "utf8");
+  assert.match(characters, /CHARACTER_IMAGE_TERMS/);
+  assert.match(server, /wikipediaCharacterImage/);
+  assert.match(server, /fetchImageBytes/);
+  assert.match(server, /res\.set\("Cache-Control", "public, max-age=604800, immutable"\)\.type\(image\.contentType\)\.send\(image\.bytes\)/);
+  assert.doesNotMatch(server, /redirect\(302, imageUrl\)/);
+});
+
 test("客户端使用环形站台、生命核心和淘汰坠落反馈", () => {
   const client = fs.readFileSync(path.join(__dirname, "../public/games/quiz-arena.js"), "utf8");
   const styles = fs.readFileSync(path.join(__dirname, "../public/games/quiz-arena.css"), "utf8");

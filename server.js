@@ -9,7 +9,7 @@ const { createSocketPresence } = require("./src/platform/socket-presence");
 const { createAccessService } = require("./src/platform/access-service");
 const { createDatabase } = require("./src/platform/database");
 const { createPersistentAccessService } = require("./src/platform/persistent-access-service");
-const { installRemoteQuestions, questionPackInfo, CHARACTER_IMAGE_QUERIES, CHILD_CHARACTER_IMAGE_URLS } = require("./src/games/quiz-arena/questions");
+const { installRemoteQuestions, questionPackInfo, CHARACTER_IMAGE_QUERIES, CHARACTER_IMAGE_TERMS, CHILD_CHARACTER_IMAGE_URLS } = require("./src/games/quiz-arena/questions");
 
 const app = express();
 const server = createServer(app);
@@ -63,25 +63,86 @@ async function persistQuizHistory(room) {
   }
 }
 
+async function fetchImageBytes(imageUrl) {
+  const parsed = new URL(imageUrl);
+  const trustedHosts = new Set(["upload.wikimedia.org", "s4.anilist.co"]);
+  if (!trustedHosts.has(parsed.hostname)) throw new Error("角色图片来源不受信任");
+  const response = await fetch(parsed, {
+    headers: { Accept: "image/avif,image/webp,image/png,image/jpeg,image/*", "User-Agent": "FriendsBoardGameQuiz/2.0" },
+    signal: AbortSignal.timeout(10_000)
+  });
+  const contentType = response.headers.get("content-type") || "";
+  if (!response.ok || !contentType.startsWith("image/")) throw new Error(`图片下载失败 (${response.status})`);
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (!bytes.length || bytes.length > 8 * 1024 * 1024) throw new Error("角色图片大小异常");
+  return { bytes, contentType: contentType.split(";")[0] };
+}
+
+async function wikipediaCharacterImage(term, language = "zh") {
+  const url = new URL(`https://${language}.wikipedia.org/w/api.php`);
+  Object.entries({
+    action: "query", format: "json", formatversion: "2", generator: "search",
+    gsrsearch: term.wikiSearch, gsrlimit: "8", prop: "pageimages", piprop: "thumbnail",
+    pithumbsize: "720", pilicense: "any"
+  }).forEach(([key, value]) => url.searchParams.set(key, value));
+  const response = await fetch(url, { headers: { "User-Agent": "FriendsBoardGameQuiz/2.0" }, signal: AbortSignal.timeout(10_000) });
+  const payload = await response.json();
+  const pages = (payload?.query?.pages || []).filter((page) => page.thumbnail?.source);
+  const normalizeTitle = (value) => String(value || "").replace(/[·.\s（）()]/g, "").toLowerCase()
+    .replaceAll("夢", "梦").replaceAll("貓", "猫").replaceAll("龍", "龙").replaceAll("櫻", "樱");
+  const normalized = normalizeTitle(term.label);
+  pages.sort((left, right) => {
+    const score = (page) => {
+      const title = normalizeTitle(page.title);
+      return (title === normalized ? 100 : 0) + (title.includes(normalized) ? 40 : 0) + (/角色/.test(page.title || "") ? 120 : 0)
+        - (/电影|電影|作品|集数|集數|列表/.test(page.title || "") ? 80 : 0);
+    };
+    return score(right) - score(left);
+  });
+  if (!response.ok || !pages[0]?.thumbnail?.source) throw new Error(`百科角色图片不可用 (${response.status})`);
+  return pages[0].thumbnail.source;
+}
+
+async function aniListCharacterImage(search) {
+  if (!search) throw new Error("没有海外角色检索词");
+  const query = "query ($search: String) { Page(perPage: 1) { characters(search: $search) { image { large } } } }";
+  const response = await fetch("https://graphql.anilist.co", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "User-Agent": "FriendsBoardGameQuiz/2.0" },
+    body: JSON.stringify({ query, variables: { search } }),
+    signal: AbortSignal.timeout(8000)
+  });
+  const payload = await response.json();
+  const imageUrl = payload?.data?.Page?.characters?.[0]?.image?.large;
+  if (!response.ok || !imageUrl) throw new Error(`海外角色图片不可用 (${response.status})`);
+  return imageUrl;
+}
+
 async function resolveCharacterImage(imageKey) {
   const cached = characterImageCache.get(imageKey);
   if (cached) return await cached;
   const fixedImageUrl = CHILD_CHARACTER_IMAGE_URLS[imageKey];
-  const search = CHARACTER_IMAGE_QUERIES[imageKey];
-  if (!search && !fixedImageUrl) throw new Error("未知角色图鉴编号");
+  const term = CHARACTER_IMAGE_TERMS[imageKey];
+  if (!term && !fixedImageUrl) throw new Error("未知角色图鉴编号");
   const request = (async () => {
-    if (fixedImageUrl) return fixedImageUrl;
-    const query = "query ($search: String) { Page(perPage: 1) { characters(search: $search) { image { large } } } }";
-    const response = await fetch("https://graphql.anilist.co", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "User-Agent": "FriendsBoardGameQuiz/1.0" },
-      body: JSON.stringify({ query, variables: { search } }),
-      signal: AbortSignal.timeout(8000)
-    });
-    const payload = await response.json();
-    const imageUrl = payload?.data?.Page?.characters?.[0]?.image?.large;
-    if (!response.ok || !imageUrl) throw new Error(`角色图片服务暂不可用 (${response.status})`);
-    return imageUrl;
+    let imageUrl = fixedImageUrl;
+    if (!imageUrl) {
+      const errors = [];
+      for (const wikiSearch of term.wikiSearches) {
+        try { imageUrl = await wikipediaCharacterImage({ ...term, wikiSearch }, "zh"); break; }
+        catch (error) { errors.push(error.message); }
+      }
+      if (!imageUrl && term.region === "world") {
+        try { imageUrl = await wikipediaCharacterImage({ ...term, wikiSearch: term.anilistSearch }, "en"); }
+        catch (error) { errors.push(error.message); }
+      }
+      if (!imageUrl) {
+        try { imageUrl = await aniListCharacterImage(term.anilistSearch); }
+        catch (error) { errors.push(error.message); }
+      }
+      if (!imageUrl) throw new Error(errors.join("；"));
+    }
+    return fetchImageBytes(imageUrl);
   })();
   characterImageCache.set(imageKey, request);
   try {
@@ -149,9 +210,10 @@ app.post("/api/admin/rooms/:code/close", requireAdmin, async (req, res) => {
 app.get("/api/games/quiz-arena/question-pack", (_req, res) => res.json(questionPackInfo()));
 app.get("/api/games/quiz-arena/character-image/:imageKey", async (req, res) => {
   try {
-    const imageUrl = await resolveCharacterImage(req.params.imageKey);
-    res.set("Cache-Control", "public, max-age=86400").redirect(302, imageUrl);
-  } catch (_error) {
+    const image = await resolveCharacterImage(req.params.imageKey);
+    res.set("Cache-Control", "public, max-age=604800, immutable").type(image.contentType).send(image.bytes);
+  } catch (error) {
+    console.warn(`角色图片加载失败 [${req.params.imageKey}]：${error.message}`);
     res.set("Cache-Control", "public, max-age=300").type("image/svg+xml").send(characterImageFallback());
   }
 });

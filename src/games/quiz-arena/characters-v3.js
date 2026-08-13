@@ -33,6 +33,14 @@ const CHARACTER_ROWS = [
 ];
 
 const CHARACTER_IMAGE_QUERIES = Object.fromEntries(CHARACTER_ROWS.map(([key, _answer, _aliases, query]) => [key, query]));
+// 图片检索必须使用角色本名。旧版把“作品名 动画 角色”等整段关键词提交给
+// AniList 的角色名称接口，国产角色几乎必然零结果。
+const CHARACTER_IMAGE_TERMS = Object.fromEntries(CHARACTER_ROWS.map(([key, answer, _aliases, query, region]) => [key, {
+  label: answer,
+  wikiSearches: [`${answer} 动画角色`, query],
+  anilistSearch: region === "world" ? query : null,
+  region
+}]));
 const CHARACTER_QUESTIONS = CHARACTER_ROWS.map(([key, answer, aliases, _query, region], index) => ({
   id: `character-v3-${key}`, knowledgeKey: `character-v3-${key}`, category: "动漫角色", pack: "party", kind: "image-fill",
   prompt: "请填写图中角色的完整姓名", answer, aliases: [answer, ...aliases], answerLength: [...answer].filter((character) => !/[·.\s]/.test(character)).length,
@@ -41,4 +49,4 @@ const CHARACTER_QUESTIONS = CHARACTER_ROWS.map(([key, answer, aliases, _query, r
   updatedAt: "2026-08-10", order: index, chinaFeatured: region === "china", worldFamous: region === "world"
 }));
 
-module.exports = { CHARACTER_IMAGE_QUERIES, CHARACTER_QUESTIONS };
+module.exports = { CHARACTER_IMAGE_QUERIES, CHARACTER_IMAGE_TERMS, CHARACTER_QUESTIONS };
