@@ -45,6 +45,9 @@ function createDatabase({ url = process.env.DATABASE_URL } = {}) {
       room_code TEXT
     );
     CREATE INDEX IF NOT EXISTS quiz_retired_questions_seen_idx ON quiz_retired_questions (first_seen_at ASC);
+    INSERT INTO quiz_retired_questions (knowledge_key, first_seen_at)
+    SELECT knowledge_key, MIN(first_seen_at) FROM quiz_question_history GROUP BY knowledge_key
+    ON CONFLICT (knowledge_key) DO NOTHING;
     ALTER TABLE activation_codes ADD COLUMN IF NOT EXISTS duration_hours INTEGER NOT NULL DEFAULT 30;
     CREATE OR REPLACE FUNCTION prevent_audit_mutation() RETURNS trigger AS $$
       BEGIN RAISE EXCEPTION 'audit logs are append-only'; END;
