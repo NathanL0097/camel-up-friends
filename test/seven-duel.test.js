@@ -72,6 +72,33 @@ test("军事推进抵达对方首都会立即结束游戏", () => {
   assert.equal(r.game.winnerId, actor);
 });
 
+test("军事轨道两端与双方进攻方向一致", () => {
+  const r = room(); finishDraft(r);
+  const [leftPlayer, rightPlayer] = r.game.playerIds;
+  const view = rules.publicRoom(r, leftPlayer);
+  assert.deepEqual(view.game.militarySides, { left: leftPlayer, right: rightPlayer });
+
+  r.game.cities[rightPlayer].coins = 7;
+  r.game.actorId = leftPlayer;
+  r.game.military = 2;
+  r.game.cardSlots = [
+    { id: "left-attack", row: 1, column: 1, revealed: true, taken: false, card: { id: "left-red", name: "左方军团", type: "military", shields: 1 } },
+    { id: "spare-left", row: 1, column: 4, revealed: true, taken: false, card: { id: "spare-left-card", name: "备用", type: "civilian" } }
+  ];
+  rules.takeCard(r, leftPlayer, { cardId: "left-attack", mode: "build" });
+  assert.equal(r.game.military, 3, "左方玩家进攻时标记应向右方对手移动");
+  assert.equal(r.game.cities[rightPlayer].coins, 5, "跨过右侧-2金币标记时应由右方对手失去金币");
+
+  r.game.actorId = rightPlayer;
+  r.game.military = -2;
+  r.game.cardSlots = [
+    { id: "right-attack", row: 1, column: 1, revealed: true, taken: false, card: { id: "right-red", name: "右方军团", type: "military", shields: 1 } },
+    { id: "spare-right", row: 1, column: 4, revealed: true, taken: false, card: { id: "spare-right-card", name: "备用", type: "civilian" } }
+  ];
+  rules.takeCard(r, rightPlayer, { cardId: "right-attack", mode: "build" });
+  assert.equal(r.game.military, -3, "右方玩家进攻时标记应向左方对手移动");
+});
+
 test("时代结束由军事弱势方选择下一时代先手", () => {
   const r = room(); finishDraft(r);
   const actor = r.game.playerIds[0], weaker = r.game.playerIds[1];

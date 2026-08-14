@@ -403,7 +403,7 @@ function publicRoom(room, viewerId) {
     code: room.code, hostId: room.hostId, players,
     game: {
       status: game.status, phase: game.phase, age: game.age, playerIds: [...game.playerIds], firstPlayerId: game.firstPlayerId, actorId: game.actorId,
-      military: game.military, militaryTokens: game.militaryTokens, availableProgress: game.availableProgress,
+      military: game.military, militarySides: { left: game.playerIds[0], right: game.playerIds[1] }, militaryTokens: game.militaryTokens, availableProgress: game.availableProgress,
       cities: Object.fromEntries(game.playerIds.map((id) => [id, { ...game.cities[id], summary: citySummary(game, id) }])),
       cardSlots: game.cardSlots.map((slot) => ({ ...slot, card: slot.revealed || slot.taken ? slot.card : null })),
       discard: game.discard, pending: pendingView, legal: legalFor(game, viewerId),
