@@ -40,7 +40,7 @@ function configure(room, playerId, payload = {}) {
 }
 
 function eligibleQuestions(game, forcedCategory = null) {
-  const bank = getQuestionBank();
+  const bank = getQuestionBank(game.retiredKnowledgeKeys);
   const categories = forcedCategory ? [forcedCategory] : game.settings.categories;
   const packMatch = (question) => game.settings.pack === "all" || (game.settings.pack === "classic" ? question.pack !== "party" && question.pack !== "current" : question.pack === "party");
   return bank.filter((question) => categories.includes(question.category) && packMatch(question) && chinaFirstQuestion(question)

@@ -19,11 +19,18 @@ const META_OPTIONS = /(这些答案|以上都|都不是|两者|所有这些|这�
 const VAGUE_OPENING = /^(这个|这些|这种|这位|这项|以下哪项陈述)/;
 const CHILDREN_FAIRY = /童话|安徒生|格林|白雪公主|灰姑娘|小红帽|睡美人|匹诺曹|豌豆公主|拇指姑娘|长发公主|彼得潘|爱丽丝|小王子|儿童文学/;
 const FOREIGN_FILM = /泰坦尼克号|盗梦空间|侏罗纪公园|阿甘正传|指环王|千与千寻|这个杀手不太冷|楚门的世界|寄生虫|教父/;
+const BAD_TRANSLATION = /确切文本未知|文本未知|答案未知|无法确定原文|麻将[^？]*(?:乒乓球|松狮犬|金刚)|在\s*\d+\s*张麻将|七个主要国家流域|哪个国家仅次于长江的第二大河流|这个国家\/地区|命名(?:这|一|该)|说出说：/;
+const ENTERTAINMENT_IN_TRIVIA = /《|》|电视节目|电视剧|连续剧|动画|电影|影集|剧集|演员|角色|情节|剧情|小说|读物|书中|故事中|哪一集|哪一季|哈利|罗恩|赫敏|霍格沃茨|格里芬多|星球大战|漫威|DC|迪士尼|尼克儿童|卡通频道|柳林风声|神奇宠物|银椅|Webkinz/iu;
+const REJECTED_QUESTION_KEYS = new Set(["quiz-v3-00142"]);
 
 function allowedQuestionContent(question) {
+  if (REJECTED_QUESTION_KEYS.has(question.knowledgeKey)) return false;
   const text = `${question.prompt || ""} ${question.answer || ""} ${question.explanation || ""}`;
+  const allText = `${text} ${(question.options || []).join(" ")}`;
+  if (BAD_TRANSLATION.test(allText)) return false;
   if (CHILDREN_FAIRY.test(text)) return false;
   if (FOREIGN_FILM.test(text)) return false;
+  if (question.category === "趣味冷知识" && ENTERTAINMENT_IN_TRIVIA.test(allText)) return false;
   if (question.category === "影视") return Boolean(question.chinaFeatured) || (question.source === "公开电影常识核验题" && !FOREIGN_FILM.test(text));
   if (question.category === "音乐") return Boolean(question.chinaFeatured);
   return true;
@@ -59,9 +66,11 @@ const curatedCandidates = CURATED_SOURCE.filter((question) => {
   return (question.prompt.match(/[A-Za-z]+/g) || []).length <= 5;
 }).map((question) => ({ ...question, category: refineCategory(question) }));
 const manualQuestions = MANUAL_QUESTIONS.filter(allowedQuestionContent);
-const neededCurated = 5000 - structuredQuestions.length - manualQuestions.length - CHARACTER_QUESTIONS.length - CHINA_FEATURED_QUESTIONS.length - CHINA_EXPANSION_QUESTIONS.length;
+const ACTIVE_COUNT = 5000;
+const RESERVE_COUNT = 5250;
+const neededCurated = RESERVE_COUNT - structuredQuestions.length - manualQuestions.length - CHARACTER_QUESTIONS.length - CHINA_FEATURED_QUESTIONS.length - CHINA_EXPANSION_QUESTIONS.length;
 const curatedQuotas = new Map([
-  ["生活常识", 560], ["美食", 0], ["趣味冷知识", 210], ["地理", 300], ["历史", 260],
+  ["生活常识", 560], ["美食", 0], ["趣味冷知识", 100], ["地理", 300], ["历史", 260],
   ["科学与科技", 400], ["自然动物", 200], ["文学艺术", 350], ["体育", 100],
   ["音乐", 0], ["游戏与网络文化", 60], ["影视", 0]
 ]);
@@ -90,7 +99,7 @@ function playabilityScore(question) {
 combinedQuestions.sort((a, b) => {
   return playabilityScore(b) - playabilityScore(a) || Number(b.popularity || 0) - Number(a.popularity || 0) || a.id.localeCompare(b.id);
 });
-const LOCAL_QUESTIONS = combinedQuestions.map((question, index) => ({
+const QUESTION_RESERVE = combinedQuestions.map((question, index) => ({
   ...question,
   category: refineCategory(question),
   pack: PARTY_CATEGORIES.has(refineCategory(question)) ? "party" : "classic",
@@ -99,7 +108,14 @@ const LOCAL_QUESTIONS = combinedQuestions.map((question, index) => ({
   options: [...(question.options || [])]
 }));
 
-const localAudit = auditQuestionBank(LOCAL_QUESTIONS, { expectedCount: 5000 });
+if (QUESTION_RESERVE.length !== RESERVE_COUNT) throw new Error(`站神候补题库数量错误：需要 ${RESERVE_COUNT} 道，实际 ${QUESTION_RESERVE.length} 道`);
+const LOCAL_QUESTIONS = QUESTION_RESERVE.slice(0, ACTIVE_COUNT);
+function activeLocalQuestions(retiredKeys = []) {
+  const retired = retiredKeys instanceof Set ? retiredKeys : new Set(retiredKeys || []);
+  return QUESTION_RESERVE.filter((question) => !retired.has(question.knowledgeKey)).slice(0, ACTIVE_COUNT);
+}
+
+const localAudit = auditQuestionBank(LOCAL_QUESTIONS, { expectedCount: ACTIVE_COUNT });
 if (!localAudit.valid) throw new Error(`站神题库质量审计失败：${JSON.stringify(localAudit.failures.slice(0, 8))}`);
 
 let remoteQuestions = [];
@@ -133,14 +149,15 @@ function installRemoteQuestions(items) {
   return remoteQuestions.length;
 }
 
-function getQuestionBank() { return [...remoteQuestions, ...LOCAL_QUESTIONS]; }
+function getQuestionBank(retiredKeys = []) { return [...remoteQuestions, ...activeLocalQuestions(retiredKeys)]; }
 function questionPackInfo() {
   const difficulty = Object.fromEntries(["easy", "medium", "hard"].map((level) => [level, LOCAL_QUESTIONS.filter((item) => item.difficulty === level).length]));
   return {
     localCount: LOCAL_QUESTIONS.length,
     remoteCount: remoteQuestions.length,
     total: LOCAL_QUESTIONS.length + remoteQuestions.length,
-    version: "2026.08.14-cn-only-retirement-v7",
+    reserveCount: QUESTION_RESERVE.length,
+    version: "2026.08.16-cn-audited-refill-v9",
     categories: CATEGORIES,
     independentCount: new Set(LOCAL_QUESTIONS.map((question) => question.knowledgeKey)).size,
     audited: true,
@@ -150,4 +167,4 @@ function questionPackInfo() {
   };
 }
 
-module.exports = { CATEGORIES, CHARACTER_IMAGE_QUERIES, CHARACTER_IMAGE_TERMS, CHILD_CHARACTER_IMAGE_URLS: {}, LOCAL_QUESTIONS, getQuestionBank, installRemoteQuestions, questionPackInfo, chinaFirstQuestion };
+module.exports = { CATEGORIES, CHARACTER_IMAGE_QUERIES, CHARACTER_IMAGE_TERMS, CHILD_CHARACTER_IMAGE_URLS: {}, LOCAL_QUESTIONS, QUESTION_RESERVE, activeLocalQuestions, getQuestionBank, installRemoteQuestions, questionPackInfo, chinaFirstQuestion };

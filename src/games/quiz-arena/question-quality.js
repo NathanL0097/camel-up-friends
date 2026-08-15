@@ -1,6 +1,7 @@
 const ALLOWED_KINDS = new Set(["choice", "judge", "fill", "image-fill"]);
 const STRONG_TYPES = new Set(["year", "number", "person", "country", "city", "animal", "character-name"]);
-const GARBAGE = /�|__[QO]\d|\b(undefined|null|nan|xewartqwe|jeice)\b/i;
+const GARBAGE = /�|__[QO]\d|确切文本未知|文本未知|答案未知|无法确定原文|占位文本|待补充|\b(undefined|null|nan|xewartqwe|jeice)\b/i;
+const MALFORMED_TRANSLATION = /麻将[^？]*(?:乒乓球|松狮犬|金刚)|在\s*\d+\s*张麻将|七个主要国家流域|哪个国家仅次于长江的第二大河流|这个国家\/地区|命名(?:这|一|该)|说出说：/;
 
 function clean(value) { return String(value || "").normalize("NFKC").replace(/\s+/g, " ").trim(); }
 function optionShape(value) {
@@ -19,6 +20,7 @@ function validateQuestion(question) {
   if (!ALLOWED_KINDS.has(question.kind)) errors.push("invalid-kind");
   if (!clean(question.optionType)) errors.push("missing-option-type");
   if (GARBAGE.test([question.prompt, question.answer, ...(question.options || [])].join(" "))) errors.push("garbage-text");
+  if (MALFORMED_TRANSLATION.test(clean(question.prompt))) errors.push("malformed-translation");
   if (question.kind === "choice") {
     const options = Array.isArray(question.options) ? question.options.map(clean) : [];
     if (options.length !== 4) errors.push("choice-count");
@@ -33,6 +35,8 @@ function validateQuestion(question) {
     if (numericFlags.some(Boolean) && !numericFlags.every(Boolean)) errors.push("mixed-number-and-text");
     const singleLatinFlags = options.map((item) => /^[A-Za-z]$/.test(item));
     if (singleLatinFlags.some(Boolean) && !singleLatinFlags.every(Boolean)) errors.push("mixed-single-letter");
+    if (/地域标签|来自哪个(?:省|市|地区)|代表性地域|发源地|行政中心/.test(question.prompt) && options.some((item) => /节$/.test(item))) errors.push("place-options-have-festival");
+    if (/哪个传统节日|哪一节日/.test(question.prompt) && options.some((item) => !/节$/.test(item))) errors.push("festival-options-have-place");
     const lengths = options.map((item) => [...item].length).filter(Boolean);
     if (Math.max(...lengths) > Math.max(18, Math.min(...lengths) * 5)) errors.push("choice-length-outlier");
   }

@@ -110,24 +110,13 @@ async function fetchImageBytes(imageUrl) {
 async function wikipediaCharacterImage(term, language = "zh") {
   const url = new URL(`https://${language}.wikipedia.org/w/api.php`);
   Object.entries({
-    action: "query", format: "json", formatversion: "2", generator: "search",
-    gsrsearch: term.wikiSearch, gsrlimit: "8", prop: "pageimages", piprop: "thumbnail",
+    action: "query", format: "json", formatversion: "2", redirects: "1", titles: term.wikiTitle,
+    prop: "pageimages", piprop: "thumbnail",
     pithumbsize: "720", pilicense: "any"
   }).forEach(([key, value]) => url.searchParams.set(key, value));
   const response = await fetch(url, { headers: { "User-Agent": "FriendsBoardGameQuiz/2.0" }, signal: AbortSignal.timeout(10_000) });
   const payload = await response.json();
-  const pages = (payload?.query?.pages || []).filter((page) => page.thumbnail?.source);
-  const normalizeTitle = (value) => String(value || "").replace(/[·.\s（）()]/g, "").toLowerCase()
-    .replaceAll("夢", "梦").replaceAll("貓", "猫").replaceAll("龍", "龙").replaceAll("櫻", "樱");
-  const normalized = normalizeTitle(term.label);
-  pages.sort((left, right) => {
-    const score = (page) => {
-      const title = normalizeTitle(page.title);
-      return (title === normalized ? 100 : 0) + (title.includes(normalized) ? 40 : 0) + (/角色/.test(page.title || "") ? 120 : 0)
-        - (/电影|電影|作品|集数|集數|列表/.test(page.title || "") ? 80 : 0);
-    };
-    return score(right) - score(left);
-  });
+  const pages = (payload?.query?.pages || []).filter((page) => !page.missing && page.thumbnail?.source);
   if (!response.ok || !pages[0]?.thumbnail?.source) throw new Error(`百科角色图片不可用 (${response.status})`);
   return pages[0].thumbnail.source;
 }
@@ -157,12 +146,12 @@ async function resolveCharacterImage(imageKey) {
     let imageUrl = fixedImageUrl;
     if (!imageUrl) {
       const errors = [];
-      for (const wikiSearch of term.wikiSearches) {
-        try { imageUrl = await wikipediaCharacterImage({ ...term, wikiSearch }, "zh"); break; }
+      for (const wikiTitle of term.wikiTitles) {
+        try { imageUrl = await wikipediaCharacterImage({ ...term, wikiTitle }, "zh"); break; }
         catch (error) { errors.push(error.message); }
       }
       if (!imageUrl && term.region === "world") {
-        try { imageUrl = await wikipediaCharacterImage({ ...term, wikiSearch: term.anilistSearch }, "en"); }
+        try { imageUrl = await wikipediaCharacterImage({ ...term, wikiTitle: term.anilistSearch }, "en"); }
         catch (error) { errors.push(error.message); }
       }
       if (!imageUrl) {

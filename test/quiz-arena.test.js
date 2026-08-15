@@ -52,7 +52,7 @@ test("每道动漫角色题都有受控图片查询且不会把搜索词发给�
   const characterQuestions = questions.LOCAL_QUESTIONS.filter((item) => item.category === "动漫角色");
   assert.equal(characterQuestions.length, 60);
   assert.ok(characterQuestions.every((item) => item.kind === "image-fill" && item.aliases.includes(item.answer)));
-  assert.ok(characterQuestions.every((item) => questions.CHARACTER_IMAGE_QUERIES[item.imageUrl.split("/").at(-1)]));
+  assert.ok(characterQuestions.every((item) => questions.CHARACTER_IMAGE_QUERIES[item.imageUrl.split("/").at(-1).split("?")[0]]));
   assert.ok(characterQuestions.every((item) => !item.imageUrl.includes("AniList") && !item.imageUrl.includes("search")));
 });
 
@@ -77,8 +77,27 @@ test("中国影视生活常识与网络文化题显著扩充并保持人工核�
   assert.ok(expanded.filter((item) => item.id.includes("school-geography")).length >= 30);
   assert.ok(expanded.every((item) => item.chinaFeatured && item.options.length === 4 && new Set(item.options).size === 4));
   assert.ok(expanded.some((item) => item.prompt.includes("霸王别姬")));
+  assert.ok(expanded.filter((item) => item.id.includes("tv-plot")).length >= 30);
   assert.ok(expanded.some((item) => item.prompt.includes("身份证号码")));
   assert.ok(expanded.some((item) => item.prompt.includes("YYDS")));
+});
+
+test("题库拒绝机器翻译残片、错类选项和外国娱乐冷知识", () => {
+  const allText = (item) => `${item.prompt} ${item.answer} ${(item.options || []).join(" ")}`;
+  const broken = /确切文本未知|文本未知|答案未知|麻将[^？]*(?:乒乓球|松狮犬|金刚)|七个主要国家流域|哪个国家仅次于长江的第二大河流/;
+  const foreignEntertainment = /电视节目|电视剧|连续剧|动画|电影|影集|剧集|演员|角色|哈利[·・\s]*波特|霍格沃茨|星球大战|漫威|迪士尼/;
+  assert.ok(questions.LOCAL_QUESTIONS.every((item) => !broken.test(allText(item))));
+  assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.category === "趣味冷知识").every((item) => !foreignEntertainment.test(allText(item))));
+  assert.ok(questions.LOCAL_QUESTIONS.filter((item) => /地域标签/.test(item.prompt)).every((item) => item.options.every((option) => !/节$/.test(option))));
+  assert.ok(questions.LOCAL_QUESTIONS.filter((item) => /哪个传统节日/.test(item.prompt)).every((item) => item.options.every((option) => /节$/.test(option))));
+});
+
+test("永久废题会从候补库补位并保持五千道可用题", () => {
+  assert.ok(questions.QUESTION_RESERVE.length > 5000);
+  const retired = new Set(questions.LOCAL_QUESTIONS.slice(0, 120).map((item) => item.knowledgeKey));
+  const replenished = questions.activeLocalQuestions(retired);
+  assert.equal(replenished.length, 5000);
+  assert.ok(replenished.every((item) => !retired.has(item.knowledgeKey)));
 });
 
 test("角色图片服务使用角色本名检索并由本站转发图像", () => {
@@ -86,6 +105,8 @@ test("角色图片服务使用角色本名检索并由本站转发图像", () =>
   const characters = fs.readFileSync(path.join(__dirname, "../src/games/quiz-arena/characters-v3.js"), "utf8");
   assert.match(characters, /CHARACTER_IMAGE_TERMS/);
   assert.match(server, /wikipediaCharacterImage/);
+  assert.match(characters, /wikiTitles/);
+  assert.doesNotMatch(server, /generator:\s*"search"/);
   assert.match(server, /fetchImageBytes/);
   assert.match(server, /res\.set\("Cache-Control", "public, max-age=604800, immutable"\)\.type\(image\.contentType\)\.send\(image\.bytes\)/);
   assert.doesNotMatch(server, /redirect\(302, imageUrl\)/);

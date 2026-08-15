@@ -33,18 +33,36 @@ const CHARACTER_ROWS = [
 ];
 
 const CHARACTER_IMAGE_QUERIES = Object.fromEntries(CHARACTER_ROWS.map(([key, _answer, _aliases, query]) => [key, query]));
-// 图片检索必须使用角色本名。旧版把“作品名 动画 角色”等整段关键词提交给
-// AniList 的角色名称接口，国产角色几乎必然零结果。
+const WIKI_TITLE_OVERRIDES = {
+  aobing: ["哪吒之魔童降世"], baiyuekui: ["灵笼"], beita: ["舒克和贝塔"], boluochuixue: ["果宝特攻"],
+  chaorenqiang: ["猪猪侠"], chengliuxiang: ["果宝特攻"], datouerzi: ["大头儿子和小头爸爸"],
+  feifei: ["飞天小女警"], fengbaobao: ["一人之下"], guangtouqiang: ["熊出没"], heimao: ["黑猫警长"],
+  hongmao: ["虹猫蓝兔七侠传"], huitailang: ["喜羊羊与灰太狼"], hututu: ["大耳朵图图"],
+  jingjing: ["大头儿子和小头爸爸"], lanmao: ["蓝猫淘气三千问"], lantu: ["虹猫蓝兔七侠传"],
+  lanyangyang: ["喜羊羊与灰太狼"], luoluo: ["百变机兽之洛洛历险记"], luoxiaohei: ["罗小黑战记"],
+  meiyangyang: ["喜羊羊与灰太狼"], nezha: ["哪吒之魔童降世"], niuyeye: ["大头儿子和小头爸爸"],
+  paopao: ["飞天小女警"], shangguanziyi: ["神兵小将"], shuke: ["舒克和贝塔"], sunwukong: ["西游记"],
+  taoqi: ["飞天小女警"], tushansusu: ["狐妖小红娘"], weiqunmama: ["大头儿子和小头爸爸"],
+  wuxian: ["罗小黑战记"], xiaohuihui: ["喜羊羊与灰太狼"], xiaotoubaba: ["大头儿子和小头爸爸"],
+  xiongda: ["熊出没"], xionger: ["熊出没"], xiyangyang: ["喜羊羊与灰太狼"],
+  yizhier: ["大头儿子和小头爸爸"], zhangchulan: ["一人之下"], zhuzhuxia: ["猪猪侠"],
+  minion: ["小小兵", "迷你兵团"], maruko: ["樱桃小丸子"], shinchan: ["蜡笔小新"],
+  doraemon: ["哆啦A梦"], elsa: ["冰雪奇缘"], jerry: ["汤姆猫与杰利鼠"], mario: ["超级马力欧"],
+  mickey: ["米奇老鼠"], nobita: ["哆啦A梦"], patrick: ["海绵宝宝"], spongebob: ["海绵宝宝"],
+  tom: ["汤姆猫与杰利鼠"], ultraman: ["超人力霸王系列"]
+};
+// 只请求角色本名对应的百科页面。若精确页面没有图片，宁可显示备用图，
+// 也不再拿宽泛搜索结果的第一张图片冒充角色。
 const CHARACTER_IMAGE_TERMS = Object.fromEntries(CHARACTER_ROWS.map(([key, answer, _aliases, query, region]) => [key, {
   label: answer,
-  wikiSearches: [`${answer} 动画角色`, query],
+  wikiTitles: [answer, ...(WIKI_TITLE_OVERRIDES[key] || [])],
   anilistSearch: region === "world" ? query : null,
   region
 }]));
 const CHARACTER_QUESTIONS = CHARACTER_ROWS.map(([key, answer, aliases, _query, region], index) => ({
   id: `character-v3-${key}`, knowledgeKey: `character-v3-${key}`, category: "动漫角色", pack: "party", kind: "image-fill",
   prompt: "请填写图中角色的完整姓名", answer, aliases: [answer, ...aliases], answerLength: [...answer].filter((character) => !/[·.\s]/.test(character)).length,
-  options: [], optionType: "character-name", difficulty: "easy", imageUrl: `/api/games/quiz-arena/character-image/${key}`,
+  options: [], optionType: "character-name", difficulty: "easy", imageUrl: `/api/games/quiz-arena/character-image/${key}?v=verified-20260816`,
   explanation: `图中角色是${answer}。`, source: region === "china" ? "中国动画角色精选题包" : "全球知名动画角色题包",
   updatedAt: "2026-08-10", order: index, chinaFeatured: region === "china", worldFamous: region === "world"
 }));

@@ -47,11 +47,13 @@ const FOOD_ROWS = [
   ["胡辣汤", "河南"], ["河南烩面", "河南"], ["徽州臭鳜鱼", "安徽"], ["南昌拌粉", "江西"], ["海南鸡饭", "海南"],
   ["粽子", "端午节"], ["月饼", "中秋节"], ["汤圆", "元宵节"], ["腊八粥", "腊八节"], ["青团", "清明节"]
 ];
-const FOOD_AREAS = [...new Set(FOOD_ROWS.map(([, area]) => area))];
+const FOOD_AREAS = [...new Set(FOOD_ROWS.slice(0, 45).map(([, area]) => area))];
+const FOOD_FESTIVALS = [...new Set(FOOD_ROWS.slice(45).map(([, festival]) => festival))];
 FOOD_ROWS.forEach(([dish, area], index) => {
+  const optionPool = index < 45 ? FOOD_AREAS : FOOD_FESTIVALS;
   const options = [area];
-  for (let offset = 3; options.length < 4; offset += 5) {
-    const candidate = FOOD_AREAS[(index + offset) % FOOD_AREAS.length];
+  for (let offset = 1; options.length < 4; offset += 1) {
+    const candidate = optionPool[(index + offset * 3) % optionPool.length];
     if (!options.includes(candidate)) options.push(candidate);
   }
   CHINA_FEATURED_QUESTIONS.push({
