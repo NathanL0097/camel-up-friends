@@ -4,6 +4,7 @@ const { CHARACTER_IMAGE_QUERIES, CHARACTER_IMAGE_TERMS, CHARACTER_QUESTIONS } = 
 const { MANUAL_QUESTIONS } = require("./manual-facts-v3");
 const { CHINA_FEATURED_QUESTIONS } = require("./china-featured");
 const { CHINA_EXPANSION_QUESTIONS } = require("./china-expansion-v6");
+const { CLASSIC_TV_QUESTIONS } = require("./classic-tv-questions");
 const { chinaFirstQuestion } = require("./china-policy");
 const { preserveOfficialProperNouns } = require("./foreign-proper-nouns");
 const { auditQuestionBank, validateQuestion } = require("./question-quality");
@@ -68,7 +69,7 @@ const curatedCandidates = CURATED_SOURCE.filter((question) => {
 const manualQuestions = MANUAL_QUESTIONS.filter(allowedQuestionContent);
 const ACTIVE_COUNT = 5000;
 const RESERVE_COUNT = 5250;
-const neededCurated = RESERVE_COUNT - structuredQuestions.length - manualQuestions.length - CHARACTER_QUESTIONS.length - CHINA_FEATURED_QUESTIONS.length - CHINA_EXPANSION_QUESTIONS.length;
+const neededCurated = RESERVE_COUNT - structuredQuestions.length - manualQuestions.length - CHARACTER_QUESTIONS.length - CHINA_FEATURED_QUESTIONS.length - CHINA_EXPANSION_QUESTIONS.length - CLASSIC_TV_QUESTIONS.length;
 const curatedQuotas = new Map([
   ["生活常识", 560], ["美食", 0], ["趣味冷知识", 100], ["地理", 300], ["历史", 260],
   ["科学与科技", 400], ["自然动物", 200], ["文学艺术", 350], ["体育", 100],
@@ -89,8 +90,9 @@ if (selectedCurated.length < neededCurated) {
 }
 if (neededCurated < 0 || selectedCurated.length !== neededCurated) throw new Error(`精品题源配额错误：需要 ${neededCurated} 道，实际 ${selectedCurated.length} 道`);
 
-const combinedQuestions = [...structuredQuestions, ...manualQuestions, ...selectedCurated, ...CHINA_FEATURED_QUESTIONS, ...CHINA_EXPANSION_QUESTIONS, ...CHARACTER_QUESTIONS].filter(allowedQuestionContent);
+const combinedQuestions = [...structuredQuestions, ...manualQuestions, ...selectedCurated, ...CHINA_FEATURED_QUESTIONS, ...CHINA_EXPANSION_QUESTIONS, ...CLASSIC_TV_QUESTIONS, ...CHARACTER_QUESTIONS].filter(allowedQuestionContent);
 function playabilityScore(question) {
+  if (question.chinaFeatured) return 150;
   if (question.source?.startsWith("公开")) return 140;
   if (question.source === "全新角色图鉴题包") return 90;
   if (question.source?.startsWith("Wikidata")) return 20 + Math.min(100, Number(question.popularity || 0) / 2);
@@ -157,7 +159,7 @@ function questionPackInfo() {
     remoteCount: remoteQuestions.length,
     total: LOCAL_QUESTIONS.length + remoteQuestions.length,
     reserveCount: QUESTION_RESERVE.length,
-    version: "2026.08.16-cn-audited-refill-v9",
+    version: "2026.08.16-cn-classic-tv-v10",
     categories: CATEGORIES,
     independentCount: new Set(LOCAL_QUESTIONS.map((question) => question.knowledgeKey)).size,
     audited: true,

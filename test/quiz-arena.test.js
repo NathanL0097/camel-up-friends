@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const rules = require("../src/games/quiz-arena/rules");
 const questions = require("../src/games/quiz-arena/questions");
+const { CLASSIC_TV_QUESTIONS } = require("../src/games/quiz-arena/classic-tv-questions");
 const { auditQuestionBank, validateQuestion } = require("../src/games/quiz-arena/question-quality");
 
 function makeRoom(count = 3, settings = rules.defaultSettings(), random = () => 0, now = 1000) {
@@ -80,6 +81,18 @@ test("中国影视生活常识与网络文化题显著扩充并保持人工核�
   assert.ok(expanded.filter((item) => item.id.includes("tv-plot")).length >= 30);
   assert.ok(expanded.some((item) => item.prompt.includes("身份证号码")));
   assert.ok(expanded.some((item) => item.prompt.includes("YYDS")));
+});
+
+test("国产经典电视剧专题包含四部剧各二十五道同类选项题", () => {
+  assert.equal(CLASSIC_TV_QUESTIONS.length, 100);
+  assert.equal(new Set(CLASSIC_TV_QUESTIONS.map((item) => item.knowledgeKey)).size, 100);
+  for (const show of ["甄嬛传", "武林外传", "亮剑", "还珠格格"]) {
+    assert.equal(CLASSIC_TV_QUESTIONS.filter((item) => item.prompt.includes(`《${show}》`)).length, 25);
+  }
+  assert.ok(CLASSIC_TV_QUESTIONS.every((item) => item.category === "影视" && item.chinaFeatured));
+  assert.ok(CLASSIC_TV_QUESTIONS.every((item) => item.options.length === 4 && new Set(item.options).size === 4 && item.options.includes(item.answer)));
+  assert.ok(CLASSIC_TV_QUESTIONS.every((item) => validateQuestion(item).valid));
+  assert.ok(CLASSIC_TV_QUESTIONS.every((item) => questions.LOCAL_QUESTIONS.some((active) => active.knowledgeKey === item.knowledgeKey)));
 });
 
 test("题库拒绝机器翻译残片、错类选项和外国娱乐冷知识", () => {
