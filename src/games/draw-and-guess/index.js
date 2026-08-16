@@ -5,13 +5,13 @@ const definition = {
   title: "你画我猜",
   icon: "🎨",
   description: "轮流作画、实时猜词，用脑洞和手速争夺最高分。",
-  clientScript: "/games/draw-and-guess.js?v=20260814-smooth4",
+  clientScript: "/games/draw-and-guess.js?v=20260816-retire-fix1",
   minPlayers: 2,
   maxPlayers: 8,
   minimumToStart: 2,
   status: "prototype",
-  createGame(players) {
-    return rules.createGame(players);
+  createGame(players, _settings, room) {
+    return rules.createGame(players, Math.random, Date.now(), room?.drawRetiredWords || []);
   },
   publicRoom(room, viewerId) {
     return rules.publicRoom(room, viewerId);

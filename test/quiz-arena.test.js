@@ -14,30 +14,30 @@ function makeRoom(count = 3, settings = rules.defaultSettings(), random = () => 
   return room;
 }
 
-test("本地精品题库恰好包含五千个独立知识点并覆盖全部领域", () => {
-  assert.equal(questions.LOCAL_QUESTIONS.length, 5000);
+test("本地题库只公布审核通过的真实数量并覆盖全部领域", () => {
+  assert.ok(questions.LOCAL_QUESTIONS.length >= 600);
   assert.deepEqual([...new Set(questions.LOCAL_QUESTIONS.map((item) => item.category))].sort(), [...rules.CATEGORIES].sort());
   assert.equal(new Set(questions.LOCAL_QUESTIONS.map((item) => item.knowledgeKey)).size, questions.LOCAL_QUESTIONS.length);
   assert.ok(questions.LOCAL_QUESTIONS.every((item) => item.prompt && item.answer && item.explanation));
   assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.kind === "judge").every((item) => item.options.length === 2));
   assert.ok(questions.LOCAL_QUESTIONS.every((item) => !item.prompt.includes("下面这道题的答案是")));
-  assert.deepEqual(questions.questionPackInfo().difficulty, { easy: 3000, medium: 1500, hard: 500 });
-  assert.equal(auditQuestionBank(questions.LOCAL_QUESTIONS, { expectedCount: 5000 }).valid, true);
+  assert.equal(questions.questionPackInfo().localCount, questions.LOCAL_QUESTIONS.length);
+  assert.equal(auditQuestionBank(questions.LOCAL_QUESTIONS, { expectedCount: questions.LOCAL_QUESTIONS.length }).valid, true);
   assert.ok(questions.LOCAL_QUESTIONS.every((item) => validateQuestion(item).valid));
   assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.kind === "choice").every((item) => item.options.length === 4 && new Set(item.options).size === 4 && item.options.includes(item.answer)));
 });
 
-test("角色识图以国产动画为主并只保留全球知名海外角色", () => {
-  const characterQuestions = questions.LOCAL_QUESTIONS.filter((item) => item.category === "动漫角色");
-  assert.equal(characterQuestions.length, 60);
-  assert.ok(characterQuestions.every((item) => item.id.startsWith("character-v3-") && item.pack === "party"));
-  assert.equal(characterQuestions.filter((item) => item.chinaFeatured).length, 40);
-  assert.equal(characterQuestions.filter((item) => item.worldFamous).length, 20);
-  assert.ok(characterQuestions.some((item) => item.answer === "大头儿子" && item.aliases.includes("头太元")));
+test("人物识图只保留经唯一实体编号核验的知名人物", () => {
+  const characterQuestions = questions.LOCAL_QUESTIONS.filter((item) => item.category === "人物识图");
+  assert.equal(characterQuestions.length, 19);
+  assert.ok(characterQuestions.every((item) => item.id.startsWith("portrait-v1-") && item.pack === "party"));
+  assert.equal(characterQuestions.filter((item) => item.chinaFeatured).length, 8);
+  assert.equal(characterQuestions.filter((item) => item.worldFamous).length, 11);
+  assert.ok(characterQuestions.some((item) => item.answer === "成龙"));
 });
 
-test("动漫角色题公开图片但隐藏答案并要求当前玩家填全名", () => {
-  const settings = { mode: "survival", pack: "party", categories: ["动漫角色"] };
+test("人物识图题公开图片但隐藏答案并要求当前玩家填全名", () => {
+  const settings = { mode: "survival", pack: "party", categories: ["人物识图"] };
   const room = makeRoom(3, settings);
   const active = room.game.activePlayerId;
   assert.equal(room.game.question.kind, "image-fill");
@@ -49,9 +49,9 @@ test("动漫角色题公开图片但隐藏答案并要求当前玩家填全名",
   assert.equal(room.game.result.correct, true);
 });
 
-test("每道动漫角色题都有受控图片查询且不会把搜索词发给客户端", () => {
-  const characterQuestions = questions.LOCAL_QUESTIONS.filter((item) => item.category === "动漫角色");
-  assert.equal(characterQuestions.length, 60);
+test("每道人物识图题都有受控图片编号且不向客户端暴露搜索词", () => {
+  const characterQuestions = questions.LOCAL_QUESTIONS.filter((item) => item.category === "人物识图");
+  assert.equal(characterQuestions.length, 19);
   assert.ok(characterQuestions.every((item) => item.kind === "image-fill" && item.aliases.includes(item.answer)));
   assert.ok(characterQuestions.every((item) => questions.CHARACTER_IMAGE_QUERIES[item.imageUrl.split("/").at(-1).split("?")[0]]));
   assert.ok(characterQuestions.every((item) => !item.imageUrl.includes("AniList") && !item.imageUrl.includes("search")));
@@ -62,7 +62,7 @@ test("影视音乐只保留中国内容并彻底移除儿童童话题", () => {
   const fairy = /童话|安徒生|格林|白雪公主|灰姑娘|小红帽|睡美人|匹诺曹|豌豆公主|拇指姑娘|长发公主|彼得潘|爱丽丝|小王子|儿童文学/;
   assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.category === "影视").every((item) => item.chinaFeatured || item.source === "公开电影常识核验题"));
   assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.category === "音乐").every((item) => item.chinaFeatured));
-  assert.ok(questions.LOCAL_QUESTIONS.every((item) => !foreignMedia.test(`${item.prompt} ${item.answer}`)));
+  assert.ok(questions.LOCAL_QUESTIONS.filter((item) => ["影视", "音乐"].includes(item.category)).every((item) => !foreignMedia.test(`${item.prompt} ${item.answer}`)));
   assert.ok(questions.LOCAL_QUESTIONS.every((item) => !fairy.test(`${item.prompt} ${item.answer} ${item.explanation}`)));
   assert.equal(questions.questionPackInfo().properNounPolicy, "china-film-music-only-no-fairy-tales");
 });
@@ -105,21 +105,45 @@ test("题库拒绝机器翻译残片、错类选项和外国娱乐冷知识", ()
   assert.ok(questions.LOCAL_QUESTIONS.filter((item) => /哪个传统节日/.test(item.prompt)).every((item) => item.options.every((option) => /节$/.test(option))));
 });
 
-test("永久废题会从候补库补位并保持五千道可用题", () => {
-  assert.ok(questions.QUESTION_RESERVE.length > 5000);
+test("正式题库不再加载机器翻译与批量模板题源", () => {
+  const source = fs.readFileSync(path.join(__dirname, "../src/games/quiz-arena/questions.js"), "utf8");
+  assert.doesNotMatch(source, /require\(["']\.\/curated-questions\.json["']\)/);
+  assert.doesNotMatch(source, /require\(["']\.\/structured-questions\.json["']\)/);
+  assert.ok(questions.LOCAL_QUESTIONS.every((item) => !/OpenTriviaQA|机器翻译|批量模板/.test(item.source || "")));
+  const text = (item) => `${item.prompt} ${item.answer} ${item.explanation || ""}`;
+  assert.ok(questions.LOCAL_QUESTIONS.filter((item) => /拿破仑/.test(text(item))).length <= 2);
+  assert.ok(questions.LOCAL_QUESTIONS.filter((item) => /奥运|奥林匹克/.test(text(item))).length <= 3);
+  assert.ok(questions.LOCAL_QUESTIONS.filter((item) => /马里奥|马力欧|Mario/i.test(text(item))).length <= 2);
+});
+
+test("在线更新只接受明确人工审核且通过中国优先规则的独立题", () => {
+  const base = {
+    id: "checked-one", knowledgeKey: "checked-one", category: "地理", kind: "choice",
+    prompt: "中国首批国家植物园设立在哪座城市？", answer: "北京", options: ["北京", "上海", "广州", "成都"],
+    optionType: "city", explanation: "国家植物园于2022年在北京揭牌。", source: "人工审核增补题", humanReviewed: true
+  };
+  const rejected = { ...base, id: "unchecked", knowledgeKey: "unchecked", prompt: "未经审核的在线题目", humanReviewed: false };
+  assert.equal(questions.installRemoteQuestions([rejected, base]), 1);
+  assert.equal(questions.getQuestionBank().filter((item) => item.knowledgeKey === "remote-checked-one").length, 1);
+  questions.installRemoteQuestions([]);
+});
+
+test("永久废题会从审核库彻底移除而不用低质量题补位", () => {
+  const total = questions.QUESTION_RESERVE.length;
   const retired = new Set(questions.LOCAL_QUESTIONS.slice(0, 120).map((item) => item.knowledgeKey));
   const replenished = questions.activeLocalQuestions(retired);
-  assert.equal(replenished.length, 5000);
+  assert.equal(replenished.length, total - 120);
   assert.ok(replenished.every((item) => !retired.has(item.knowledgeKey)));
 });
 
-test("角色图片服务使用角色本名检索并由本站转发图像", () => {
+test("人物图片服务使用唯一实体与已核验主图并由本站转发", () => {
   const server = fs.readFileSync(path.join(__dirname, "../server.js"), "utf8");
   const characters = fs.readFileSync(path.join(__dirname, "../src/games/quiz-arena/characters-v3.js"), "utf8");
   assert.match(characters, /CHARACTER_IMAGE_TERMS/);
-  assert.match(server, /wikipediaCharacterImage/);
-  assert.match(characters, /wikiTitles/);
-  assert.doesNotMatch(server, /generator:\s*"search"/);
+  assert.match(server, /wikidataPortraitImage/);
+  assert.match(characters, /wikidataId/);
+  assert.match(characters, /filename/);
+  assert.doesNotMatch(server, /aniListCharacterImage|wikipediaCharacterImage|generator:\s*"search"/);
   assert.match(server, /fetchImageBytes/);
   assert.match(server, /res\.set\("Cache-Control", "public, max-age=604800, immutable"\)\.type\(image\.contentType\)\.send\(image\.bytes\)/);
   assert.doesNotMatch(server, /redirect\(302, imageUrl\)/);
@@ -147,7 +171,7 @@ test("客户端使用环形站台、生命核心和淘汰坠落反馈", () => {
 });
 
 test("在线题包只接受结构完整且领域合法的题目", () => {
-  const count = questions.installRemoteQuestions([{ id: "fresh-1", category: "科学与科技", prompt: "太阳系中离太阳最近的行星是？", answer: "水星", options: ["水星", "金星", "地球", "火星"], optionType: "planet", explanation: "水星离太阳最近。" }, { category: "不存在", prompt: "无效", answer: "无效" }]);
+  const count = questions.installRemoteQuestions([{ id: "fresh-1", category: "科学与科技", prompt: "中国空间站核心舱的名称是什么？", answer: "天和核心舱", options: ["天和核心舱", "问天实验舱", "梦天实验舱", "天舟货运飞船"], optionType: "object", explanation: "天和核心舱是中国空间站的核心舱段。", humanReviewed: true }, { category: "不存在", prompt: "无效", answer: "无效", humanReviewed: true }]);
   assert.equal(count, 1);
   assert.equal(questions.questionPackInfo().remoteCount, 1);
   questions.installRemoteQuestions([]);
@@ -208,9 +232,9 @@ test("所有领域抽题统一执行中国优先与全球知名例外规则", ()
   assert.equal(questions.questionPackInfo().localePolicy, "china-first");
   for (const category of rules.CATEGORIES) {
     const suitable = questions.LOCAL_QUESTIONS.filter((item) => item.category === category && questions.chinaFirstQuestion(item));
-    assert.ok(suitable.length >= 20, `${category}的中国优先题不足`);
+    assert.ok(suitable.length >= 10, `${category}的中国优先题不足`);
   }
-  assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.category === "音乐" && item.chinaFeatured).length >= 50);
+  assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.category === "音乐" && item.chinaFeatured).length >= 40);
   assert.ok(questions.LOCAL_QUESTIONS.filter((item) => item.category === "美食" && item.chinaFeatured).length >= 50);
 });
 

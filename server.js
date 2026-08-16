@@ -9,7 +9,7 @@ const { createSocketPresence } = require("./src/platform/socket-presence");
 const { createAccessService } = require("./src/platform/access-service");
 const { createDatabase } = require("./src/platform/database");
 const { createPersistentAccessService } = require("./src/platform/persistent-access-service");
-const { installRemoteQuestions, questionPackInfo, CHARACTER_IMAGE_QUERIES, CHARACTER_IMAGE_TERMS, CHILD_CHARACTER_IMAGE_URLS } = require("./src/games/quiz-arena/questions");
+const { installRemoteQuestions, questionPackInfo, CHARACTER_IMAGE_TERMS } = require("./src/games/quiz-arena/questions");
 
 const app = express();
 const server = createServer(app);
@@ -21,6 +21,7 @@ const characterImageCache = new Map();
 const database = createDatabase();
 const accessService = createPersistentAccessService({ database, fallback: createAccessService() });
 const retiredQuizKeys = new Set();
+const retiredDrawWords = new Set();
 const retiredQuizKeysReady = (async () => {
   if (!database.enabled) return;
   await database.ready();
@@ -28,6 +29,13 @@ const retiredQuizKeysReady = (async () => {
   result.rows.forEach((row) => retiredQuizKeys.add(row.knowledge_key));
   console.log(`站神永久废题库已载入：${retiredQuizKeys.size}题`);
 })().catch((error) => console.error(`站神永久废题库载入失败：${error.message}`));
+const retiredDrawWordsReady = (async () => {
+  if (!database.enabled) return;
+  await database.ready();
+  const result = await database.query("SELECT word FROM draw_retired_words");
+  result.rows.forEach((row) => retiredDrawWords.add(row.word));
+  console.log(`你画我猜永久废题库已载入：${retiredDrawWords.size}题`);
+})().catch((error) => console.error(`你画我猜永久废题库载入失败：${error.message}`));
 accessService.ready().then(() => console.log(database.enabled ? "Neon 数据库已连接，权限与审计日志已持久化" : "未配置 DATABASE_URL，暂时使用内存权限存储")).catch((error) => console.error(`数据库初始化失败：${error.message}`));
 async function recordAudit(event) {
   try { await accessService.audit(event); } catch (error) { console.warn(`审计日志写入失败：${error.message}`); }
@@ -50,6 +58,30 @@ async function loadQuizHistory(room, player) {
   for (const row of result.rows) {
     room.quizHistoryKeys.add(row.knowledge_key);
     room.quizPersistedKeys.add(row.knowledge_key);
+  }
+}
+
+async function loadDrawHistory(room) {
+  if (room.gameId !== "draw-and-guess") return;
+  await retiredDrawWordsReady;
+  room.drawRetiredWords = new Set(retiredDrawWords);
+}
+
+async function retireDrawWord(room) {
+  const word = room.gameId === "draw-and-guess" ? room.game?.word : null;
+  if (!word || retiredDrawWords.has(word)) return;
+  retiredDrawWords.add(word);
+  room.drawRetiredWords?.add(word);
+  if (!database.enabled) return;
+  try {
+    await database.query(`
+      INSERT INTO draw_retired_words (word, room_code)
+      VALUES ($1, $2)
+      ON CONFLICT (word) DO NOTHING
+    `, [word, room.code]);
+  } catch (error) {
+    retiredDrawWords.delete(word);
+    console.warn(`你画我猜废题写入失败：${error.message}`);
   }
 }
 
@@ -94,7 +126,7 @@ async function persistQuizHistory(room) {
 
 async function fetchImageBytes(imageUrl) {
   const parsed = new URL(imageUrl);
-  const trustedHosts = new Set(["upload.wikimedia.org", "s4.anilist.co"]);
+  const trustedHosts = new Set(["upload.wikimedia.org", "commons.wikimedia.org"]);
   if (!trustedHosts.has(parsed.hostname)) throw new Error("角色图片来源不受信任");
   const response = await fetch(parsed, {
     headers: { Accept: "image/avif,image/webp,image/png,image/jpeg,image/*", "User-Agent": "FriendsBoardGameQuiz/2.0" },
@@ -107,59 +139,34 @@ async function fetchImageBytes(imageUrl) {
   return { bytes, contentType: contentType.split(";")[0] };
 }
 
-async function wikipediaCharacterImage(term, language = "zh") {
-  const url = new URL(`https://${language}.wikipedia.org/w/api.php`);
-  Object.entries({
-    action: "query", format: "json", formatversion: "2", redirects: "1", titles: term.wikiTitle,
-    prop: "pageimages", piprop: "thumbnail",
-    pithumbsize: "720", pilicense: "any"
-  }).forEach(([key, value]) => url.searchParams.set(key, value));
-  const response = await fetch(url, { headers: { "User-Agent": "FriendsBoardGameQuiz/2.0" }, signal: AbortSignal.timeout(10_000) });
-  const payload = await response.json();
-  const pages = (payload?.query?.pages || []).filter((page) => !page.missing && page.thumbnail?.source);
-  if (!response.ok || !pages[0]?.thumbnail?.source) throw new Error(`百科角色图片不可用 (${response.status})`);
-  return pages[0].thumbnail.source;
-}
+async function wikidataPortraitImage(term) {
+  if (term.filename) return `https://commons.wikimedia.org/wiki/Special:Redirect/file/${encodeURIComponent(term.filename)}?width=720`;
+  if (!/^Q\d+$/.test(term.wikidataId || "")) throw new Error("人物实体编号无效");
+  const entityUrl = new URL("https://www.wikidata.org/w/api.php");
+  Object.entries({ action: "wbgetentities", format: "json", ids: term.wikidataId, props: "claims" })
+    .forEach(([key, value]) => entityUrl.searchParams.set(key, value));
+  const entityResponse = await fetch(entityUrl, { headers: { "User-Agent": "FriendsBoardGameQuiz/3.0" }, signal: AbortSignal.timeout(10_000) });
+  const entity = (await entityResponse.json())?.entities?.[term.wikidataId];
+  const filename = entity?.claims?.P18?.[0]?.mainsnak?.datavalue?.value;
+  if (!entityResponse.ok || !filename) throw new Error("该人物没有已核实主图");
 
-async function aniListCharacterImage(search) {
-  if (!search) throw new Error("没有海外角色检索词");
-  const query = "query ($search: String) { Page(perPage: 1) { characters(search: $search) { image { large } } } }";
-  const response = await fetch("https://graphql.anilist.co", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "User-Agent": "FriendsBoardGameQuiz/2.0" },
-    body: JSON.stringify({ query, variables: { search } }),
-    signal: AbortSignal.timeout(8000)
-  });
-  const payload = await response.json();
-  const imageUrl = payload?.data?.Page?.characters?.[0]?.image?.large;
-  if (!response.ok || !imageUrl) throw new Error(`海外角色图片不可用 (${response.status})`);
+  const commonsUrl = new URL("https://commons.wikimedia.org/w/api.php");
+  Object.entries({ action: "query", format: "json", formatversion: "2", titles: `File:${filename}`, prop: "imageinfo", iiprop: "url", iiurlwidth: "720" })
+    .forEach(([key, value]) => commonsUrl.searchParams.set(key, value));
+  const commonsResponse = await fetch(commonsUrl, { headers: { "User-Agent": "FriendsBoardGameQuiz/3.0" }, signal: AbortSignal.timeout(10_000) });
+  const page = (await commonsResponse.json())?.query?.pages?.[0];
+  const imageUrl = page?.imageinfo?.[0]?.thumburl || page?.imageinfo?.[0]?.url;
+  if (!commonsResponse.ok || !imageUrl) throw new Error("该人物主图无法下载");
   return imageUrl;
 }
 
 async function resolveCharacterImage(imageKey) {
   const cached = characterImageCache.get(imageKey);
   if (cached) return await cached;
-  const fixedImageUrl = CHILD_CHARACTER_IMAGE_URLS[imageKey];
   const term = CHARACTER_IMAGE_TERMS[imageKey];
-  if (!term && !fixedImageUrl) throw new Error("未知角色图鉴编号");
+  if (!term) throw new Error("未知人物图鉴编号");
   const request = (async () => {
-    let imageUrl = fixedImageUrl;
-    if (!imageUrl) {
-      const errors = [];
-      for (const wikiTitle of term.wikiTitles) {
-        try { imageUrl = await wikipediaCharacterImage({ ...term, wikiTitle }, "zh"); break; }
-        catch (error) { errors.push(error.message); }
-      }
-      if (!imageUrl && term.region === "world") {
-        try { imageUrl = await wikipediaCharacterImage({ ...term, wikiTitle: term.anilistSearch }, "en"); }
-        catch (error) { errors.push(error.message); }
-      }
-      if (!imageUrl) {
-        try { imageUrl = await aniListCharacterImage(term.anilistSearch); }
-        catch (error) { errors.push(error.message); }
-      }
-      if (!imageUrl) throw new Error(errors.join("；"));
-    }
+    const imageUrl = await wikidataPortraitImage(term);
     return fetchImageBytes(imageUrl);
   })();
   characterImageCache.set(imageKey, request);
@@ -281,6 +288,7 @@ function sendRoom(room) {
   }
   void persistQuizHistory(room);
   void retireQuizQuestion(room);
+  void retireDrawWord(room);
 }
 
 function broadcastDrawStroke(room, payload) {
@@ -324,6 +332,7 @@ io.on("connection", (socket) => {
     try {
       const { room, player } = roomService.createRoom({ name, playerToken, roomPassword, gameId });
       await loadQuizHistory(room, player);
+      await loadDrawHistory(room);
       await recordAudit({ actorType: "player", actorId: player.id, action: "room_created", roomCode: room.code, ip: socket.handshake.address, metadata: { gameId } });
       socket.join(room.code);
       trackPlayerSocket(socket, room, player);

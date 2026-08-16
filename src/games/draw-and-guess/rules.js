@@ -18,11 +18,12 @@ function shuffle(items, random = Math.random) {
 }
 
 function choiceSet(game) {
-  let available = WORDS.filter((item) => !game.seenWords.includes(item.word));
+  let available = WORDS.filter((item) => !game.seenWords.includes(item.word) && !game.retiredWords.has(item.word));
   if (available.length < 3) {
     game.seenWords = [];
-    available = WORDS;
+    available = WORDS.filter((item) => !game.retiredWords.has(item.word));
   }
+  if (available.length < 3) throw new Error("可用词库已不足3题，请补充新词库");
   // 每次固定给一个直观词、一个聚会词和一个挑战词，避免三个备选全是
   // 同类家具或全是难画成语；某一档临时用尽时再由全库补足。
   const choices = [];
@@ -49,14 +50,16 @@ function beginChoosing(game, now) {
   game.deadline = now + CHOOSE_SECONDS * 1000;
   game.startedAt = null;
   game.strokes = [];
+  game.canvasRevision += 1;
   game.guesses = [];
   game.messages = [];
   game.reactions = [];
   game.turnScores = {};
+  game.artistRewarded = false;
   game.lastResult = null;
 }
 
-function createGame(players, random = Math.random, now = Date.now()) {
+function createGame(players, random = Math.random, now = Date.now(), retiredWords = []) {
   players.forEach((player) => { player.score = 0; });
   const game = {
     status: "playing",
@@ -68,15 +71,18 @@ function createGame(players, random = Math.random, now = Date.now()) {
     artistId: null,
     wordChoices: [],
     seenWords: [],
+    retiredWords: new Set(retiredWords),
     word: null,
     category: null,
     deadline: null,
     startedAt: null,
     strokes: [],
+    canvasRevision: 0,
     guesses: [],
     messages: [],
     reactions: [],
     turnScores: {},
+    artistRewarded: false,
     lastResult: null,
     ranking: [],
     finalChallenge: null,
@@ -93,6 +99,7 @@ function requirePlaying(room) {
 function startDrawing(game, selected, now) {
   game.word = selected.word;
   game.category = selected.category;
+  game.retiredWords.add(selected.word);
   game.phase = "drawing";
   game.startedAt = now;
   game.deadline = now + DRAW_SECONDS * 1000;
@@ -166,9 +173,12 @@ function submitGuess(room, playerId, text, now = Date.now()) {
     const score = 100 + Math.min(DRAW_SECONDS, secondsLeft) * 2;
     player.score = (player.score || 0) + score;
     const artist = room.players.find((item) => item.id === game.artistId);
-    if (artist) artist.score = (artist.score || 0) + 40;
+    if (artist && !game.artistRewarded) {
+      artist.score = (artist.score || 0) + 40;
+      game.turnScores[game.artistId] = (game.turnScores[game.artistId] || 0) + 40;
+      game.artistRewarded = true;
+    }
     game.turnScores[playerId] = (game.turnScores[playerId] || 0) + score;
-    game.turnScores[game.artistId] = (game.turnScores[game.artistId] || 0) + 40;
     game.guesses.push({ playerId, playerName: player.name, correct: true, at: now });
     game.messages.push({ id: `${now}-${playerId}`, playerId, playerName: player.name, correct: true, text: "猜中了！" });
     const eligible = room.players.filter((item) => item.id !== game.artistId && item.connected !== false);
@@ -226,13 +236,17 @@ function undoStroke(room, playerId) {
   requirePlaying(room);
   if (room.game.phase !== "drawing" || room.game.artistId !== playerId) throw new Error("现在只有画家可以撤销");
   const index = room.game.strokes.map((stroke) => stroke.playerId).lastIndexOf(playerId);
-  if (index >= 0) room.game.strokes.splice(index, 1);
+  if (index >= 0) {
+    room.game.strokes.splice(index, 1);
+    room.game.canvasRevision += 1;
+  }
 }
 
 function clearCanvas(room, playerId) {
   requirePlaying(room);
   if (room.game.phase !== "drawing" || room.game.artistId !== playerId) throw new Error("现在只有画家可以清空画板");
   room.game.strokes = [];
+  room.game.canvasRevision += 1;
 }
 
 function finishGame(room) {
@@ -291,6 +305,7 @@ function publicRoom(room, viewerId = null) {
       ...source,
       random: undefined,
       seenWords: undefined,
+      retiredWords: undefined,
       wordChoices: isArtist && source.phase === "choosing" ? source.wordChoices : [],
       word: revealWord ? source.word : undefined,
       hint: source.phase === "drawing" && !isArtist ? hintFor(source) : undefined,

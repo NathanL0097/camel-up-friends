@@ -45,6 +45,12 @@ function createDatabase({ url = process.env.DATABASE_URL } = {}) {
       room_code TEXT
     );
     CREATE INDEX IF NOT EXISTS quiz_retired_questions_seen_idx ON quiz_retired_questions (first_seen_at ASC);
+    CREATE TABLE IF NOT EXISTS draw_retired_words (
+      word TEXT PRIMARY KEY,
+      first_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      room_code TEXT
+    );
+    CREATE INDEX IF NOT EXISTS draw_retired_words_used_idx ON draw_retired_words (first_used_at ASC);
     INSERT INTO quiz_retired_questions (knowledge_key, first_seen_at)
     SELECT knowledge_key, MIN(first_seen_at) FROM quiz_question_history GROUP BY knowledge_key
     ON CONFLICT (knowledge_key) DO NOTHING;

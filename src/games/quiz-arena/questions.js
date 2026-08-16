@@ -1,23 +1,19 @@
-const CURATED_SOURCE = require("./curated-questions.json");
-const STRUCTURED_SOURCE = require("./structured-questions.json");
 const { CHARACTER_IMAGE_QUERIES, CHARACTER_IMAGE_TERMS, CHARACTER_QUESTIONS } = require("./characters-v3");
 const { MANUAL_QUESTIONS } = require("./manual-facts-v3");
 const { CHINA_FEATURED_QUESTIONS } = require("./china-featured");
 const { CHINA_EXPANSION_QUESTIONS } = require("./china-expansion-v6");
 const { CLASSIC_TV_QUESTIONS } = require("./classic-tv-questions");
+const { NATURE_QUESTIONS } = require("./nature-questions");
 const { chinaFirstQuestion } = require("./china-policy");
-const { preserveOfficialProperNouns } = require("./foreign-proper-nouns");
 const { auditQuestionBank, validateQuestion } = require("./question-quality");
 
-const CATEGORIES = ["生活常识", "历史", "地理", "科学与科技", "体育", "影视", "音乐", "游戏与网络文化", "美食", "文学艺术", "自然动物", "趣味冷知识", "动漫角色"];
-const PARTY_CATEGORIES = new Set(["影视", "音乐", "游戏与网络文化", "美食", "动漫角色"]);
+const CATEGORIES = ["生活常识", "历史", "地理", "科学与科技", "体育", "影视", "音乐", "游戏与网络文化", "美食", "文学艺术", "自然动物", "趣味冷知识", "人物识图"];
+const PARTY_CATEGORIES = new Set(["影视", "音乐", "游戏与网络文化", "美食", "人物识图"]);
 const FOOD_WORDS = /食物|食品|烹饪|菜肴|饮料|水果|蔬菜|咖啡|茶|面包|蛋糕|巧克力|奶酪|鸡尾酒|葡萄酒|啤酒|餐厅|厨房|调味|甜点/;
 const NETWORK_WORDS = /互联网|网络用语|社交媒体|视频网站|直播|表情包|网红|短视频|播客|YouTube|TikTok|Twitter|微博|微信|哔哩哔哩/iu;
 // 这些问法往往依赖剧集细节、过期赛事数据或死记冷僻数字，不适合朋友聚会。
 // 年代、人物与作品常识仍保留在人工核验题和结构化题中。
 const COLD_DETAIL = /(第\s*\d+|第几|章节|本章|倒数第|哪一集|第几集|哪一季|赛季|哪一年|什么时候|何时|有多少|多少个|多少只|第一个|第二个|第三个|谁是.*第|何时去世|什么时候去世|出生于哪个国家|票房|奥斯卡.*提名|艾美奖|格莱美奖|排行榜第|广告中|书中|小说中|最后一幕|哪两名.*成员|哪支球队|哪位球员|哪位演员|饰演|扮演|情节|剧情|结局|杀了多少|专辑.*第|歌曲.*发行|电影.*出品|电影.*拍摄|赛季|冠军|比赛|得分|本垒打|联盟|球队|教练|运动员人数|摩托车|魔法部|格兰芬多|霍格沃茨|根据《战争机器》)/i;
-const META_OPTIONS = /(这些答案|以上都|都不是|两者|所有这些|这些都|以上皆是|以上都不是)/;
-const VAGUE_OPENING = /^(这个|这些|这种|这位|这项|以下哪项陈述)/;
 const CHILDREN_FAIRY = /童话|安徒生|格林|白雪公主|灰姑娘|小红帽|睡美人|匹诺曹|豌豆公主|拇指姑娘|长发公主|彼得潘|爱丽丝|小王子|儿童文学/;
 const FOREIGN_FILM = /泰坦尼克号|盗梦空间|侏罗纪公园|阿甘正传|指环王|千与千寻|这个杀手不太冷|楚门的世界|寄生虫|教父/;
 const BAD_TRANSLATION = /确切文本未知|文本未知|答案未知|无法确定原文|麻将[^？]*(?:乒乓球|松狮犬|金刚)|在\s*\d+\s*张麻将|七个主要国家流域|哪个国家仅次于长江的第二大河流|这个国家\/地区|命名(?:这|一|该)|说出说：/;
@@ -57,72 +53,75 @@ function sourceFunScore(question) {
   return score;
 }
 
-const structuredQuestions = [...new Map(STRUCTURED_SOURCE.map((question) => [question.id, question])).values()]
-  .filter((question) => validateQuestion(question).valid)
-  .map((question) => preserveOfficialProperNouns({ ...question, category: refineCategory(question) }))
-  .filter(allowedQuestionContent);
-const curatedCandidates = CURATED_SOURCE.filter((question) => {
-  if (!validateQuestion(question).valid || !allowedQuestionContent(question) || VAGUE_OPENING.test(question.prompt)) return false;
-  if (question.options.some((option) => META_OPTIONS.test(option))) return false;
-  return (question.prompt.match(/[A-Za-z]+/g) || []).length <= 5;
-}).map((question) => ({ ...question, category: refineCategory(question) }));
 const manualQuestions = MANUAL_QUESTIONS.filter(allowedQuestionContent);
-const ACTIVE_COUNT = 5000;
-const RESERVE_COUNT = 5250;
-const neededCurated = RESERVE_COUNT - structuredQuestions.length - manualQuestions.length - CHARACTER_QUESTIONS.length - CHINA_FEATURED_QUESTIONS.length - CHINA_EXPANSION_QUESTIONS.length - CLASSIC_TV_QUESTIONS.length;
-const curatedQuotas = new Map([
-  ["生活常识", 560], ["美食", 0], ["趣味冷知识", 100], ["地理", 300], ["历史", 260],
-  ["科学与科技", 400], ["自然动物", 200], ["文学艺术", 350], ["体育", 100],
-  ["音乐", 0], ["游戏与网络文化", 60], ["影视", 0]
-]);
-const selectedCurated = [];
-for (const [category, quota] of curatedQuotas) {
-  const pool = curatedCandidates.filter((question) => question.category === category)
-    .sort((a, b) => sourceFunScore(b) - sourceFunScore(a) || a.prompt.length - b.prompt.length || a.id.localeCompare(b.id));
-  if (pool.length < quota) throw new Error(`精品题源不足：${category} 需要 ${quota} 道，现有 ${pool.length} 道`);
-  selectedCurated.push(...pool.slice(0, quota));
-}
-if (selectedCurated.length < neededCurated) {
-  const selectedIds = new Set(selectedCurated.map((question) => question.id));
-  selectedCurated.push(...curatedCandidates.filter((question) => !selectedIds.has(question.id))
-    .sort((a, b) => sourceFunScore(b) - sourceFunScore(a) || a.id.localeCompare(b.id))
-    .slice(0, neededCurated - selectedCurated.length));
-}
-if (neededCurated < 0 || selectedCurated.length !== neededCurated) throw new Error(`精品题源配额错误：需要 ${neededCurated} 道，实际 ${selectedCurated.length} 道`);
-
-const combinedQuestions = [...structuredQuestions, ...manualQuestions, ...selectedCurated, ...CHINA_FEATURED_QUESTIONS, ...CHINA_EXPANSION_QUESTIONS, ...CLASSIC_TV_QUESTIONS, ...CHARACTER_QUESTIONS].filter(allowedQuestionContent);
+// OpenTrivia 旧题源经过大量样本审核后确认存在机器翻译、错类选项和冷门外国娱乐污染，
+// 因此整个题源停用，不再为了凑数量从中挑题。
+// 结构化 Wikidata 批量题虽然事实可追溯，但“首都/国家反问”、“公司创始人”、
+// “游戏开发商”都是同一模板批量换名词，不符合玩家要求的语义独立性，因此也停止投放。
+const combinedQuestions = [...manualQuestions, ...CHINA_FEATURED_QUESTIONS, ...CHINA_EXPANSION_QUESTIONS, ...CLASSIC_TV_QUESTIONS, ...NATURE_QUESTIONS, ...CHARACTER_QUESTIONS].filter(allowedQuestionContent);
 function playabilityScore(question) {
   if (question.chinaFeatured) return 150;
   if (question.source?.startsWith("公开")) return 140;
-  if (question.source === "全新角色图鉴题包") return 90;
+  if (question.source === "Wikidata唯一实体人像题包") return 145;
   if (question.source?.startsWith("Wikidata")) return 20 + Math.min(100, Number(question.popularity || 0) / 2);
   return 30 + sourceFunScore(question);
 }
 combinedQuestions.sort((a, b) => {
   return playabilityScore(b) - playabilityScore(a) || Number(b.popularity || 0) - Number(a.popularity || 0) || a.id.localeCompare(b.id);
 });
-const QUESTION_RESERVE = combinedQuestions.map((question, index) => ({
+function normalizeText(value) {
+  return String(value || "").toLowerCase().replace(/[\s\p{P}\p{S}]/gu, "");
+}
+
+const THEME_CAPS = [[/拿破仑/i, 2], [/奥运|奥林匹克/i, 3], [/马里奥|马力欧|mario/i, 2], [/哈利·波特|哈利波特/i, 2]];
+const themeCounts = new Map();
+const promptKeys = new Set();
+const knowledgeKeys = new Set();
+const answerCounts = new Map();
+const independentQuestions = combinedQuestions.filter((question) => {
+  const promptKey = normalizeText(question.kind === "image-fill" ? `${question.prompt}${question.answer}` : question.prompt);
+  if (!promptKey || promptKeys.has(promptKey) || knowledgeKeys.has(question.knowledgeKey)) return false;
+  const text = `${question.prompt} ${question.answer} ${question.explanation || ""}`;
+  for (const [pattern, cap] of THEME_CAPS) {
+    if (!pattern.test(text)) continue;
+    const key = String(pattern);
+    if ((themeCounts.get(key) || 0) >= cap) return false;
+    themeCounts.set(key, (themeCounts.get(key) || 0) + 1);
+  }
+  // 同一领域反复围绕同一答案出题会造成“换个问法当新题”。
+  // 判断题和用户指定的经典电视专题例外，其余每个答案在单一领域最多4道。
+  const answerKey = `${question.category}:${normalizeText(question.answer)}`;
+  const capAnswer = question.kind !== "judge" && question.source !== "中国经典电视剧人工核验题";
+  if (capAnswer && (answerCounts.get(answerKey) || 0) >= 4) return false;
+  promptKeys.add(promptKey);
+  knowledgeKeys.add(question.knowledgeKey);
+  if (capAnswer) answerCounts.set(answerKey, (answerCounts.get(answerKey) || 0) + 1);
+  return true;
+});
+
+const QUESTION_RESERVE = independentQuestions.filter(chinaFirstQuestion).map((question) => ({
   ...question,
   category: refineCategory(question),
   pack: PARTY_CATEGORIES.has(refineCategory(question)) ? "party" : "classic",
-  difficulty: index < 3000 ? "easy" : index < 4500 ? "medium" : "hard",
+  difficulty: ["easy", "medium", "hard"].includes(question.difficulty) ? question.difficulty : "medium",
   aliases: [...new Set(question.aliases || [question.answer])],
   options: [...(question.options || [])]
 }));
 
-if (QUESTION_RESERVE.length !== RESERVE_COUNT) throw new Error(`站神候补题库数量错误：需要 ${RESERVE_COUNT} 道，实际 ${QUESTION_RESERVE.length} 道`);
-const LOCAL_QUESTIONS = QUESTION_RESERVE.slice(0, ACTIVE_COUNT);
+const LOCAL_QUESTIONS = [...QUESTION_RESERVE];
 function activeLocalQuestions(retiredKeys = []) {
   const retired = retiredKeys instanceof Set ? retiredKeys : new Set(retiredKeys || []);
-  return QUESTION_RESERVE.filter((question) => !retired.has(question.knowledgeKey)).slice(0, ACTIVE_COUNT);
+  return QUESTION_RESERVE.filter((question) => !retired.has(question.knowledgeKey));
 }
 
-const localAudit = auditQuestionBank(LOCAL_QUESTIONS, { expectedCount: ACTIVE_COUNT });
+const localAudit = auditQuestionBank(LOCAL_QUESTIONS, { expectedCount: LOCAL_QUESTIONS.length });
 if (!localAudit.valid) throw new Error(`站神题库质量审计失败：${JSON.stringify(localAudit.failures.slice(0, 8))}`);
 
 let remoteQuestions = [];
 function validateRemoteQuestion(question, index) {
-  if (!question || typeof question.prompt !== "string" || typeof question.answer !== "string" || !CATEGORIES.includes(question.category)) return null;
+  // 在线题包只作为未来人工补题通道。没有明确审核标记的批量抓取、翻译或模型生成内容
+  // 不允许进入正式题库，避免服务器定时刷新后重新混入已经清理掉的坏题。
+  if (!question?.humanReviewed || typeof question.prompt !== "string" || typeof question.answer !== "string" || !CATEGORIES.includes(question.category)) return null;
   const answer = question.answer.trim().slice(0, 80);
   const prompt = question.prompt.trim().slice(0, 240);
   const options = Array.isArray(question.options) ? question.options.map(String).map((item) => item.trim()).filter(Boolean).slice(0, 4) : [];
@@ -143,11 +142,22 @@ function validateRemoteQuestion(question, index) {
     source: String(question.source || "在线题包").slice(0, 80),
     updatedAt: String(question.updatedAt || new Date().toISOString().slice(0, 10)).slice(0, 10)
   };
-  return validateQuestion(candidate).valid ? candidate : null;
+  return validateQuestion(candidate).valid && allowedQuestionContent(candidate) && chinaFirstQuestion(candidate) ? candidate : null;
 }
 
 function installRemoteQuestions(items) {
-  remoteQuestions = Array.isArray(items) ? items.map(validateRemoteQuestion).filter(Boolean).slice(0, 20_000) : [];
+  const localKeys = new Set(LOCAL_QUESTIONS.map((question) => question.knowledgeKey));
+  const localPrompts = new Set(LOCAL_QUESTIONS.map((question) => normalizeText(question.prompt)));
+  const seenKeys = new Set();
+  const seenPrompts = new Set();
+  remoteQuestions = (Array.isArray(items) ? items : []).map(validateRemoteQuestion).filter((question) => {
+    if (!question) return false;
+    const promptKey = normalizeText(question.prompt);
+    if (localKeys.has(question.knowledgeKey) || localPrompts.has(promptKey) || seenKeys.has(question.knowledgeKey) || seenPrompts.has(promptKey)) return false;
+    seenKeys.add(question.knowledgeKey);
+    seenPrompts.add(promptKey);
+    return true;
+  }).slice(0, 20_000);
   return remoteQuestions.length;
 }
 
@@ -159,7 +169,7 @@ function questionPackInfo() {
     remoteCount: remoteQuestions.length,
     total: LOCAL_QUESTIONS.length + remoteQuestions.length,
     reserveCount: QUESTION_RESERVE.length,
-    version: "2026.08.16-cn-classic-tv-v10",
+    version: "2026.08.17-human-reviewed-independent-v12",
     categories: CATEGORIES,
     independentCount: new Set(LOCAL_QUESTIONS.map((question) => question.knowledgeKey)).size,
     audited: true,

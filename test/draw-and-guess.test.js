@@ -156,7 +156,39 @@ test("错误答案公开，正确答案保密并按剩余时间给双方计分",
   assert.equal(rules.publicRoom(room, guessers[1].id).game.word, undefined);
   rules.submitGuess(room, guessers[1].id, answer, 1_007_000);
   assert.equal(room.game.phase, "reveal");
+  assert.equal(room.players.find((player) => player.id === artistId).score, 40);
   assert.equal(rules.publicRoom(room, guessers[1].id).game.word, answer);
+});
+
+test("已经开画的词会进入永久废题并不再出现在新局候选中", () => {
+  const retired = rules.WORDS.slice(0, 25).map((item) => item.word);
+  const players = [{ id: "p1", name: "玩家1" }, { id: "p2", name: "玩家2" }];
+  const game = rules.createGame(players, () => 0, 1000, retired);
+  assert.ok(game.wordChoices.every((choice) => !retired.includes(choice.word)));
+  const selected = game.wordChoices[0].word;
+  const room = { players, game };
+  rules.selectWord(room, game.artistId, selected, 2000);
+  assert.equal(game.retiredWords.has(selected), true);
+});
+
+test("清空与撤销会递增画板版本，画家和猜题者都会重画同一份空画板", () => {
+  const room = makeRoom(2), artist = room.game.artistId;
+  rules.selectWord(room, artist, room.game.wordChoices[0].word, 2000);
+  const initial = room.game.canvasRevision;
+  rules.addStroke(room, artist, { strokeId: "s1", points: [{ x: .2, y: .3 }] });
+  rules.clearCanvas(room, artist);
+  assert.equal(room.game.canvasRevision, initial + 1);
+  assert.equal(room.game.strokes.length, 0);
+  assert.equal(rules.publicRoom(room, artist).game.canvasRevision, rules.publicRoom(room, room.players.find((p) => p.id !== artist).id).game.canvasRevision);
+});
+
+test("你画我猜废题通过数据库在服务器重启后保留", () => {
+  const server = fs.readFileSync(path.join(__dirname, "../server.js"), "utf8");
+  const database = fs.readFileSync(path.join(__dirname, "../src/platform/database.js"), "utf8");
+  assert.match(database, /CREATE TABLE IF NOT EXISTS draw_retired_words/);
+  assert.match(server, /loadDrawHistory/);
+  assert.match(server, /retireDrawWord/);
+  assert.match(server, /INSERT INTO draw_retired_words/);
 });
 
 test("超时自动选词、揭晓并完成全部轮次排名", () => {

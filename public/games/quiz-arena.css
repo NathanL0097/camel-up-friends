@@ -96,7 +96,7 @@
 @media(max-width:760px){.quiz-arena{min-width:940px}.quiz-layout{grid-template-columns:900px}.quiz-info{grid-column:1}.quiz-head-center{left:55%}}
 @media(prefers-reduced-motion:reduce){.quiz-starfield,.quiz-orbit,.quiz-arena-core i,.quiz-crown{animation:none}.quiz-player.newly-eliminated{animation:quiz-seat-drop .01s both}.quiz-elimination-fx{animation-duration:.8s}.quiz-falling-player{animation-duration:.7s}}
 
-/* 动漫角色影像填空题 */
+/* 已核验人物影像填空题 */
 .quiz-question-card.has-character-image{width:min(65%,720px);min-height:500px;background:linear-gradient(145deg,#0b2845f4,#160d35f0)}
 .quiz-question-card.has-character-image .quiz-question{grid-template-columns:178px minmax(0,1fr);gap:27px;min-height:255px;padding:20px 68px 8px 18px;text-align:left}
 .quiz-question-card.has-character-image .quiz-question h1{font-size:clamp(20px,1.8vw,29px);line-height:1.55}

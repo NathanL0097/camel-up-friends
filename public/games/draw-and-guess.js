@@ -14,13 +14,14 @@
     let lastSend = 0;
     let renderedStrokeLengths = new Map();
     let renderedTurn = null;
+    let renderedCanvasRevision = null;
     let renderFrame = null;
     const wordDifficultyNames = { easy: "直观", medium: "聚会", hard: "挑战" };
     const emitAction = (action, payload = {}) => socket.emit("game:action", { action, payload });
 
     $("gameMount").innerHTML = `<div class="draw-game"><div class="game-head draw-head"><div><div class="eyebrow">创意派对 · 房间 <span id="drawCode"></span></div><h2>你画我猜</h2></div><div id="drawPhase" class="draw-phase"></div><div class="game-head-actions"><button id="drawRulesButton" class="ghost-button rules-shortcut">📖 规则</button><button id="drawCopyButton" class="ghost-button">邀请好友</button></div></div><div class="draw-layout"><aside class="draw-panel draw-players"><div class="draw-panel-title"><span>🏆 积分榜</span><small id="drawTurnLabel"></small></div><div id="drawPlayerList"></div></aside><main class="draw-stage"><div class="draw-word-bar"><div><small id="drawWordKicker">等待画家选词</small><strong id="drawWordHint">准备好你的脑洞</strong></div><div id="drawTimer" class="draw-timer">--</div></div><div class="canvas-card"><div id="drawToolbar" class="draw-toolbar"><div id="drawColors" class="draw-colors"></div><button id="brushTool" class="tool-button selected">✏️ 画笔</button><button id="crayonTool" class="tool-button">🖍️ 蜡笔</button><button id="eraserTool" class="tool-button">◻︎ 橡皮</button><label>粗细 <input id="brushWidth" type="range" min="2" max="24" value="6"></label><button id="undoDraw" class="tool-button">↶ 撤销</button><button id="clearDraw" class="tool-button danger">清空</button></div><div id="canvasWrap" class="canvas-wrap"><canvas id="drawingCanvas"></canvas><div id="canvasNotice" class="canvas-notice hidden"></div><div id="wordChoice" class="word-choice hidden"></div><div id="roundReveal" class="round-reveal hidden"></div><div id="drawFinish" class="draw-finish canvas-finish hidden"></div></div></div></main><aside class="draw-panel guess-panel"><div class="draw-panel-title"><span>💬 猜词区</span><small>答案不会公开</small></div><div id="guessMessages" class="guess-messages"></div><div class="guess-compose"><input id="guessInput" maxlength="40" placeholder="输入你的答案…"><button id="guessButton">发送</button></div></aside></div></div>`;
 
-    $("rulesContent").innerHTML = `<div class="eyebrow">轻松上手 · 约3000题纯名词词库</div><h2>你画我猜 · 规则</h2><ol><li><strong>轮流作画：</strong>每位玩家会担任三次画家，游戏自动决定顺序。</li><li><strong>秘密选词：</strong>每批固定包含“直观、进阶、挑战”三种难度；都不满意可以不限次数换一批。</li><li><strong>纯名词题库：</strong>只出现能独立画出的物品、动植物、人物、角色、建筑和自然景观；不再出现动作题、成语或“某物和某物”的组合题。</li><li><strong>限时75秒：</strong>画家只能用画板表达，不能直接写出答案；猜题者只知道准确类别和字数，不会自动揭字。</li><li><strong>实时猜词：</strong>错误答案会出现在聊天中；正确答案不会泄露，只会显示“猜中了”。</li><li><strong>计分：</strong>猜得越早分数越高；每有一位玩家猜中，画家获得40分。三人及以上无人猜中时画家扣60分，双人局不扣。</li><li><strong>欢乐评价：</strong>答案揭晓后，其他玩家可以给画作点赞或扔鸡蛋，只为搞笑，不影响分数。</li><li><strong>提前结束：</strong>所有在线猜题玩家都猜中后，75秒倒计时立即结束并进入揭晓。</li><li><strong>最终彩蛋：</strong>所有人完成三次作画后，画板中央公布排名，冠军可为最后一名抽取健康的真心话或大冒险。</li></ol>`;
+    $("rulesContent").innerHTML = `<div class="eyebrow">轻松上手 · 纯名词词库</div><h2>你画我猜 · 规则</h2><ol><li><strong>轮流作画：</strong>每位玩家会担任三次画家，游戏自动决定顺序。</li><li><strong>秘密选词：</strong>每批固定包含“直观、进阶、挑战”三种难度；都不满意可以不限次数换一批。</li><li><strong>题目不回收：</strong>一个词被选中开画后会进入永久废题库，以后房间不再抽到。</li><li><strong>纯名词题库：</strong>只出现能独立画出的物品、动植物、人物、角色、建筑和自然景观。</li><li><strong>限时75秒：</strong>画家只能用画板表达，不能直接写出答案。</li><li><strong>计分：</strong>猜得越早分数越高；本轮只要有任意一人猜中，画家一次性获得40分，不会随猜中人数重复加分。三人及以上无人猜中时画家扣60分，双人局不扣。</li><li><strong>欢乐评价：</strong>答案揭晓后，其他玩家可以给画作点赞或扔鸡蛋，不影响分数。</li><li><strong>提前结束：</strong>所有在线猜题玩家都猜中后，立即进入揭晓。</li><li><strong>最终彩蛋：</strong>所有人完成三次作画后，冠军可为最后一名抽取健康的真心话或大冒险。</li></ol>`;
 
     $("drawRulesButton").onclick = () => $("rulesDialog").showModal();
     $("drawCopyButton").onclick = copyInvite;
@@ -251,10 +252,11 @@
 
       const turnKey = `${game.turnNumber}-${game.phase}`;
       const currentLengths = new Map((game.strokes || []).map((stroke) => [stroke.id, stroke.points?.length || 0]));
-      const structuralChange = renderedTurn !== turnKey || renderedStrokeLengths.size !== currentLengths.size
+      const structuralChange = renderedTurn !== turnKey || renderedCanvasRevision !== game.canvasRevision || renderedStrokeLengths.size !== currentLengths.size
         || [...renderedStrokeLengths].some(([id, length]) => !currentLengths.has(id) || currentLengths.get(id) < length);
       if (structuralChange) {
         renderedTurn = turnKey;
+        renderedCanvasRevision = game.canvasRevision;
         requestAnimationFrame(() => renderCanvas(game.strokes));
       }
       updateCountdown();

@@ -1,5 +1,5 @@
 const ALLOWED_KINDS = new Set(["choice", "judge", "fill", "image-fill"]);
-const STRONG_TYPES = new Set(["year", "number", "person", "country", "city", "animal", "character-name"]);
+const STRONG_TYPES = new Set(["year", "number", "person", "country", "city", "animal", "character-name", "portrait-name"]);
 const GARBAGE = /�|__[QO]\d|确切文本未知|文本未知|答案未知|无法确定原文|占位文本|待补充|\b(undefined|null|nan|xewartqwe|jeice)\b/i;
 const MALFORMED_TRANSLATION = /麻将[^？]*(?:乒乓球|松狮犬|金刚)|在\s*\d+\s*张麻将|七个主要国家流域|哪个国家仅次于长江的第二大河流|这个国家\/地区|命名(?:这|一|该)|说出说：/;
 

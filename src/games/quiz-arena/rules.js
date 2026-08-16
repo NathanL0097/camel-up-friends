@@ -12,7 +12,7 @@ const SURVIVAL_SKIPS = 1;
 const BUZZ_WIN_CORRECT = 7;
 const REACTIONS = ["egg", "tomato", "question", "applause"];
 const PACKS = ["all", "classic", "party"];
-const PARTY_CATEGORIES = ["影视", "音乐", "游戏与网络文化", "美食", "动漫角色"];
+const PARTY_CATEGORIES = ["影视", "音乐", "游戏与网络文化", "美食", "人物识图"];
 const RECENT_KNOWLEDGE_KEYS = [];
 const RECENT_LIMIT = 320;
 function packAllowsCategory(pack, category) { return pack === "all" || (pack === "party" ? PARTY_CATEGORIES.includes(category) : !PARTY_CATEGORIES.includes(category)); }
