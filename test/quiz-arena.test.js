@@ -32,7 +32,7 @@ test("新增精品题包只使用已核验数据源且不恢复已停用的游�
   const expansion = require("../src/games/quiz-arena/reviewed-expansion-v13.json");
   assert.equal(expansion.length, 1424);
   assert.ok(expansion.every((item) => item.humanReviewed && item.chinaFeatured));
-  assert.ok(expansion.every((item) => /ChengyuBench|open-chinese|国家统计局|Wikidata元素周期表|Wikidata中国运动员/.test(item.source)));
+  assert.ok(expansion.every((item) => /ChengyuBench|chinese-poetry|国家统计局|Wikidata元素周期表|Wikidata中国运动员/.test(item.source)));
   assert.ok(expansion.every((item) => !/游戏结构化|音乐作品结构化|电影结构化|OpenTriviaQA/.test(item.source)));
   assert.equal(new Set(expansion.map((item) => item.prompt)).size, expansion.length);
   assert.ok(expansion.every((item) => validateQuestion(item).valid));
