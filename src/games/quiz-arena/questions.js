@@ -4,6 +4,8 @@ const { CHINA_FEATURED_QUESTIONS } = require("./china-featured");
 const { CHINA_EXPANSION_QUESTIONS } = require("./china-expansion-v6");
 const { CLASSIC_TV_QUESTIONS } = require("./classic-tv-questions");
 const { NATURE_QUESTIONS } = require("./nature-questions");
+const { BALANCED_CORE_QUESTIONS } = require("./balanced-core-v13");
+const REVIEWED_EXPANSION = require("./reviewed-expansion-v13.json");
 const { chinaFirstQuestion } = require("./china-policy");
 const { auditQuestionBank, validateQuestion } = require("./question-quality");
 
@@ -58,7 +60,7 @@ const manualQuestions = MANUAL_QUESTIONS.filter(allowedQuestionContent);
 // 因此整个题源停用，不再为了凑数量从中挑题。
 // 结构化 Wikidata 批量题虽然事实可追溯，但“首都/国家反问”、“公司创始人”、
 // “游戏开发商”都是同一模板批量换名词，不符合玩家要求的语义独立性，因此也停止投放。
-const combinedQuestions = [...manualQuestions, ...CHINA_FEATURED_QUESTIONS, ...CHINA_EXPANSION_QUESTIONS, ...CLASSIC_TV_QUESTIONS, ...NATURE_QUESTIONS, ...CHARACTER_QUESTIONS].filter(allowedQuestionContent);
+const combinedQuestions = [...manualQuestions, ...CHINA_FEATURED_QUESTIONS, ...CHINA_EXPANSION_QUESTIONS, ...CLASSIC_TV_QUESTIONS, ...NATURE_QUESTIONS, ...BALANCED_CORE_QUESTIONS, ...CHARACTER_QUESTIONS, ...REVIEWED_EXPANSION].filter(allowedQuestionContent);
 function playabilityScore(question) {
   if (question.chinaFeatured) return 150;
   if (question.source?.startsWith("公开")) return 140;
@@ -88,11 +90,12 @@ const independentQuestions = combinedQuestions.filter((question) => {
     if ((themeCounts.get(key) || 0) >= cap) return false;
     themeCounts.set(key, (themeCounts.get(key) || 0) + 1);
   }
-  // 同一领域反复围绕同一答案出题会造成“换个问法当新题”。
-  // 判断题和用户指定的经典电视专题例外，其余每个答案在单一领域最多4道。
+  // 同一领域反复围绕同一答案出题会造成“换个问法当新题”。未经专项审核的旧题最多4道；
+  // 人工核验的成语缺字、行政区划等结构化题允许更高上限，但仍限制在24道以内。
   const answerKey = `${question.category}:${normalizeText(question.answer)}`;
   const capAnswer = question.kind !== "judge" && question.source !== "中国经典电视剧人工核验题";
-  if (capAnswer && (answerCounts.get(answerKey) || 0) >= 4) return false;
+  const answerLimit = question.humanReviewed ? 24 : 4;
+  if (capAnswer && (answerCounts.get(answerKey) || 0) >= answerLimit) return false;
   promptKeys.add(promptKey);
   knowledgeKeys.add(question.knowledgeKey);
   if (capAnswer) answerCounts.set(answerKey, (answerCounts.get(answerKey) || 0) + 1);
@@ -108,10 +111,24 @@ const QUESTION_RESERVE = independentQuestions.filter(chinaFirstQuestion).map((qu
   options: [...(question.options || [])]
 }));
 
-const LOCAL_QUESTIONS = [...QUESTION_RESERVE];
+const ACTIVE_COUNT = 2000;
+function balancedLimit(items, limit = ACTIVE_COUNT) {
+  if (items.length <= limit) return [...items];
+  const selected = [...items];
+  const counts = new Map(CATEGORIES.map((category) => [category, selected.filter((question) => question.category === category).length]));
+  while (selected.length > limit) {
+    const category = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh-CN"))[0][0];
+    const index = selected.findLastIndex((question) => question.category === category);
+    selected.splice(index, 1);
+    counts.set(category, counts.get(category) - 1);
+  }
+  return selected;
+}
+
+const LOCAL_QUESTIONS = balancedLimit(QUESTION_RESERVE);
 function activeLocalQuestions(retiredKeys = []) {
   const retired = retiredKeys instanceof Set ? retiredKeys : new Set(retiredKeys || []);
-  return QUESTION_RESERVE.filter((question) => !retired.has(question.knowledgeKey));
+  return balancedLimit(QUESTION_RESERVE.filter((question) => !retired.has(question.knowledgeKey)));
 }
 
 const localAudit = auditQuestionBank(LOCAL_QUESTIONS, { expectedCount: LOCAL_QUESTIONS.length });
@@ -169,7 +186,7 @@ function questionPackInfo() {
     remoteCount: remoteQuestions.length,
     total: LOCAL_QUESTIONS.length + remoteQuestions.length,
     reserveCount: QUESTION_RESERVE.length,
-    version: "2026.08.17-human-reviewed-independent-v12",
+    version: "2026.08.17-reviewed-2000-v13",
     categories: CATEGORIES,
     independentCount: new Set(LOCAL_QUESTIONS.map((question) => question.knowledgeKey)).size,
     audited: true,

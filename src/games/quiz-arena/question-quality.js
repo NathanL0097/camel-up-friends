@@ -34,7 +34,7 @@ function validateQuestion(question) {
     const numericFlags = options.map((item) => /^[-+]?\d|\d[%年月日公里千米米厘米毫米英里英尺千克公斤克吨秒分钟小时天周岁元美元英镑欧元]/.test(item));
     if (numericFlags.some(Boolean) && !numericFlags.every(Boolean)) errors.push("mixed-number-and-text");
     const singleLatinFlags = options.map((item) => /^[A-Za-z]$/.test(item));
-    if (singleLatinFlags.some(Boolean) && !singleLatinFlags.every(Boolean)) errors.push("mixed-single-letter");
+    if (question.optionType !== "symbol" && singleLatinFlags.some(Boolean) && !singleLatinFlags.every(Boolean)) errors.push("mixed-single-letter");
     if (/地域标签|来自哪个(?:省|市|地区)|代表性地域|发源地|行政中心/.test(question.prompt) && options.some((item) => /节$/.test(item))) errors.push("place-options-have-festival");
     if (/哪个传统节日|哪一节日/.test(question.prompt) && options.some((item) => !/节$/.test(item))) errors.push("festival-options-have-place");
     const lengths = options.map((item) => [...item].length).filter(Boolean);
