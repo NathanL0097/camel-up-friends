@@ -1,5 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const rules = require("../src/games/seven-duel/rules");
 
 test("基础版牌库、奇迹与进步标记数量完整且编号唯一", () => {
@@ -59,6 +61,35 @@ test("取得第二个相同科学符号后暂停并选择进步标记", () => {
   rules.chooseProgress(r, actor, tokenId);
   assert.equal(r.game.cities[actor].progress.length, 1);
   assert.equal(r.game.phase, "playing");
+});
+
+test("奇迹摧毁候选向客户端公开完整卡牌并可按显示编号成功选择", () => {
+  const r = room(); finishDraft(r);
+  const actor = "p1", opponent = "p2";
+  r.game.cities[opponent].buildings = [
+    { id: "lumber-yard", name: "伐木场", type: "raw", produces: { wood: 1 } },
+    { id: "quarry", name: "采石场", type: "raw", produces: { stone: 1 } },
+    { id: "glassworks", name: "玻璃工坊", type: "manufactured", produces: { glass: 1 } }
+  ];
+  r.game.phase = "pending";
+  r.game.actorId = actor;
+  r.game.pending = { kind: "destroy", playerId: actor, options: ["lumber-yard", "quarry"], after: { extraTurn: false } };
+
+  const options = rules.publicRoom(r, actor).game.pending.options;
+  assert.deepEqual(options.map((card) => card.id), ["lumber-yard", "quarry"]);
+  assert.deepEqual(options.map((card) => card.name), ["伐木场", "采石场"]);
+  assert.ok(options.every((card) => card.type === "raw" && card.produces));
+
+  rules.resolveSpecial(r, actor, { cardId: options[1].id });
+  assert.deepEqual(r.game.cities[opponent].buildings.map((card) => card.id), ["lumber-yard", "glassworks"]);
+  assert.equal(r.game.discard.at(-1).id, "quarry");
+});
+
+test("卡牌资源成本使用跨设备文字徽章而不是可能缺失的emoji", () => {
+  const client = fs.readFileSync(path.join(__dirname, "../public/games/seven-duel.js"), "utf8");
+  assert.match(client, /resource-token resource-\$\{r\}/);
+  assert.match(client, /wood:\["木材","木"\]/);
+  assert.doesNotMatch(client, /🪵|🪨|🧱|🔷|📜/);
 });
 
 test("军事推进抵达对方首都会立即结束游戏", () => {

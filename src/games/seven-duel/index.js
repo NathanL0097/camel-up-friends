@@ -5,7 +5,7 @@ const definition = {
   title: "文明奇迹：双城对决",
   icon: "🏛️",
   description: "以《七大奇迹：对决》基础规则制作的双人文明发展技术演示。",
-  clientScript: "/games/seven-duel.js?v=20260814-tableau2",
+  clientScript: "/games/seven-duel.js?v=20260819-destroy-resources",
   minPlayers: 2,
   maxPlayers: 2,
   minimumToStart: 2,

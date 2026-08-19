@@ -399,6 +399,10 @@ function publicRoom(room, viewerId) {
   if (pendingView?.kind === "hidden-progress") pendingView.options = pendingView.playerId === viewerId ? game.hiddenProgress.filter((token) => pendingView.options.includes(token.id)) : [];
   else if (pendingView?.kind === "progress") pendingView.options = game.availableProgress.filter((token) => pendingView.options.includes(token.id));
   else if (pendingView?.kind === "discard-build") pendingView.options = game.discard.filter((card) => pendingView.options.includes(card.id));
+  else if (pendingView?.kind === "destroy") {
+    const opposing = city(game, opponentId(game, pendingView.playerId));
+    pendingView.options = opposing.buildings.filter((card) => pendingView.options.includes(card.id)).map(clone);
+  }
   return {
     code: room.code, hostId: room.hostId, players,
     game: {
