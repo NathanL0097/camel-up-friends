@@ -243,8 +243,9 @@
 /* 赌场内容拥有自己的裁切与滚动区，不允许骰子伸进中央骰盅图层。 */
 @media(min-width:1051px){
   .casino-sector-content{overflow:hidden}
-  .casino-2 .casino-sector-content,.casino-3 .casino-sector-content{right:24px;width:235px}
-  .casino-5 .casino-sector-content,.casino-6 .casino-sector-content{left:24px;width:235px}
+  /* 左右扇区的外缘是斜边；内容必须向中央收进安全区，否则名称、第二张纸币和玩法按钮会被clip-path切掉。 */
+  .casino-2 .casino-sector-content,.casino-3 .casino-sector-content{right:112px;width:195px}
+  .casino-5 .casino-sector-content,.casino-6 .casino-sector-content{left:112px;width:195px}
   .casino-2 .casino-dice,.casino-3 .casino-dice{align-self:flex-end;width:180px;max-width:180px}
   .casino-5 .casino-dice,.casino-6 .casino-dice{align-self:flex-start;width:180px;max-width:180px}
   .casino-dice-group{max-width:100%;overflow-x:auto;overflow-y:hidden}

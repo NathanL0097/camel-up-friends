@@ -494,7 +494,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     // 避免左右赌场、顶部/底部赌场及按钮被可视窗口裁切。
     const viewportWidth = window.visualViewport?.width || window.innerWidth;
     const viewportHeight = window.visualViewport?.height || window.innerHeight;
-    const availableWidth = Math.max(360, Math.min(viewportWidth, table.getBoundingClientRect().width || viewportWidth) - 48);
+    const availableWidth = Math.max(360, Math.min(viewportWidth, table.getBoundingClientRect().width || viewportWidth) - 72);
     // 预留桌框和安全边距；缩放后的整张桌面（不是只有六边形）必须小于视口高度。
     const availableHeight = Math.max(390, viewportHeight - 56);
     const widthScale = availableWidth / 850;
