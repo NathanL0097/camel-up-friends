@@ -390,9 +390,12 @@ io.on("connection", (socket) => {
     } catch (error) { replyError(socket, error); }
   };
   socket.on("game:action", (data = {}) => {
-    if (data.action === "draw") {
+    const activeRoom = rooms.get(socket.data.roomCode);
+    // “draw”在你画我猜中是画笔轨迹，在女巫镇等游戏中则是真正的抽牌行动。
+    // 只有画画游戏可走轨迹广播通道，否则必须走通用行动通道并向全房间同步新状态。
+    if (data.action === "draw" && activeRoom?.gameId === "draw-and-guess") {
       try {
-        const room = rooms.get(socket.data.roomCode);
+        const room = activeRoom;
         if (!room) throw new Error("房间已经关闭");
         syncRoomConnections(room);
         roomService.applyGameAction(room, socket.data.playerId, data.action, data.payload);

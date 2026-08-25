@@ -105,6 +105,11 @@ test("玩家回合只能抽牌或出牌二选一，抽2张后自动换人", () =
   assert.throws(() => rules.endTurn(room, actor), /还没轮到你/);
 });
 
+test("服务器不会把女巫镇抽牌误当成你画我猜画笔轨迹", () => {
+  const serverSource = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "server.js"), "utf8");
+  assert.match(serverSource, /data\.action === "draw" && activeRoom\?\.gameId === "draw-and-guess"/);
+});
+
 test("7点指控会暂停并由最后指控者选择审判牌", () => {
   const room = makeRoom();
   startDay(room);

@@ -352,7 +352,12 @@ function endTurn(room, playerId) {
   const { game } = requirePlaying(room, playerId);
   requireTurn(game, playerId);
   if (game.turnMode !== "play") throw new Error("请先打出至少一张牌，或选择抽2张");
+  const playerName = nameOf(game, playerId);
+  const previousEventSeq = game.eventSeq;
   advanceTurn(game);
+  if (game.status === "playing" && game.phase === "day" && game.eventSeq === previousEventSeq) {
+    emit(game, "turn-end", `${playerName}结束出牌`, `轮到${currentSeat(game).playerName}行动。`, 3000);
+  }
 }
 function advanceTurn(game) {
   if (checkVictory(game)) return;

@@ -5,7 +5,7 @@ const definition = {
   title: "女巫镇：1692",
   icon: "🕯️",
   description: "4–12人的隐藏身份、指控审判与阵营转换游戏。",
-  clientScript: "/games/witch-town.js?v=20260820-1",
+  clientScript: "/games/witch-town.js?v=20260825-drawfix2",
   minPlayers: 4,
   maxPlayers: 12,
   minimumToStart: 4,
