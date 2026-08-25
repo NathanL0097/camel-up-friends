@@ -273,3 +273,49 @@
   .vegas-table.choosing-casino .casino-card{height:220px!important;min-height:220px!important;padding:14px 16px 10px!important}
   .vegas-table.choosing-casino .casino-dice{flex-basis:56px!important;min-height:56px!important;max-height:56px!important}
 }
+
+/* v6 精品赌场桌：骰子托盘固定在六个扇区各自的可视安全区，并提升整桌材质层次。 */
+.casino-dice{position:relative;isolation:isolate;border:1px solid #d8b86b52;border-top-color:#f0cf7e99;border-radius:9px;background:linear-gradient(180deg,#080b10e8,#17130de8 68%,#050608f2);box-shadow:inset 0 1px #fff2,inset 0 -8px 16px #0008,0 5px 12px #0008}
+.casino-dice:before{content:"DICE BAY";position:absolute;z-index:-1;right:7px;top:3px;color:#e7c77d38;font:700 5px/1 Georgia,serif;letter-spacing:.22em;pointer-events:none}
+.casino-dice-group{border-radius:6px;background:linear-gradient(90deg,#ffffff08,transparent 82%)}
+.casino-dice-group small,.casino-dice-group>b{color:#f3e5c9!important;text-shadow:0 1px 3px #000;font-weight:900}
+.casino-dice .die-face{border-color:#fff9;box-shadow:inset 3px 3px 5px #fff9,inset -4px -4px 7px #0006,0 5px 8px #000b}
+
+@media(min-width:1051px){
+  .vegas-table{background:radial-gradient(ellipse at 50% 47%,#311b24 0 16%,#171115 43%,#08090d 78%);box-shadow:inset 0 0 0 9px #2b180e,inset 0 0 0 12px #bd8b43,inset 0 0 0 15px #f0ca7555,inset 0 0 110px #000,0 30px 80px #000c}
+  .vegas-table:after{border-color:#f0c96b66;background:radial-gradient(circle at 18% 15%,#e7c16f16 0 2px,transparent 3px),radial-gradient(circle at 83% 72%,#b47ad416 0 2px,transparent 3px);box-shadow:inset 0 0 36px #d2a75b0d}
+  .casino-grid,.vegas-table.choosing-casino .casino-grid{background:linear-gradient(135deg,#f0d083,#7a4b24 31%,#d9ad61 51%,#65401f 72%,#e5c071);box-shadow:0 30px 70px #000e,0 0 0 1px #f7dc96aa}
+  .casino-card:before{box-shadow:inset 0 0 44px #000b,inset 0 1px #fff3}
+  .casino-card:after{background:radial-gradient(circle at 20% 18%,#fff5 0 2px,transparent 3px),radial-gradient(circle at 72% 65%,#fff3 0 1px,transparent 2px),repeating-linear-gradient(115deg,#ffffff08 0 1px,transparent 1px 8px);background-size:37px 37px,29px 29px,auto}
+  .casino-card.casino-1{--sector-art:radial-gradient(circle at 50% 17%,#a46b333d,transparent 48%),linear-gradient(150deg,#393039,#15141a 72%)}
+  .casino-card.casino-2{--sector-art:radial-gradient(circle at 78% 34%,#45c0e84a,transparent 48%),linear-gradient(135deg,#173445,#10151c 72%)}
+  .casino-card.casino-3{--sector-art:radial-gradient(circle at 78% 68%,#b967ec4d,transparent 48%),linear-gradient(45deg,#352240,#15131c 72%)}
+  .casino-card.casino-4{--sector-art:radial-gradient(circle at 50% 82%,#e8aa3d42,transparent 48%),linear-gradient(30deg,#3b3123,#17151a 72%)}
+  .casino-card.casino-5{--sector-art:radial-gradient(circle at 22% 68%,#4cc68144,transparent 48%),linear-gradient(135deg,#17362b,#10171a 72%)}
+  .casino-card.casino-6{--sector-art:radial-gradient(circle at 22% 34%,#4f9fe44a,transparent 48%),linear-gradient(45deg,#173342,#10161c 72%)}
+  .dice-arena{background:radial-gradient(ellipse at 50% 42%,#26352f,#101615 48%,#050708 78%);box-shadow:inset 0 0 0 10px #5b351d,inset 0 0 0 14px #d4a75f,inset 0 0 0 16px #f4d48866,inset 0 0 55px #000,0 20px 34px #000e}
+  /* 2、3号向右，5、6号向左：避开中央骰盅的斜边遮挡。 */
+  .casino-2 .casino-dice,.casino-3 .casino-dice{transform:translateX(78px)}
+  .casino-5 .casino-dice,.casino-6 .casino-dice{transform:translateX(-78px)}
+  .casino-1 .casino-dice{transform:translateY(-5px)}
+  .casino-4 .casino-dice{transform:translateY(5px)}
+  .casino-dice{z-index:2;width:184px!important;max-width:184px!important}
+  .casino-1 .casino-dice,.casino-4 .casino-dice{align-self:center}
+  .casino-dice .die-cube-wrap{--die-size:30px;margin:2px 3px}.casino-dice .die-cube-wrap.biggy{--die-size:45px;margin:2px 4px}
+}
+
+@media(max-width:760px){
+  .vegas-shell{position:relative;z-index:0;padding:10px 8px 24px;border:1px solid #c89b4b66;border-radius:22px;background:radial-gradient(circle at 50% 8%,#20283d,#0b1020 36%,#07090f 78%);box-shadow:inset 0 0 70px #0008,0 20px 45px #0004}
+  .casino-card{height:244px!important;min-height:244px!important;background:linear-gradient(145deg,#f6dda1,#bb813d)}
+  .casino-card:before{box-shadow:inset 0 0 30px #0009,inset 0 1px #fff3}
+  .casino-card.casino-1:before{background:linear-gradient(145deg,#6a503a,#2c2524 72%,#17181d)}
+  .casino-card.casino-2:before{background:linear-gradient(145deg,#28627b,#183543 72%,#111a22)}
+  .casino-card.casino-3:before{background:linear-gradient(145deg,#6f4d86,#392b48 72%,#191620)}
+  .casino-card.casino-4:before{background:linear-gradient(145deg,#75602d,#40351f 72%,#1c1815)}
+  .casino-card.casino-5:before{background:linear-gradient(145deg,#356d50,#234334 72%,#121b17)}
+  .casino-card.casino-6:before{background:linear-gradient(145deg,#8a4960,#4c2d39 72%,#20151a)}
+  .casino-dice{transform:none!important;flex-basis:66px!important;min-height:66px!important;max-height:66px!important;padding:3px 4px 6px}
+  .casino-dice:before{top:4px}
+  .vegas-table.choosing-casino .casino-card{height:232px!important;min-height:232px!important}
+  .vegas-table.choosing-casino .casino-dice{flex-basis:62px!important;min-height:62px!important;max-height:62px!important}
+}

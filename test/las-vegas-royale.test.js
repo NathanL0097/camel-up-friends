@@ -188,6 +188,9 @@ test("客户端使用环形赌场、清晰骰点、主动玩家确认与板块�
   assert.match(css, /\.pip\{width:66%/);
   assert.match(css, /casino-dice\{box-sizing:border-box;flex:0 0 58px/);
   assert.match(css, /casino-card\{height:232px!important;min-height:232px!important/);
+  assert.match(css, /casino-2 \.casino-dice,.casino-3 \.casino-dice\{transform:translateX\(78px\)\}/);
+  assert.match(css, /casino-5 \.casino-dice,.casino-6 \.casino-dice\{transform:translateX\(-78px\)\}/);
+  assert.match(css, /casino-card\{height:244px!important;min-height:244px!important/);
   assert.match(css, /DICE ARENA/);
   assert.match(css, /die-cube\.show-6 \.face-6/);
 });
