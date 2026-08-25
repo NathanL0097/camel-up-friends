@@ -178,6 +178,8 @@ test("客户端使用环形赌场、清晰骰点、主动玩家确认与板块�
   assert.match(client, /casino-banknote/);
   assert.match(client, /die-face face-/);
   assert.match(client, /visualViewport\?\.width/);
+  assert.match(client, /visualViewport\?\.height/);
+  assert.match(client, /Math\.min\(1, widthScale, heightScale\)/);
   assert.match(client, /fitBoardToViewport/);
   assert.match(css, /--sector:polygon/);
   assert.match(css, /scale\(var\(--board-fit,1\)\)/);

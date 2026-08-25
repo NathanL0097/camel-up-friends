@@ -461,7 +461,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     show("game"); const game = room.game;
     $("rulesContent").innerHTML = rulesMarkup();
     $("vegasCode").textContent = room.code; $("vegasRound").innerHTML = `<span>ROUND</span><b>${game.round} / 3</b>`;
-    renderPlayers(room); $("casinoGrid").innerHTML = game.casinos.map((casino) => renderCasino(room, casino)).join(""); renderArena(room); fitBoardToViewport(); renderPayout(room); queuePresentation(room);
+    renderPlayers(room); $("casinoGrid").innerHTML = game.casinos.map((casino) => renderCasino(room, casino)).join(""); renderArena(room); fitBoardToViewport(); scheduleBoardFit(); renderPayout(room); queuePresentation(room);
     const choosing = game.currentTurnId === getMyId() && game.currentRoll?.length && !game.pending;
     document.querySelector(".vegas-table")?.classList.toggle("choosing-casino", Boolean(choosing));
     document.querySelectorAll(".casino-card.selectable").forEach((card) => {
@@ -489,14 +489,20 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
       table.classList.remove("board-fitted");
       return;
     }
-    // 桌面浏览器放大后，媒体查询仍可能保留桌面环形版图；按真实可视宽度整体缩放，
-    // 外环和中央骰盅使用同一比例，避免左右赌场及按钮被裁切。
+    // 桌面浏览器放大或窗口偏矮时，媒体查询仍可能保留桌面环形版图。
+    // 同时按真实可视宽度和高度缩放；外环和中央骰盅使用同一比例，
+    // 避免左右赌场、顶部/底部赌场及按钮被可视窗口裁切。
     const viewportWidth = window.visualViewport?.width || window.innerWidth;
-    const availableWidth = Math.min(viewportWidth, table.getBoundingClientRect().width || viewportWidth);
-    const scale = Math.max(.65, Math.min(1, (availableWidth - 140) / 850));
+    const viewportHeight = window.visualViewport?.height || window.innerHeight;
+    const availableWidth = Math.max(360, Math.min(viewportWidth, table.getBoundingClientRect().width || viewportWidth) - 48);
+    // 预留桌框和安全边距；缩放后的整张桌面（不是只有六边形）必须小于视口高度。
+    const availableHeight = Math.max(390, viewportHeight - 56);
+    const widthScale = availableWidth / 850;
+    const heightScale = availableHeight / 780;
+    const scale = Math.max(.5, Math.min(1, widthScale, heightScale));
     table.style.setProperty("--board-fit", scale.toFixed(3));
     table.classList.toggle("board-fitted", scale < .995);
-    if (scale < .995) table.style.setProperty("min-height", `${Math.ceil(780 * scale + 80)}px`);
+    if (scale < .995) table.style.setProperty("min-height", `${Math.ceil(780 * scale + 42)}px`);
     else table.style.removeProperty("min-height");
   }
 

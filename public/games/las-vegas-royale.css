@@ -79,6 +79,12 @@
   .vegas-table.choosing-casino .casino-card.selectable:hover{filter:brightness(1.22) saturate(1.25) drop-shadow(0 0 28px #ffe08a)}
 }
 
+/* 环形版图按可视宽高等比收进桌面；桌框不再保留未缩放时的多余高度。 */
+@media(min-width:1051px){
+  .vegas-table.board-fitted{overflow:hidden}
+  .vegas-table.board-fitted:after{inset:12px}
+}
+
 @media(max-width:1050px){
   .casino-sector-content{height:100%}
   .vegas-table.choosing-casino .casino-grid{position:relative;z-index:3;inset:auto;width:100%;height:auto;margin-top:280px;padding:0;border:0;background:none;box-shadow:none;overflow:visible}
