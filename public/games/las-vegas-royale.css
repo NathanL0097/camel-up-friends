@@ -252,3 +252,24 @@
 }
 
 @media(max-width:760px){.vegas-event-card{min-height:330px;padding:23px 17px}.vegas-event-card>p{font-size:13px}.event-tile-trigger,.event-formula{min-width:0;width:100%;box-sizing:border-box}}
+
+/* v5 骰子托盘：入场骰子始终留在赌场内部，桌面与手机都不再被内容框或滚动条截断。 */
+.cube-pips{inset:8%}.pip{width:66%;box-shadow:inset 1px 1px 1px #fff9,0 1px 2px #0009}
+.casino-dice{box-sizing:border-box;flex:0 0 58px!important;width:100%;min-width:0;min-height:58px!important;max-height:58px!important;margin-top:2px;padding:2px 2px 5px;align-items:center;gap:5px;overflow-x:auto!important;overflow-y:hidden!important;border-top:1px solid #d9b46924;background:linear-gradient(180deg,transparent,#03050830);scrollbar-width:thin;scrollbar-color:#d9b46977 transparent}
+.casino-dice::-webkit-scrollbar{height:3px}.casino-dice::-webkit-scrollbar-track{background:transparent}.casino-dice::-webkit-scrollbar-thumb{border-radius:99px;background:#d9b46977}
+.casino-dice-group{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:10px 43px;column-gap:4px;align-items:center;flex:0 0 auto;max-width:none!important;padding:0 4px 0 7px;overflow:visible!important;white-space:nowrap}
+.casino-dice-group small{grid-column:1;grid-row:1;max-width:90px;line-height:10px}.casino-dice-group>div{grid-column:1;grid-row:2;display:flex;height:43px;align-items:center}.casino-dice-group>b{grid-column:2;grid-row:1/3;align-self:center}
+.casino-dice .die-cube-wrap{--die-size:27px;margin:2px 3px}.casino-dice .die-cube-wrap.biggy{--die-size:41px;margin:2px 4px}
+.casino-dice .blank-dice,.casino-dice .double-down-table{flex:0 0 auto}
+
+@media(min-width:1051px){.casino-sector-content{overflow:visible}}
+
+@media(max-width:760px){
+  .casino-card{height:232px!important;min-height:232px!important;padding:16px 18px 12px!important}
+  .casino-sector-content{display:flex;flex-direction:column;height:100%;box-sizing:border-box}
+  .casino-dice{flex-basis:62px!important;min-height:62px!important;max-height:62px!important;margin-top:auto}
+  .casino-dice-group{grid-template-rows:10px 47px}.casino-dice-group>div{height:47px}
+  .casino-dice .die-cube-wrap{--die-size:28px;margin:2px 3px}.casino-dice .die-cube-wrap.biggy{--die-size:42px;margin:2px 4px}
+  .vegas-table.choosing-casino .casino-card{height:220px!important;min-height:220px!important;padding:14px 16px 10px!important}
+  .vegas-table.choosing-casino .casino-dice{flex-basis:56px!important;min-height:56px!important;max-height:56px!important}
+}
