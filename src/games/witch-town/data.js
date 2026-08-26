@@ -46,14 +46,14 @@ const CARD_TEXT = {
   matchmaker: "场上两名媒人持有者命运相连；其中一人出局时另一人也出局。",
   piety: "任何红色指控牌都不能打到该玩家面前。",
   stocks: "该玩家下一个白天回合被跳过；多张会分别跳过。",
-  conspiracy: "立即进入阴谋：黑猫揭牌，然后所有人同时从左邻取走1张隐藏审判牌。",
-  night: "立即进入夜晚：女巫选择目标、警长保护、全员决定是否忏悔。"
+  conspiracy: "每个白天牌堆只有1张。抽到后黑猫揭牌，所有人同时从左邻取走1张隐藏审判牌。",
+  night: "不会混入白天牌堆；牌堆摸完时才自动进入夜晚。"
 };
 
 const TRIAL_COUNTS = {
   4: { innocent: 18, witch: 1, constable: 1 },
   5: { innocent: 23, witch: 1, constable: 1 },
-  6: { innocent: 27, witch: 2, constable: 1 },
+  6: { innocent: 28, witch: 1, constable: 1 },
   7: { innocent: 32, witch: 2, constable: 1 },
   8: { innocent: 29, witch: 2, constable: 1 },
   9: { innocent: 33, witch: 2, constable: 1 },

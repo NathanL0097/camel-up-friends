@@ -23,7 +23,7 @@ test("4至12人标准审判牌数量、女巫数量和每人份数正确", () =>
   for (let count = 4; count <= 12; count += 1) {
     const room = makeRoom(count);
     const trials = room.game.seats.flatMap((seat) => seat.tryals);
-    const expectedWitches = count <= 5 ? 1 : 2;
+    const expectedWitches = count <= 6 ? 1 : 2;
     assert.equal(trials.filter((trial) => trial.kind === "witch").length, expectedWitches, `${count}人女巫牌数`);
     assert.equal(trials.filter((trial) => trial.kind === "constable").length, 1);
     assert.ok(room.game.seats.every((seat) => seat.tryals.length === trials.length / count));
@@ -38,6 +38,9 @@ test("基础牌堆为58张加独立黑猫，数量与卡种正确", () => {
   assert.equal(deck.filter((card) => card.kind === "witness").length, 1);
   assert.equal(deck.filter((card) => card.kind === "night").length, 1);
   assert.equal(deck.filter((card) => card.kind === "conspiracy").length, 1);
+  const room = makeRoom(6);
+  assert.equal(room.game.deck.filter((card) => card.kind === "night").length, 0, "夜幕不应混入白天牌堆");
+  assert.equal(room.game.deck.filter((card) => card.kind === "conspiracy").length, 1, "每个白天恰好一张阴谋");
 });
 
 test("黎明只能由女巫主持且黑猫主人获得白天先手", () => {
@@ -61,6 +64,7 @@ test("私人手牌与隐藏审判牌不会泄漏给其他玩家", () => {
   assert.equal(otherView.hiddenTryalCount, other.tryals.length);
   assert.deepEqual(view.you.hand, viewer.hand);
   assert.deepEqual(view.you.tryals, viewer.tryals);
+  assert.ok(view.you.tryals.every((trial) => ["innocent", "witch", "constable"].includes(trial.kind)), "本人始终能看到每张身份牌内容");
   assert.deepEqual(view.finalReveals, []);
 });
 
@@ -73,7 +77,8 @@ test("黎明主持人与夜间提交进度不会向无关玩家泄露身份", ()
   assert.equal(rules.publicRoom(room, witch.playerId).game.actorId, game.actorId);
 
   startDay(room);
-  game.deck.unshift({ id: "night-private", kind: "night", label: "夜幕", color: "black", icon: "🌙", text: "测试" });
+  game.discard.push(...rules.makeDeck().filter((card) => !["night", "conspiracy"].includes(card.kind)).slice(0, 12));
+  game.deck = [];
   rules.drawCards(room, game.actorId);
   const target = game.seats.find((seat) => seat.alive && !seat.everWitch);
   rules.chooseNightTarget(room, witch.playerId, { targetId: target.playerId });
@@ -144,11 +149,17 @@ test("阴谋会让每人从左邻取一张隐藏审判牌且新女巫永久转�
   for (const viewer of [...game.seats]) {
     if (!viewer.alive) continue;
     const privateView = rules.publicRoom(room, viewer.playerId).game.you;
+    assert.ok(privateView.tryals.every((trial) => trial.kind), "交换前本人身份均有明确牌面");
+    assert.ok(privateView.leftNeighbor.trials.every((trial) => trial.kind === undefined), "左邻身份仍为盲选");
     rules.conspiracyPick(room, viewer.playerId, { trialId: privateView.leftNeighbor.trials[0].id });
   }
   assert.equal(game.phase, "conspiracy-result");
   const moved = game.seats.flatMap((seat) => seat.tryals.map((trial) => ({ id: trial.id, owner: seat.playerId }))).filter((item) => beforeOwners.get(item.id) !== item.owner);
   assert.equal(moved.length, game.seats.filter((seat) => seat.alive).length);
+  for (const viewer of game.seats) {
+    const privateView = rules.publicRoom(room, viewer.playerId).game.you;
+    assert.ok(privateView.tryals.every((trial) => trial.kind), "交换后本人可以重新核对全部身份");
+  }
   for (const seat of game.seats) rules.ackEvent(room, seat.playerId);
   assert.equal(game.phase, "day");
 });
@@ -158,7 +169,8 @@ test("夜晚等待女巫、警长与所有忏悔决定后才结算", () => {
   startDay(room);
   const game = room.game;
   const actor = game.actorId;
-  game.deck.unshift({ id: "night-test", kind: "night", label: "夜幕", color: "black", icon: "🌙", text: "测试" });
+  game.discard.push(...rules.makeDeck().filter((card) => !["night", "conspiracy"].includes(card.kind)).slice(0, 16));
+  game.deck = [];
   rules.drawCards(room, actor);
   assert.equal(game.phase, "night-choice");
   const target = game.seats.find((seat) => seat.alive && !seat.everWitch);
@@ -170,8 +182,43 @@ test("夜晚等待女巫、警长与所有忏悔决定后才结算", () => {
   for (const player of [...game.seats]) if (player.alive) rules.nightPass(room, player.playerId);
   assert.equal(game.phase, "night-result");
   assert.equal(target.alive, false);
+  assert.equal(game.deck.filter((card) => card.kind === "night").length, 0);
+  assert.equal(game.deck.filter((card) => card.kind === "conspiracy").length, 1, "新一天重新放入且只放入一张阴谋");
   for (const player of game.seats.filter((seat) => seat.alive)) rules.ackEvent(room, player.playerId);
   assert.equal(game.phase, "day");
+});
+
+test("牌堆未摸空不会进入夜晚，摸空后才进入夜晚", () => {
+  const room = makeRoom();
+  startDay(room);
+  assert.equal(room.game.deck.some((card) => card.kind === "night"), false);
+  rules.drawCards(room, room.game.actorId);
+  assert.equal(room.game.phase, "day");
+  const actor = room.game.actorId;
+  room.game.discard.push(...rules.makeDeck().filter((card) => !["night", "conspiracy"].includes(card.kind)).slice(0, 10));
+  room.game.deck = [];
+  rules.drawCards(room, actor);
+  assert.equal(room.game.phase, "night-choice");
+});
+
+test("女巫阵营始终看到全部已传染队友，镇民看不到", () => {
+  const room = makeRoom(6);
+  const game = room.game;
+  const original = game.seats.find((seat) => seat.everWitch);
+  const infected = game.seats.find((seat) => !seat.everWitch);
+  infected.everWitch = true;
+  const witchView = rules.publicRoom(room, original.playerId).game.you;
+  assert.deepEqual(new Set(witchView.witchTeam.map((item) => item.playerId)), new Set([original.playerId, infected.playerId]));
+  const town = game.seats.find((seat) => !seat.everWitch);
+  assert.deepEqual(rules.publicRoom(room, town.playerId).game.you.witchTeam, []);
+});
+
+test("累计五名玩家成为女巫时立即获胜", () => {
+  const room = makeRoom(8);
+  room.game.seats.forEach((seat, index) => { seat.everWitch = index < 5; });
+  assert.equal(rules.checkVictory(room.game), true);
+  assert.equal(room.game.winner.side, "witch");
+  assert.match(room.game.winner.detail, /5名玩家/);
 });
 
 test("手机端有专属单列私密区与双列玩家席位，避免强制横屏", () => {
@@ -179,6 +226,9 @@ test("手机端有专属单列私密区与双列玩家席位，避免强制横�
   assert.match(css, /@media\(max-width:720px\)/);
   assert.match(css, /\.wt-seats\{grid-template-columns:repeat\(2/);
   assert.match(css, /\.wt-private\{grid-template-columns:1fr/);
+  assert.match(css, /\.wt-log\{display:block/);
+  assert.match(css, /\.wt-hand-count/);
+  assert.match(css, /\.wt-private\{position:relative/);
   assert.doesNotMatch(css, /min-width:\s*\d{4}px/);
 });
 
@@ -228,7 +278,7 @@ function simulateGame(playerCount) {
     } else throw new Error(`模拟遇到无法处理的阶段：${game.phase}`);
     steps += 1;
   }
-  assert.equal(room.game.status, "finished", `${playerCount}人局在${steps}步内应正常结束，实际阶段${room.game.phase}`);
+  assert.equal(room.game.status, "finished", `${playerCount}人局在${steps}步内应正常结束，实际阶段${room.game.phase}；夜晚=${JSON.stringify(room.game.night)}；存活=${JSON.stringify(room.game.seats.filter((seat) => seat.alive).map((seat) => ({ id: seat.playerId, witch: seat.everWitch, constable: seat.tryals.some((trial) => trial.kind === "constable" && !trial.revealed) })))}`);
   assert.ok(["town", "witch"].includes(room.game.winner.side));
   return steps;
 }

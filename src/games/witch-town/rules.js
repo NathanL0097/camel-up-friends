@@ -71,7 +71,6 @@ function buildTryals(playerCount, random) {
 function prepareDeck(playerCount, random) {
   const all = makeDeck();
   const conspiracy = all.find((card) => card.kind === "conspiracy");
-  const night = all.find((card) => card.kind === "night");
   const ordinary = shuffle(all.filter((card) => !BLACK.has(card.kind)), random);
   const hands = Array.from({ length: playerCount }, () => []);
   let index = 0;
@@ -81,8 +80,6 @@ function prepareDeck(playerCount, random) {
     index += 1;
   }
   ordinary.splice(Math.floor(random() * (ordinary.length + 1)), 0, conspiracy);
-  const bottomHalfStart = Math.floor(ordinary.length / 2);
-  ordinary.splice(bottomHalfStart + Math.floor(random() * (ordinary.length - bottomHalfStart + 1)), 0, night);
   return { deck: ordinary, hands };
 }
 
@@ -133,10 +130,13 @@ function checkVictory(game) {
     emit(game, "town-win", "镇民获胜", game.winner.detail, 6000);
     return true;
   }
-  const alive = living(game);
-  if (alive.length && alive.every((player) => player.everWitch)) {
+  const infected = game.seats.filter((player) => player.everWitch).length;
+  const infectionGoal = Math.min(5, game.seats.length);
+  const survivors = living(game);
+  const townEliminated = survivors.length > 0 && survivors.every((player) => player.everWitch);
+  if (infected >= infectionGoal || townEliminated) {
     game.status = "finished"; game.phase = "result"; game.actorId = null;
-    game.winner = { side: "witch", title: "女巫接管了小镇", detail: "所有仍存活的玩家都已加入女巫阵营。" };
+    game.winner = { side: "witch", title: "女巫接管了小镇", detail: infected >= infectionGoal ? `${infected}名玩家已加入女巫阵营，达到传染胜利条件。` : "仍然存活的玩家已经全部属于女巫阵营。" };
     emit(game, "witch-win", "女巫获胜", game.winner.detail, 6000);
     return true;
   }
@@ -237,17 +237,16 @@ function chooseBlackCat(room, playerId, payload = {}) {
 }
 
 function drawOne(game, player) {
-  if (!game.deck.length) reshuffleNight(game);
+  if (!game.deck.length) {
+    beginNight(game, player.playerId, makeDeck().find((card) => card.kind === "night"));
+    return "night";
+  }
   const card = game.deck.shift();
   if (!card) throw new Error("牌堆暂时无法继续抽取");
   if (card.kind === "conspiracy") {
     game.discard.push(card);
     beginConspiracy(game, player.playerId);
-    return "special";
-  }
-  if (card.kind === "night") {
-    beginNight(game, player.playerId, card);
-    return "special";
+    return "conspiracy";
   }
   player.hand.push(card);
   return card;
@@ -260,13 +259,16 @@ function drawCards(room, playerId) {
   const drawn = [];
   for (let count = 0; count < 2; count += 1) {
     const result = drawOne(game, player);
-    if (result === "special") { game.pendingDraw = 1 - count; break; }
+    if (result === "night") { game.pendingDraw = 2 - count; break; }
+    if (result === "conspiracy") { game.pendingDraw = 1 - count; break; }
     drawn.push(result);
   }
   if (drawn.length === 2 && isCharacter(game, playerId, "giles") && drawn.every((card) => card.kind === "accusation")) {
     const bonus = drawOne(game, player);
-    if (bonus !== "special") drawn.push(bonus);
+    if (bonus === "night") game.pendingDraw = 1;
+    else if (bonus !== "conspiracy") drawn.push(bonus);
   }
+  if (game.phase === "day" && game.deck.length === 0) beginNight(game, playerId, makeDeck().find((card) => card.kind === "night"));
   player.lastAction = `抽取${drawn.length}张牌`;
   if (game.phase === "day") {
     emit(game, "draw", `${player.playerName}从档案堆抽牌`, `本回合抽取${drawn.length}张，内容只有本人可见。`, 3000, { playerId });
@@ -517,17 +519,17 @@ function maybeResolveNight(game) {
   const detail = protectedByGavel ? `${target.playerName}被警长保护。` : confessed ? `${target.playerName}因忏悔而免于夜袭。` : asylum ? `${target.playerName}躲进庇护所。` : `${target.playerName}没有躲过这次夜袭。`;
   emit(game, "night-result", "清晨揭晓夜袭目标", detail, 6000, { targetId: target.playerId, survived: target.alive });
   if (checkVictory(game)) return;
-  reshuffleNight(game, game.night.card);
+  prepareNextDayDeck(game);
+  game.round += 1;
   game.phase = "night-result";
   game.actorId = null;
   game.eventAcks = [];
 }
-function reshuffleNight(game, nightCard = null) {
-  const night = nightCard || makeDeck().find((card) => card.kind === "night");
-  const cards = shuffle([...game.deck.filter((card) => card.kind !== "night"), ...game.discard.filter((card) => card.kind !== "night")], game.random);
+function prepareNextDayDeck(game) {
+  const conspiracy = makeDeck().find((card) => card.kind === "conspiracy");
+  const cards = shuffle([...game.deck, ...game.discard].filter((card) => !BLACK.has(card.kind)), game.random);
   game.discard = [];
-  const bottomHalfStart = Math.floor(cards.length / 2);
-  cards.splice(bottomHalfStart + Math.floor(game.random() * (cards.length - bottomHalfStart + 1)), 0, night);
+  cards.splice(Math.floor(game.random() * (cards.length + 1)), 0, conspiracy);
   game.deck = cards;
 }
 
@@ -540,8 +542,13 @@ function resumeAfterSpecial(game) {
     const remaining = game.pendingDraw; game.pendingDraw = 0;
     for (let count = 0; count < remaining; count += 1) {
       const result = drawOne(game, drawer);
-      if (result === "special") return;
+      if (result === "night") { game.pendingDraw = remaining - count; return; }
+      if (result === "conspiracy") { game.pendingDraw = remaining - count - 1; return; }
     }
+  }
+  if (game.deck.length === 0) {
+    beginNight(game, drawerId, makeDeck().find((card) => card.kind === "night"));
+    return;
   }
   game.phase = "day";
   game.currentIndex = game.seats.findIndex((item) => item.playerId === drawerId);
@@ -622,7 +629,7 @@ function publicRoom(room, viewerId) {
     publicGame.you = {
       ...publicGame.seats.find((item) => item.playerId === viewerId), hand: clone(viewer.hand), tryals: clone(viewer.tryals),
       everWitch: viewer.everWitch, currentWitch: currentWitch(viewer), currentConstable: currentConstable(viewer), characterUses: viewer.characterUses,
-      witchTeam: ["dawn", "night-choice", "night-confession", "night-result"].includes(source.phase) && viewer.everWitch ? source.seats.filter((item) => item.alive && item.everWitch).map((item) => ({ playerId: item.playerId, playerName: item.playerName })) : [],
+      witchTeam: viewer.everWitch ? source.seats.filter((item) => item.everWitch).map((item) => ({ playerId: item.playerId, playerName: item.playerName, alive: item.alive })) : [],
       leftNeighbor: source.phase === "conspiracy-pass" ? (() => { const left = leftLiving(source, viewerId); return { playerId: left.playerId, playerName: left.playerName, trials: hiddenTrials(left).map((trial) => ({ id: trial.id })) }; })() : null,
       topPreview: source.phase === "reorder-top" && source.actorId === viewerId ? source.deck.slice(0, 5).map(clone) : [],
       discardChoices: isCharacter(source, viewerId, "samuel") ? clone(source.discard.filter((card) => !BLACK.has(card.kind)).slice(-12)) : []
@@ -653,6 +660,6 @@ function publicRoom(room, viewerId) {
 module.exports = {
   createGame, chooseBlackCat, drawCards, playCard, endTurn, revealTrial, conspiracyPick,
   chooseNightTarget, chooseNightProtection, nightConfess, nightPass, useCharacter, reorderTop,
-  drawDiscard, ackEvent, tick, publicRoom, accusationValue, threshold, performReveal,
+  drawDiscard, ackEvent, tick, publicRoom, accusationValue, threshold, performReveal, checkVictory,
   CHARACTERS, TRIAL_COUNTS, makeDeck
 };
