@@ -6,7 +6,7 @@ const TILES = [
   { id: "A2", name: "累积大奖", icon: "🎰", rule: "激活时掷2颗黑骰。点数和为7或掷出对子，就赢得当前奖池；否则奖池增加$10K。奖池初始为$30K，最高累积到$80K。" },
   { id: "B1", name: "黄金时刻", icon: "🌟", rule: "赛段结算时，本赌场的唯一领先者掷2颗黑骰，并可将选中的黑骰放入点数对应、且没有被封锁的赌场，再继续结算。" },
   { id: "B2", name: "猜高猜低", icon: "↕", rule: "先掷2颗黑骰得到总点数，随后猜下一次更高或更低。猜对可继续冒险并提高奖金，也可随时收手；猜错则本次没有奖励。" },
-  { id: "C1", name: "五骰同堂", icon: "🖐", rule: "当你在本赌场的票数达到5票时，立即取得本轮唯一的$100K奖励。Biggy按2票计算，奖励被领取后不会再次出现。" },
+  { id: "C1", name: "五骰同堂", icon: "🖐", rule: "当你以任何方式让自己在本赌场的票数达到至少5票时，立即取得本轮唯一的$100K奖励。Biggy按2票计算，奖励被领取后不会再次出现。" },
   { id: "C2", name: "霉运临头", icon: "☠", rule: "赛段结算时，在本赌场票数最少的玩家支付最多$50K；没有放骰也算0票。若多人并列最少，则这些玩家都要支付。" },
   { id: "D1", name: "发薪日", icon: "💵", rule: "激活时统计你已经占据的赌场数量。仅占1至2座时，获得同数量的筹码；占据3座或更多时，每占一座获得$10K。" },
   { id: "D2", name: "强势控场", icon: "⚡", rule: "本赌场的唯一领先者取得控场权。轮到该玩家时，可以不掷骰，直接把一颗剩余骰设为任意未封锁点数并放入对应赌场。" },
@@ -24,7 +24,7 @@ const TILE_GUIDES = {
   A2: { trigger: "你的骰子进入这座赌场，立即掷2颗黑骰。", action: "无需选择，查看两骰是否为对子，或两骰相加是否等于7。", result: "满足任一条件就拿走当前奖池；否则奖池增加$10K，留给下次触发。", example: "例如掷出3和4，总和是7，你拿走奖池；掷出2和3则不中，奖池继续变大。" },
   B1: { trigger: "不是放骰时触发，而是在本轮赌场开始结算时触发。", action: "如果你是这座赌场唯一第一名，就掷2颗黑骰，并选择其中想使用的骰子。", result: "选中的黑骰会作为你的普通票，放进点数对应且未封锁的赌场，再继续结算。", example: "例如黑骰为2和5，你可把两颗都放入2号、5号赌场，也可只使用其中一颗。" },
   B2: { trigger: "你的骰子进入这座赌场，立即开始猜高猜低。", action: "先看当前两骰总和，再猜下一次总和更高或更低；每次猜对后可收手或继续。", result: "连续猜对，奖金逐级提高；任何一次猜错，本次累积奖金全部失去。", example: "当前总和6，你猜更高，下一次为9则成功；此时可拿钱离开，也可继续冒险。" },
-  C1: { trigger: "每次你的骰子进入这里后，检查你在本赌场的总票数。", action: "普通骰算1票，Biggy算2票；让自己的票数达到至少5票。", result: "本轮第一个达到5票的玩家立即独得$100K，本轮不会再次发放。", example: "例如你有3颗普通骰和1颗Biggy，共5票，马上拿走$100K。" },
+  C1: { trigger: "每当骰子通过正常放置、操纵或额外黑骰进入这里后，都检查本赌场总票数。", action: "普通骰算1票，Biggy算2票；让自己的票数达到至少5票。", result: "本轮第一个达到5票的玩家立即锁定$100K，本轮不会再次发放。", example: "例如你有3颗普通骰和1颗Biggy，共5票；即使最后一颗由操纵效果放入，也会马上锁定$100K。" },
   C2: { trigger: "不是放骰时触发，而是在本轮所有赌场结算前触发。", action: "比较所有玩家在本赌场的票数，没有放骰的玩家按0票计算。", result: "票数最少者支付最多$50K；多人并列最少时，每一位都要支付。", example: "例如你0票、两位对手各2票，你独自支付$50K；两人都0票则两人都支付。" },
   D1: { trigger: "你的骰子进入这座赌场，立即统计你目前有骰子的赌场数量。", action: "只需要查看自己此刻一共占了几座不同赌场。", result: "占1至2座：每座给1枚筹码；占3座以上：每座给$10K。", example: "例如你此刻占4座赌场，获得$40K；只占2座时获得2枚筹码。" },
   D2: { trigger: "只要你成为本赌场唯一领先者，就获得控场权；领先者改变时控场权也会改变。", action: "轮到你时，可选择不掷骰，直接把1颗剩余骰设成任意未封锁点数。", result: "这颗骰子直接进入对应赌场，你的回合随后结束。", example: "例如你想争夺6号赌场，可把一颗剩余骰直接设为6点并放入6号。" },
@@ -271,6 +271,47 @@ function reward(game, playerId, cash = 0, chips = 0, reason = "豪华板块奖�
   }
 }
 
+function fiveDiceVotes(casino, playerId) {
+  return casino.dice.filter((item) => item.playerId === playerId).reduce((sum, item) => sum + weight(item), 0);
+}
+
+function claimFiveDiceHall(room, casino, playerId, { announceMiss = false, tileAlreadyActivated = false } = {}) {
+  const game = room.game;
+  const tile = casino?.tile;
+  if (tile?.id !== "C1") return false;
+  const ownWeight = fiveDiceVotes(casino, playerId);
+  const available = tile.state.available !== false && !tile.state.ownerId;
+  const earned = available && ownWeight >= 5;
+  if (!earned && !announceMiss) return false;
+  if (earned) {
+    if (!tileAlreadyActivated) animate(game, "tile-activate", {
+      playerId, casino: casino.number, tileId: tile.id, tileName: tile.name, tileIcon: tile.icon,
+      trigger: tile.guide?.trigger, action: tile.guide?.action
+    });
+    tile.state.available = false;
+    tile.state.ownerId = playerId;
+    const actorName = room.players.find((player) => player.id === playerId)?.name || "玩家";
+    log(game, `${actorName} 达到${ownWeight}票，拿到了五骰同堂的 100K 奖励标记。`);
+  }
+  animate(game, "judgement", {
+    playerId, tileName: tile.name,
+    title: earned ? `达到${ownWeight}票，奖励已锁定` : available ? "尚未达到5票" : "奖励已经被其他玩家取得",
+    formula: `当前 ${ownWeight} / 5 票`,
+    explanation: earned ? "普通骰算1票、Biggy算2票；无论骰子通过哪种效果进入，你达到至少5票后都会锁定本轮$100K。" : available ? `还差${Math.max(0, 5 - ownWeight)}票才能取得本轮唯一的$100K奖励。` : "本轮的$100K奖励已经被领取，即使之后达到5票也不会再次发放。"
+  });
+  return earned;
+}
+
+function checkFiveDiceHalls(room, preferredId = null) {
+  const game = room.game;
+  for (const casino of game.casinos.filter((item) => item.tile?.id === "C1" && item.tile.state.available !== false && !item.tile.state.ownerId)) {
+    const eligible = game.turnOrder.filter((playerId) => fiveDiceVotes(casino, playerId) >= 5);
+    if (!eligible.length) continue;
+    const winnerId = preferredId && eligible.includes(preferredId) ? preferredId : eligible[0];
+    claimFiveDiceHall(room, casino, winnerId);
+  }
+}
+
 function activateTile(room, playerId, face, moved, chained = false) {
   const game = room.game;
   const casino = game.casinos[face - 1];
@@ -307,10 +348,7 @@ function activateTile(room, playerId, face, moved, chained = false) {
       game.pending = { type: "fifty", actorId: playerId, casino: face, last: dice[0] + dice[1], step: 1, reward: 0 }; break;
     }
     case "C1": {
-      const ownWeight = casino.dice.filter((d) => d.playerId === playerId).reduce((sum, d) => sum + weight(d), 0);
-      const earned = tile.state.available && ownWeight >= 5;
-      if (earned) { tile.state.available = false; tile.state.ownerId = playerId; log(game, `${actorName} 拿到了五骰同堂的 100K 奖励标记。`); }
-      animate(game, "judgement", { playerId, tileName: tile.name, title: earned ? "达到5票，奖励已锁定" : tile.state.available ? "尚未达到5票" : "奖励已经被其他玩家取得", formula: `当前 ${ownWeight} / 5 票`, explanation: earned ? "普通骰算1票、Biggy算2票；你已达到5票，本轮结束时会获得$100K。" : tile.state.available ? `还差${Math.max(0, 5 - ownWeight)}票才能取得本轮唯一的$100K奖励。` : "本轮的$100K奖励已经被领取，即使之后达到5票也不会再次发放。" });
+      claimFiveDiceHall(room, casino, playerId, { announceMiss: true, tileAlreadyActivated: true });
       finishTurn(room); break;
     }
     case "D1": {
@@ -378,6 +416,7 @@ function nextPlayableIndex(game, start) {
 function finishTurn(room) {
   const game = room.game;
   if (game.pending) return;
+  checkFiveDiceHalls(room, activeId(game));
   refreshPowerToken(game);
   const next = nextPlayableIndex(game, game.turnIndex);
   if (next === -1) return beginSettlement(room);
@@ -571,7 +610,7 @@ function resolvePending(room, playerId, payload = {}) {
       pending.roll.forEach((face, index) => {
         if (selected.includes(index) && game.closedCasino !== face) game.casinos[face - 1].dice.push({ id: `prime-${Date.now()}-${index}`, playerId, big: false, extra: true, face });
       });
-      game.pending = null; continueSettlement(room); return;
+      game.pending = null; checkFiveDiceHalls(room, playerId); continueSettlement(room); return;
     }
     case "blackDivide": {
       const indices = Array.isArray(payload.indices) ? [...new Set(payload.indices.map(Number))] : [];
@@ -614,6 +653,7 @@ function manipulateOwnDie(game, playerId, payload) {
 function beginSettlement(room) {
   const game = room.game;
   game.currentRoll = null;
+  checkFiveDiceHalls(room, activeId(game));
   game.settlement = { phase: "prime", primeIndex: 0, casinoIndex: 0, nextStarter: null, badLuckPrepared: false, badLuckApplied: false, badLuckPenalties: [], awards: [] };
   continueSettlement(room);
 }
@@ -751,5 +791,5 @@ function publicRoom(room, viewerId) {
 
 module.exports = {
   COLORS, TILES, defaults, configure, chooseTiles, createGame, publicRoom, roll, place, pass, usePowerPlay, resolvePending, untiedRanking,
-  __test: { activateTile, beginSettlement, continueSettlement, setupRound, manipulateOwnDie }
+  __test: { activateTile, beginSettlement, continueSettlement, setupRound, manipulateOwnDie, checkFiveDiceHalls }
 };

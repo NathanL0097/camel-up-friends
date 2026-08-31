@@ -256,6 +256,50 @@ test("所有即时型豪华板块都有可完成的触发状态或明确判定",
   }
 });
 
+test("五骰同堂在6票或7票时仍按至少5票立即锁定奖励", () => {
+  for (const votes of [6, 7]) {
+    const room = roomWithBaseGame();
+    const tile = mountTile(room.game, 3, "C1");
+    room.game.turnIndex = room.game.turnOrder.indexOf("a");
+    const chosen = room.game.playerState.a.supply.filter((die) => !die.big).slice(0, votes);
+    room.game.currentRoll = chosen.map((die) => ({ ...die, face: 3 }));
+    rules.place(room, "a", 3);
+    assert.equal(tile.state.ownerId, "a", `${votes}票应触发五骰同堂`);
+    assert.equal(tile.state.available, false, `${votes}票后奖励应被锁定`);
+    assert.ok(room.game.log.some((entry) => entry.includes(`达到${votes}票`) && entry.includes("五骰同堂")));
+  }
+});
+
+test("Biggy双票和效果牌间接放入都能触发五骰同堂", () => {
+  const room = roomWithBaseGame();
+  const tile = mountTile(room.game, 2, "C1");
+  const state = room.game.playerState.a;
+  const smallDice = state.supply.filter((die) => !die.big).slice(0, 3);
+  const smallIds = new Set(smallDice.map((die) => die.id));
+  state.supply = state.supply.filter((die) => !smallIds.has(die.id));
+  room.game.casinos[1].dice.push(...smallDice.map((die) => ({ ...die, playerId: "a", face: 2 })));
+  const biggy = state.supply.find((die) => die.big);
+  room.game.pending = { type: "myChoice", actorId: "a", casino: 1, options: [5] };
+  rules.resolvePending(room, "a", { option: 5, mode: "force", face: 2, dieId: biggy.id });
+  assert.equal(tile.state.ownerId, "a");
+  assert.equal(tile.state.available, false);
+  assert.ok(room.game.log.some((entry) => entry.includes("达到5票") && entry.includes("五骰同堂")));
+});
+
+test("旧房间中已经累积到6票或7票的状态会在下一次行动检查时补触发", () => {
+  const room = roomWithBaseGame();
+  const tile = mountTile(room.game, 4, "C1");
+  const state = room.game.playerState.a;
+  const chosen = state.supply.filter((die) => !die.big).slice(0, 7);
+  const chosenIds = new Set(chosen.map((die) => die.id));
+  state.supply = state.supply.filter((die) => !chosenIds.has(die.id));
+  room.game.casinos[3].dice.push(...chosen.map((die) => ({ ...die, playerId: "a", face: 4 })));
+  rules.__test.checkFiveDiceHalls(room, "a");
+  assert.equal(tile.state.ownerId, "a");
+  assert.equal(tile.state.available, false);
+  assert.ok(room.game.log.some((entry) => entry.includes("达到7票") && entry.includes("五骰同堂")));
+});
+
 test("淘汰出局让每名对手亲自选择普通骰或Biggy，而不是系统擅自替玩家决定", () => {
   const room = roomWithBaseGame();
   mountTile(room.game, 1, "E2");
