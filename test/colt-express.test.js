@@ -40,6 +40,7 @@ test("隧道回合与Ghost每轮首张牌会正确进入暗牌状态", () => {
   game.firstPlayerIndex = 0;
   game.planningSteps = [{ playerId: ghost.id, turnType: "standard", turnNumber: 0, substep: 0, hidden: false }];
   game.planningIndex = 0;
+  game.phase = "planning";
   game.actorId = ghost.id;
   const first = ghost.hand.find((card) => card.kind === "action");
   rules.playCard(room, ghost.id, { cardId: first.id });
@@ -49,6 +50,7 @@ test("隧道回合与Ghost每轮首张牌会正确进入暗牌状态", () => {
   const tunnelActor = tunnel.game.players[0];
   tunnel.game.planningSteps = [{ playerId: tunnelActor.id, turnType: "tunnel", turnNumber: 0, substep: 0, hidden: true }];
   tunnel.game.planningIndex = 0;
+  tunnel.game.phase = "planning";
   tunnel.game.actorId = tunnelActor.id;
   tunnelActor.character = { ...rules.CHARACTERS.find((character) => character.id === "django") };
   const tunnelCard = tunnelActor.hand.find((card) => card.kind === "action");
@@ -165,8 +167,25 @@ test("公共状态隐藏他人手牌和钱袋金额，但公开行动栈保留�
   assert.equal(view.players.find((player) => player.id === "p2").loot[0].value, null);
 });
 
+test("每轮先公开完整特殊事件简报，所有玩家确认后才开始策划", () => {
+  const room = makeRoom(3);
+  room.game.roundCard.event = "angry-marshal";
+  assert.equal(room.game.phase, "round-briefing");
+  assert.equal(room.game.actorId, null);
+  const view = rules.publicRoom(room, "p1");
+  assert.equal(view.game.roundEventPreview.name, "愤怒的警长");
+  assert.match(view.game.roundEventPreview.detail, /本轮全部行动执行完后/);
+  assert.match(view.game.roundEventPreview.detail, /警长向车尾移动1节/);
+  rules.acknowledge(room, "p1");
+  assert.equal(room.game.phase, "round-briefing");
+  rules.acknowledge(room, "p2");
+  rules.acknowledge(room, "p3");
+  assert.equal(room.game.phase, "planning");
+  assert.equal(room.game.actorId, room.game.planningSteps[0].playerId);
+});
+
 function acknowledgeAll(room) {
-  for (const player of room.players) if (room.game.status === "playing" && ["planning-result", "execution-result", "round-result"].includes(room.game.phase)) rules.acknowledge(room, player.id);
+  for (const player of room.players) if (room.game.status === "playing" && ["round-briefing", "planning-result", "execution-result", "round-result"].includes(room.game.phase)) rules.acknowledge(room, player.id);
 }
 function executeFirstOption(room) {
   const game = room.game, actor = game.actorId, type = game.currentAction.cardType, first = game.executionOptions[0];
@@ -187,7 +206,7 @@ test("自动玩家巡检：2至6人均可完整走完五轮且没有软锁", () 
         const card = player.hand.find((item) => item.kind === "action");
         if (card) rules.playCard(room, player.id, { cardId: card.id }); else rules.drawCards(room, player.id);
       } else if (game.phase === "executing") executeFirstOption(room);
-      else if (["planning-result", "execution-result", "round-result"].includes(game.phase)) acknowledgeAll(room);
+      else if (["round-briefing", "planning-result", "execution-result", "round-result"].includes(game.phase)) acknowledgeAll(room);
       else throw new Error(`未处理阶段：${game.phase}`);
       guard += 1;
     }
@@ -205,6 +224,8 @@ test("客户端包含移动端列车导航、滑动视口、底部手牌抽屉�
   assert.match(client, /ceConfirmAction/);
   assert.match(client, /scrollIntoView/);
   assert.match(client, /ceStackButton/);
+  assert.match(client, /roundEventPreview/);
+  assert.match(client, /本轮结束事件/);
   assert.match(css, /scroll-snap-type:x mandatory/);
   assert.match(css, /ce-hand-dock\.open/);
   assert.match(css, /@media\(hover:none\)/);

@@ -1,4 +1,4 @@
-export type GamePhase = "dealing" | "planning" | "planning-result" | "executing" | "execution-result" | "round-result" | "end";
+export type GamePhase = "dealing" | "round-briefing" | "planning" | "planning-result" | "executing" | "execution-result" | "round-result" | "end";
 export type ActionCardType = "move" | "floor" | "shoot" | "punch" | "rob" | "marshal";
 export type PlanningTurnType = "standard" | "tunnel" | "double" | "reverse";
 export type LootType = "purse" | "jewel" | "strongbox";
@@ -75,6 +75,7 @@ export interface ColtGameState {
   round: number;
   roundCards: RoundCard[];
   roundCard: RoundCard;
+  roundEventPreview: { id: string | null; name: string; icon: string; detail: string };
   trainCars: TrainCar[];
   actionStack: ActionCard[];
   executionIndex: number;

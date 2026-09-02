@@ -88,10 +88,14 @@ function dealRound(game) {
   }
   game.planningSteps = planningSteps(game);
   game.planningIndex = 0;
-  game.phase = "planning";
-  game.actorId = game.planningSteps[0]?.playerId || null;
+  game.phase = "round-briefing";
+  game.actorId = null;
+  game.eventAcks = [];
+  game.pendingAfterAck = "begin-planning";
   const turns = game.roundCard.turns.map((turn) => ({ standard: "明牌", tunnel: "隧道盲牌", double: "连续两次", reverse: "逆向" }[turn])).join(" · ");
-  emit(game, "round-start", `第${game.round}轮开始`, `${nameOf(game, game.players[game.firstPlayerIndex].id)}持有先手。行动节奏：${turns}。`, { round: game.round, roundCard: clone(game.roundCard) }, 6200);
+  const eventInfo = EVENT_INFO[game.roundCard.event];
+  const eventBrief = eventInfo ? `本轮结束事件「${eventInfo.name}」：${eventInfo.detail}` : "本轮结束时没有额外特殊事件。";
+  emit(game, "round-start", `第${game.round}轮行动简报`, `${nameOf(game, game.players[game.firstPlayerIndex].id)}持有先手。行动节奏：${turns}。${eventBrief}`, { round: game.round, roundCard: clone(game.roundCard), eventPreview: eventInfo ? { id: game.roundCard.event, ...clone(eventInfo) } : null }, 9000);
 }
 function createGame(roomPlayers, rawSettings = {}, random = Math.random) {
   if (roomPlayers.length < 2 || roomPlayers.length > 6) throw new Error("柯尔特列车需要2至6名玩家");
@@ -353,9 +357,16 @@ function connectedPlayerIds(room) {
 }
 function acknowledge(room, playerId) {
   const { game } = requirePlaying(room, playerId);
-  if (!["planning-result", "execution-result", "round-result"].includes(game.phase)) throw new Error("当前没有需要确认的结果");
+  if (!["round-briefing", "planning-result", "execution-result", "round-result"].includes(game.phase)) throw new Error("当前没有需要确认的结果");
   if (!game.eventAcks.includes(playerId)) game.eventAcks.push(playerId);
   if (!connectedPlayerIds(room).every((id) => game.eventAcks.includes(id))) return;
+  if (game.phase === "round-briefing") {
+    game.eventAcks = [];
+    game.pendingAfterAck = null;
+    game.phase = "planning";
+    game.actorId = currentPlanningStep(game)?.playerId || null;
+    return;
+  }
   if (game.phase === "planning-result") {
     game.eventAcks = [];
     game.pendingAfterAck = null;
@@ -449,11 +460,14 @@ function publicRoom(room, viewerId) {
     cardType: card.isHidden && index >= game.executionIndex && card.ownerId !== viewerId ? null : card.cardType,
     resolved: index < game.executionIndex, current: index === game.executionIndex && game.phase.startsWith("execut")
   }));
+  const roundEventInfo = EVENT_INFO[game.roundCard?.event];
   return {
     code: room.code, hostId: room.hostId, settings: room.settings,
     players: room.players.map(({ token, ...player }) => ({ ...player, ...(publicPlayers.find((item) => item.id === player.id) || {}) })),
     game: {
-      status: game.status, phase: game.phase, round: game.round, roundCard: clone(game.roundCard), trainCars: clone(game.trainCars), marshalCarIndex: game.marshalCarIndex,
+      status: game.status, phase: game.phase, round: game.round, roundCard: clone(game.roundCard),
+      roundEventPreview: roundEventInfo ? { id: game.roundCard.event, ...clone(roundEventInfo) } : { id: null, name: "本轮无特殊事件", icon: "✓", detail: "本轮全部行动执行完后不会追加特殊事件，可以专注于当前行动计划。" },
+      trainCars: clone(game.trainCars), marshalCarIndex: game.marshalCarIndex,
       players: publicPlayers,
       firstPlayerId: game.players[game.firstPlayerIndex].id, actorId: game.actorId, actionStack, executionIndex: game.executionIndex,
       currentAction: game.currentAction ? { ...clone(game.currentAction), ownerName: nameOf(game, game.currentAction.ownerId), name: ACTION_NAMES[game.currentAction.cardType] } : null,

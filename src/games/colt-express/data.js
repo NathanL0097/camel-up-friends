@@ -34,14 +34,14 @@ const ROUND_PATTERNS = {
 
 const EVENTS = ["braking", "angry-marshal", "swivel-arm", "take-it-all", "passenger-rebellion", "pickpocketing", "hostage-conductor", "marshal-revenge"];
 const EVENT_INFO = {
-  "braking": { name: "紧急刹车", icon: "⚠️", detail: "所有车顶强盗向车头方向移动一节。" },
-  "angry-marshal": { name: "愤怒的警长", icon: "💢", detail: "警长车厢顶部的强盗各吃一颗中立子弹，然后警长向车尾移动一节。" },
-  "swivel-arm": { name: "旋转吊臂", icon: "🪝", detail: "所有车顶强盗被扫到最后一节车厢的车顶。" },
-  "take-it-all": { name: "全部拿走", icon: "🧰", detail: "在警长当前所在车厢内再放置一个价值$1000的保险箱。" },
-  "passenger-rebellion": { name: "乘客反抗", icon: "💢", detail: "所有仍在车厢内的强盗各获得一颗中立子弹。" },
-  "pickpocketing": { name: "顺手牵羊", icon: "🫳", detail: "独自占据一个位置的强盗可自动拿走当地一个钱袋。" },
-  "hostage-conductor": { name: "劫持列车长", icon: "🎩", detail: "位于车头内或车头顶的强盗获得$250赎金。" },
-  "marshal-revenge": { name: "警长复仇", icon: "⭐", detail: "警长所在车厢顶部的强盗丢下自己价值最低的钱袋。" }
+  "braking": { name: "紧急刹车", icon: "⚠️", detail: "本轮全部行动执行完后，所有位于车顶的强盗都向车头方向移动1节车厢。" },
+  "angry-marshal": { name: "愤怒的警长", icon: "💢", detail: "本轮全部行动执行完后，警长所在车厢顶部的强盗各获得1张中立子弹；随后警长向车尾移动1节，并照常赶走新车厢内的强盗。" },
+  "swivel-arm": { name: "旋转吊臂", icon: "🪝", detail: "本轮全部行动执行完后，所有位于车顶的强盗都会被吊臂扫到车尾最后一节车厢的车顶。" },
+  "take-it-all": { name: "全部拿走", icon: "🧰", detail: "本轮全部行动执行完后，在警长当前所在车厢的内部额外放置1个价值$1000的保险箱，之后可以被抢劫。" },
+  "passenger-rebellion": { name: "乘客反抗", icon: "💢", detail: "本轮全部行动执行完后，所有仍位于车厢内部的强盗各获得1张中立子弹；车顶强盗不受影响。" },
+  "pickpocketing": { name: "顺手牵羊", icon: "🫳", detail: "本轮全部行动执行完后，若一名强盗独自占据某节车厢的一层，且该位置有钱袋，他会自动拿走其中1个钱袋。" },
+  "hostage-conductor": { name: "劫持列车长", icon: "🎩", detail: "本轮全部行动执行完后，位于车头内部或车头顶部的每名强盗都会获得价值$250的赎金。" },
+  "marshal-revenge": { name: "警长复仇", icon: "⭐", detail: "本轮全部行动执行完后，位于警长所在车厢顶部的每名强盗，都要把自己价值最低的1个钱袋丢在当前车顶。" }
 };
 
 module.exports = { CHARACTERS, ACTION_COUNTS, ACTION_NAMES, ACTION_ICONS, ROUND_PATTERNS, EVENTS, EVENT_INFO };

@@ -5,7 +5,7 @@ const definition = {
   title: "柯尔特列车：西部劫案",
   icon: "🚂",
   description: "2–6人的行动编程、车顶追逐、射击与列车抢劫。",
-  clientScript: "/games/colt-express.js?v=20260902-3",
+  clientScript: "/games/colt-express.js?v=20260902-4",
   minPlayers: 2,
   maxPlayers: 6,
   minimumToStart: 2,
