@@ -10,6 +10,7 @@ const { definition: quizArena } = require("./quiz-arena");
 const { definition: lasVegasRoyale } = require("./las-vegas-royale");
 const { definition: witchTown } = require("./witch-town");
 const { definition: avalon } = require("./avalon");
+const { definition: coltExpress } = require("./colt-express");
 
 const games = new Map([
   [camelRace.id, camelRace],
@@ -23,7 +24,8 @@ const games = new Map([
   [quizArena.id, quizArena],
   [lasVegasRoyale.id, lasVegasRoyale],
   [witchTown.id, witchTown],
-  [avalon.id, avalon]
+  [avalon.id, avalon],
+  [coltExpress.id, coltExpress]
 ]);
 
 function getGame(gameId) {

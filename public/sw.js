@@ -1,4 +1,4 @@
-const CACHE_NAME = "friends-tabletop-shell-v2";
+const CACHE_NAME = "friends-tabletop-shell-v3";
 const SHELL = [
   "/",
   "/index.html",
