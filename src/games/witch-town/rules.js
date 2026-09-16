@@ -1,4 +1,5 @@
 const { CHARACTERS, TRIAL_COUNTS, makeDeck } = require("./data");
+const { randomUUID } = require("node:crypto");
 
 const RED = new Set(["accusation", "evidence", "witness"]);
 const BLUE = new Set(["asylum", "matchmaker", "piety", "stocks"]);
@@ -32,6 +33,7 @@ function nextLivingIndex(game, fromIndex) {
 function emit(game, type, title, detail = "", duration = 3600, extra = {}) {
   game.eventSeq += 1;
   game.lastEvent = { seq: game.eventSeq, type, title, detail, duration, ...extra };
+  game.presentationEvents = [...(game.presentationEvents || []), { ...game.lastEvent }].slice(-16);
   game.log.unshift(detail ? `${title}：${detail}` : title);
   game.log = game.log.slice(0, 24);
 }
@@ -62,9 +64,9 @@ function buildTryals(playerCount, random) {
   const counts = TRIAL_COUNTS[playerCount];
   if (!counts) throw new Error("女巫镇标准局需要4至12名玩家");
   return shuffle([
-    ...Array.from({ length: counts.innocent }, (_, index) => ({ id: `innocent-${index + 1}`, kind: "innocent", revealed: false })),
-    ...Array.from({ length: counts.witch }, (_, index) => ({ id: `witch-${index + 1}`, kind: "witch", revealed: false })),
-    { id: "constable-1", kind: "constable", revealed: false }
+    ...Array.from({ length: counts.innocent }, () => ({ id: randomUUID(), kind: "innocent", revealed: false })),
+    ...Array.from({ length: counts.witch }, () => ({ id: randomUUID(), kind: "witch", revealed: false })),
+    { id: randomUUID(), kind: "constable", revealed: false }
   ], random);
 }
 
@@ -612,8 +614,9 @@ function publicRoom(room, viewerId) {
   const publicGame = {
     status: source.status, phase: source.phase, round: source.round, actorId: visibleActorId,
     turnMode: source.turnMode,
-    currentIndex: source.currentIndex, deckCount: source.deck.length, discardCount: source.discard.length,
+    currentIndex: source.phase === "dawn" && !viewer?.everWitch ? null : source.currentIndex, deckCount: source.deck.length, discardCount: source.discard.length,
     winner: clone(source.winner), eventSeq: source.eventSeq, lastEvent: clone(source.lastEvent), log: [...source.log],
+    presentationEvents: clone(source.presentationEvents || []), startedAt: source.startedAt,
     pendingTrial: source.pendingTrial ? { accuserId: source.pendingTrial.accuserId, targetId: source.pendingTrial.targetId } : null,
     eventAcks: [...source.eventAcks],
     seats: source.seats.map((player) => ({

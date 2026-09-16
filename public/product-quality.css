@@ -1,0 +1,473 @@
+/* Product layer: shared reading/interaction grammar; independent game worlds.
+   Motion never alters authoritative state or private visibility. */
+:root { --motion-micro:140ms; --motion-flow:320ms; --motion-event:700ms; --motion-cinema:1100ms; --ease-game:cubic-bezier(.22,.68,.22,1); }
+.game-mark { display:inline-block; width:1.5em; height:1.5em; flex:none; fill:none; stroke:currentColor; stroke-width:2; vertical-align:middle; }
+body { background:#eee8db; }
+body::before, body::after, main::before { display:none; }
+body[data-screen="game"] { background:#17201e; }
+.sound-controls { margin-left:auto; display:flex; gap:4px; align-items:center; }
+.sound-controls button { min-height:36px; padding:5px 10px; border:1px solid currentColor; border-radius:4px; background:transparent; color:inherit; font-size:12px; opacity:.85; box-shadow:none; }
+.sound-controls button[aria-pressed="true"] { color:#afceaa; }
+body:not([data-screen="game"]) .sound-controls button[aria-pressed="true"] { color:#345842; }
+#soundDialog { width:min(440px,calc(100vw - 24px)); padding:28px; color:#23332c; background:#f8f2e6; border:1px solid #a39476; border-radius:8px; }
+#soundDialog p { font-size:14px; line-height:1.65; }
+.sound-option { display:flex; align-items:center; gap:12px; margin:20px 0; white-space:nowrap; }
+.sound-option input[type="range"] { width:100%; accent-color:#355b47; }
+.sound-option input[type="checkbox"] { width:22px; height:22px; accent-color:#355b47; }
+#soundPreview { padding:10px 16px; background:#243e33; color:#fff4df; border-radius:4px; }
+.topbar { backdrop-filter:none; }
+.landing { background:transparent; }
+body[data-screen="game"] #landing::before,body[data-screen="game"] .entry-card::before,body[data-screen="game"] .landing::before { display:none; }
+.hero-copy { position:relative; padding-bottom:180px; }
+.hero-copy::after { content:""; position:absolute; left:0; bottom:0; width:min(520px,95%); height:155px; background:url('/assets/race-poster.svg') center 38%/cover; border:6px solid #f8f2e6; outline:1px solid #aa9873; transform:rotate(-2deg); }
+.hero-copy h1 { font-size:clamp(40px,5.4vw,76px); }
+.hero-copy p { max-width:540px; font-size:17px; line-height:1.8; }
+.feature-row span { padding:0 12px 0 0; border:0; border-radius:0; box-shadow:none; background:none; }
+.entry-card { border-radius:8px; box-shadow:0 12px 28px #2c382118; }
+.game-choice,.game-picker-toggle { border-radius:5px; box-shadow:none; }
+.game-choice[data-game-id="avalon"]>span { color:#c9b789; background:#182b36; }
+.game-choice[data-game-id="witch-town"]>span { color:#dbc3a1; background:#40292b; }
+.game-choice[data-game-id="colt-express"]>span { color:#edcf94; background:#5e3726; }
+.game-choice[data-game-id="las-vegas-royale"]>span { color:#e1c27b; background:#164238; }
+.game-choice[data-game-id="camel-race"]>span { color:#f6dc9d; background:#aa5731; }
+.game-choice>span>.game-mark,.selected-game-icon>.game-mark { width:30px; height:30px; }
+body[data-screen="lobby"] { --lobby-art:none; }
+body[data-game-id="camel-race"][data-screen="lobby"] { --lobby-art:url('/assets/race-poster.svg'); }
+body[data-game-id="avalon"][data-screen="lobby"] { --lobby-art:url('/assets/avalon-arch.svg'); }
+body[data-game-id="witch-town"][data-screen="lobby"] { --lobby-art:url('/assets/salem-woodcut.svg'); }
+body[data-game-id="colt-express"][data-screen="lobby"] { --lobby-art:url('/assets/western-landscape.svg'); }
+body[data-game-id="las-vegas-royale"][data-screen="lobby"] { --lobby-art:url('/assets/casino-deco.svg'); }
+.lobby-card::before { content:''; display:block; height:120px; margin:-30px -30px 24px; background:#25352d var(--lobby-art) center/cover; border-bottom:3px double #a08e65; }
+@media(max-width:720px) {.lobby-card::before { margin:-22px -18px 20px; height:100px; }}
+/* LEVEL 1: no perpetual glowing actionable controls. */
+:is(.av-primary,.wt-actions button,.ce-action button,.vegas-action) { border-radius:5px; box-shadow:0 2px 0 #0004; min-height:44px; }
+:is(.av-primary,.wt-actions button,.ce-action button,.vegas-action):active { transform:translateY(2px); box-shadow:none; }
+:is(.av-seat,.wt-seat,.ce-bandit,.casino-card).selected { outline:2px solid currentColor; outline-offset:2px; }
+.ce-car.option,.ce-bandit.active,.ce-loot.clickable,.av-mission.active { animation:none; }
+.ce-car.option { filter:drop-shadow(0 3px 0 #ffe2a0); }
+.ce-bandit.active::after { content:"行动中"; position:absolute; left:50%; top:-23px; transform:translateX(-50%); padding:2px 5px; background:#f2dcab; color:#37281e; font-size:10px; white-space:nowrap; }
+/* COLT: engraved railroad, timber, iron and readable tickets. */
+#coltExpress { background:#cfab7a url('/assets/western-landscape.svg') center/cover; grid-template-rows:auto auto auto minmax(260px,1fr) auto auto; }
+.ce-scene::before { display:none; }
+.ce-head { box-shadow:none; background:#292522; padding-block:9px; }
+.ce-brand>.game-mark { width:48px; height:48px; color:#d8b87b; }
+.ce-round,.ce-head button { box-shadow:none; border-radius:3px; background:#242421; }
+.ce-mini { background:#37332d; backdrop-filter:none; }
+.ce-mini button.mine { box-shadow:none; outline:1px solid #ead6a0; }
+.ce-event { min-height:66px; background:#332b24; }
+.ce-event.forecast { background:#453c2e; box-shadow:none; }
+.ce-event i { filter:none; }
+.ce-event span { font-size:13px; line-height:1.55; }
+.ce-roof { background:#795139; box-shadow:inset 0 4px #b39164; border-radius:28% 28% 4px 4px; }
+.ce-inside { background:repeating-linear-gradient(0deg,#8e6344 0 27px,#68442e 28px 30px); box-shadow:inset 0 0 0 2px #c5a376; }
+.ce-roof header { color:#fff1d0; text-shadow:none; }
+.ce-roof header b { font-size:13px; }
+.ce-car { filter:drop-shadow(0 8px 5px #392a2340); }
+.ce-bandit { border-radius:22px 22px 4px 4px; box-shadow:0 3px 0 #2a211d; width:52px; height:54px; background:var(--bandit); }
+.ce-bandit b { max-width:48px; font-size:9px; }.ce-bandit small { font-size:9px; top:-9px; }
+.ce-bandit .game-mark { width:23px; height:23px; }.ce-marshal .game-mark { width:30px; height:30px; }
+.ce-loot { min-width:43px; min-height:36px; border-radius:3px; box-shadow:0 2px 0 #29251d; }.ce-loot .game-mark { width:20px; height:20px; }.ce-loot small { font-size:9px; }
+.ce-stack { border-radius:3px; box-shadow:none; background:#f0dfb9; color:#392c20; border:1px solid #705036; }
+.ce-stack header b,.ce-stack header strong { color:#392c20; }.ce-stack header small { color:#71553b; }
+.ce-stack-list article { border-radius:3px; background:#dfc79d; color:#392c20; }
+.ce-stack-list article small { color:#5b4531; font-size:11px; }.ce-stack-list article b { font-size:12px; }.ce-stack-list article.current { box-shadow:none; outline:2px solid #915338; }
+.ce-action { gap:16px; min-height:80px; background:#2b2723; padding:12px 18px; }
+.ce-action-copy b { font-size:18px; }.ce-action-copy span { font-size:13px; line-height:1.6; }
+.ce-playback { display:grid; gap:6px; min-width:160px; }.ce-playback>span { font-size:12px; color:#d5c3a3; }
+.ce-playback-track { height:3px; background:#ffffff24; overflow:hidden; }.ce-playback-track i { display:block; height:100%; background:#dcb77d; transform-origin:left; animation:ce-dwell var(--dwell) linear var(--elapsed) both; }
+@keyframes ce-dwell { to { transform:scaleX(0); } }
+.ce-card { animation:none; border:1px solid #ad8b52; border-radius:3px; box-shadow:0 3px 0 #806642,0 6px 8px #0003; background:#efe0bc; color:#352c23; }
+.ce-card::before { border:1px solid #95764e; border-radius:0; inset:5px; }.ce-card small { color:#766346; font-size:10px; }.ce-card b { font-size:13px; }.ce-card .game-mark { width:44px; height:44px; }
+.ce-card[data-action="shoot"],.ce-card[data-action="punch"] { color:#853e2f; }.ce-card.selected { box-shadow:0 3px 0 #b3823e; outline:2px solid #f1c268; }
+.ce-hand.new-hand .ce-card { animation:deal-ticket 350ms var(--ease-game) both; animation-delay:calc(var(--card) * 40ms); }
+.ce-result { background:#1d211ef2; backdrop-filter:none; }.ce-result>section { color:#392c20; background:#eeddb9; border:8px double #765638; border-radius:0; box-shadow:0 18px 50px #0006; animation:wanted-print 900ms var(--ease-game) both; }
+.ce-wanted-label { display:block; font:700 16px Georgia,serif; letter-spacing:.18em; }.ce-result>section>.game-mark { width:72px; height:72px; color:#775434; }.ce-result h2,.ce-result article span { color:#4d3524; }
+dialog.ce-result { width:100vw; max-width:none; height:100dvh; max-height:none; border:0; margin:0; overflow:auto; }
+dialog.ce-result:not([open]) { display:none; }
+.ce-result-return { position:fixed; z-index:55; bottom:12px; right:12px; min-height:44px; padding:10px 18px; color:#332418; background:#ecd9b3; border:2px solid #8a6439; }
+.camel-victory-stage { background:#f0dba4 url('/assets/race-poster.svg') right top/180px 108px no-repeat!important; border:6px double #956d3e!important; border-radius:3px!important; }
+.camel-victory-burst { display:none; }
+.camel-standings li { border-radius:2px!important; box-shadow:none!important; }
+/* AVALON: stone arch, heraldry, sealed votes. No dashboard hero panel. */
+#avalonGame { background:#142631 url('/assets/avalon-arch.svg') center top/auto 100% no-repeat; }
+.av-head { background:#0e1e28; }.av-event { background:#0d1d258c; }
+.av-table-core { border:0; border-radius:0; background:transparent; box-shadow:none; }
+.av-seat { border-radius:3px; background:#172c37; border:1px solid #83908755; box-shadow:none; }
+.av-avatar { border-radius:0 0 45% 45%; background:#243d49; border:1px solid #b6a377; }.av-avatar .game-mark { width:28px; height:28px; }
+.av-seat.leader { box-shadow:none; border-color:#d9ba77; }.av-seat.selected { background:#3a4a46; }
+.av-mission { border-radius:2px 2px 18px 18px; background:#162b35; box-shadow:none; border-color:#6c807e; }.av-mission.active { outline:2px solid #ceb87a; outline-offset:-4px; box-shadow:none; }
+.av-action { background:#11222bcc; padding:24px; border-block:1px solid #a8996b70; }.av-action h3 { font-size:clamp(22px,2.8vw,34px); }.av-action p { font-size:14px; line-height:1.7; max-width:660px; margin-inline:auto; }
+.av-action-icon .game-mark { width:52px; height:52px; }.av-history { border-radius:0; box-shadow:none; background:#12222b; }
+.av-role-art .game-mark,.av-role-reveal>div>.game-mark { width:80px; height:80px; }
+.av-role-card { border-radius:3px; background:#263b43; }.av-role-card.evil { background:#492d39; }.av-knowledge { border-radius:3px; background:#16252c; }
+.av-overlay { backdrop-filter:none; background:#08151ded; }.av-role-reveal { border-radius:2px; border:6px double #a59b7a; background:#20343c; box-shadow:0 24px 70px #0006; animation:seal-open 800ms var(--ease-game) both; }.av-role-reveal.evil { background:#392632; }
+.av-role-reveal h2 { letter-spacing:.12em; }.av-role-reveal p { font-size:14px; line-height:1.7; }
+dialog.av-overlay { width:100vw; height:100dvh; max-width:none; max-height:none; margin:0; border:0; color:#e4e8e8; }
+dialog.av-overlay:not([open]) { display:none; }
+dialog.av-overlay::backdrop { background:#08151ded; }
+dialog.av-result { width:100vw; height:100dvh; max-width:none; max-height:none; margin:0; border:0; color:#e4e8e8; }
+dialog.av-result:not([open]) { display:none; }
+dialog.av-result::backdrop { background:#08151ded; }
+.av-result>div { background-position:right top!important; background-size:240px auto!important; background-repeat:no-repeat!important; }
+.av-result>div>small { display:block; font-size:11px; letter-spacing:.14em; color:#c6b991; }
+.av-result>div>span { display:block; margin:12px auto; }
+.av-result>div>em { display:block; margin-top:18px; color:#b6c2c3; font-size:13px; }
+.av-result article small { font-size:12px; }.av-result article { animation:seal-open 600ms var(--ease-game) both; }
+.av-result article:nth-child(2) { animation-delay:120ms; }.av-result article:nth-child(3) { animation-delay:240ms; }.av-result article:nth-child(4) { animation-delay:360ms; }.av-result article:nth-child(5) { animation-delay:480ms; }
+#avReviewResult { position:fixed; right:16px; bottom:16px; z-index:45; background:#dfc68c; color:#172c37; border:1px solid #b9a57a; padding:12px; }
+.av-role-reveal { overflow:auto; }
+.av-result { background:#091820f5; backdrop-filter:none; }.av-result>div { border-radius:0; background:#172f39 url('/assets/avalon-arch.svg') center/cover; border:6px double #b8a372; box-shadow:none; animation:seal-open 1000ms var(--ease-game) both; }.av-result>div>span>.game-mark { width:90px; height:90px; }.av-result article { border-radius:2px; }.av-result article .game-mark { width:32px; height:32px; }
+.av-scene[data-phase="vote-result"] .av-vote-reveal>span { animation:seal-open 500ms var(--ease-game) both; }
+.av-scene[data-phase="quest-result"] .av-quest-cards>i { animation:quest-turn 850ms var(--ease-game) both; }
+.av-scene.moment-fresh[data-phase="assassination"] .av-action { animation:verdict-ink 950ms ease-out both; border-color:#ad7268; }
+/* Heraldic seats flank a ceremonial table; the action stays in the player's sightline. */
+.av-seat>b { font-size:14px; }.av-seat>small { font-size:11px; }.av-submit { font-size:11px; }
+.av-mission small { font-size:10px; }.av-mission span { font-size:12px; }.av-reject small,.av-reject b { font-size:11px; }
+.av-quest-actions #avSuccess { background:#d8e3d6; color:#26483c; border-color:#86a48b; min-height:84px; border-width:4px; border-style:double; }
+.av-quest-actions #avFail { min-height:84px; border-width:4px; border-style:double; }
+.av-action button { font-size:14px; border-radius:3px; }.av-vote-reveal span { font-size:12px; padding:10px; border-radius:2px; }
+.av-targets button[aria-pressed="true"] { background:#dbe5d2; border-color:#c2dcad; color:#1d422f; box-shadow:inset 0 0 0 2px #456c52; }
+.av-targets button[aria-pressed="true"]::before { content:"✓ "; }
+.av-quest-cards i { width:62px; height:88px; border:4px double #a18d64; border-radius:2px; }
+.av-history article small,.av-history article p,.av-empty { font-size:11px; line-height:1.6; }.av-history article b { font-size:13px; }
+@media(min-width:761px) {
+  #avalonGame { grid-template-rows:64px 48px minmax(360px,1fr) 140px; height:auto; min-height:calc(100dvh - 46px); overflow:visible; }
+  .av-board { grid-template-rows:68px minmax(290px,1fr); }
+  .av-table { grid-template-columns:174px minmax(0,1fr) 195px; grid-template-rows:1fr; gap:16px; }
+  .av-seats { grid-column:1; grid-row:1; grid-template-columns:1fr; grid-auto-rows:minmax(55px,1fr); gap:5px; }
+  .av-seat { border-width:0 0 1px 3px; background:#142934; padding:6px 9px 19px; overflow:visible; }
+  .av-seat.mine:after { font-size:9px; border-radius:0; right:0; top:0; }
+  .av-table-core { grid-column:2; grid-row:1; border:5px double #9b956269; border-radius:42%; background:#142a30a8; padding:10px; }
+  .av-table-core:before { inset:8px; border-color:#9b956244; }
+  .av-action { width:100%; max-height:none; background:none; border:0; padding:12px 18px; overflow:visible; }
+  .av-action h3 { font-size:27px; }.av-action-icon .game-mark { width:44px; height:44px; }
+  .av-history { grid-column:3; grid-row:1; background:#101e2470; border:0; border-left:1px solid #a8996b50; }
+  .av-private { height:auto; padding-block:10px; }.av-role-card p { font-size:12px; }
+}
+/* SALEM: archival paper and woodcut township, not the round-table template. */
+#witchTown { background:#181c1c url('/assets/salem-woodcut.svg') center top/cover fixed; }
+.wt-head { background:#17201fed; }.wt-event { background:#2e2923; }
+.wt-seat { background:#e6d5af; color:#302923; border:1px solid #a19375; border-radius:2px; box-shadow:2px 3px 0 #090d0d66; }
+.wt-seat-main>b,.wt-suspicion strong { color:#362a22; }.wt-seat-main small { color:#635246; }.wt-avatar { background:#d3bc91; color:#4c3829; border:2px solid #937654; border-radius:50%; box-shadow:none; }.wt-avatar .game-mark { width:26px; height:26px; }
+.wt-seat.active { outline:2px solid #d1b879; box-shadow:none; }.wt-hand-count { border:0; background:#d4c19c; color:#3d3429; border-radius:2px; }
+.wt-seat-tags i { background:#ceba93; color:#473729; border-radius:0; }.wt-panel { border-radius:2px; background:#202725ed; box-shadow:none; border:1px solid #75807870; }
+.wt-action { border:0; background:#1a211ef2; }.wt-action::before { display:none; }.wt-action h3 { color:#e3d4b5; }.wt-action p { color:#cdc6b4; }
+.wt-action-icon .game-mark { width:52px; height:52px; }.wt-card-art .game-mark { width:50px; height:50px; }
+.wt-card { border-radius:2px; box-shadow:0 3px 0 #71634b; border:1px solid #b09c76; }.wt-card-art { background:none; border-bottom:1px solid #ddc7a33a; }.wt-card p { font-size:11px; line-height:1.45; }
+.wt-role-card { background:#29352fee; border-radius:2px; }.wt-private { background:#131a18ed; }.wt-trial.known { border-radius:2px; box-shadow:0 2px 0 #8c7048; }.wt-trial .game-mark { width:24px; height:24px; }
+.wt-event i>.game-mark { width:32px; height:32px; }.wt-private-reveal>section { border-radius:2px; background:#26332c; box-shadow:0 15px 50px #0008; }
+.wt-reveal-cards { justify-content:safe center; }.wt-reveal-cards .wt-card { color:#fff1d5; cursor:default; animation:deal-ticket 420ms var(--ease-game) both; animation-delay:calc(var(--card-index) * 100ms); }.wt-reveal-cards .wt-card p { color:inherit; }
+.wt-private-reveal:has(.wt-draw-dialog) { display:contents; }
+.wt-draw-dialog { width:min(650px,calc(100% - 24px)); max-width:100%; max-height:90dvh; margin:auto; padding:24px 16px; overflow:auto; pointer-events:auto; border:5px double #aa9163; border-radius:2px; background:#26332c; color:#fff1d5; text-align:center; animation:verdict-ink 400ms ease-out both; }
+.wt-draw-dialog::backdrop { background:#101a17e8; }.wt-draw-dialog #wtCloseReveal { min-height:44px; border-radius:2px; background:#d9bf87; box-shadow:none; }
+.wt-modal:has(dialog) { display:contents; }
+dialog.wt-modal-sheet { width:min(620px,calc(100% - 24px)); margin:auto; max-height:90dvh; border:5px double #927551; border-radius:2px; background:#e7d5b2; color:#342b23; box-shadow:none; }
+dialog.wt-modal-sheet::backdrop { background:#101a17e8; }
+.wt-modal-sheet .wt-modal-close { width:44px; height:44px; border-radius:2px; }.wt-modal-sheet .wt-target { border-radius:2px; min-height:64px; }.wt-modal-sheet .wt-target.selected { outline:2px solid #793e32; outline-offset:2px; }
+.wt-seat.actor { outline:2px solid #d1b879; outline-offset:2px; }
+@media(min-width:721px) {
+  #witchTown { height:auto; min-height:calc(100dvh - 46px); overflow:visible; grid-template-rows:auto auto auto auto; }
+  #witchTown .wt-board { height:auto; grid-template-rows:auto auto; }
+  #witchTown .wt-seats { height:auto; min-height:110px; max-height:none; overflow:visible; padding-block:8px; }
+  #witchTown .wt-table { min-height:360px; }
+  #witchTown .wt-action { height:auto; min-height:360px; overflow:visible; }
+  #witchTown .wt-table>.wt-log { max-height:380px; overflow:auto; }
+  #witchTown .wt-private { height:auto; }
+}
+.wt-actions.wt-blind-choice { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
+.wt-actions.wt-blind-choice button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:15px; width:92px; min-height:126px; padding:10px 4px; border:5px double #aa9163; border-radius:2px; background:#25332a; color:#e7d5b2; box-shadow:0 3px 0 #080e0b; }
+.wt-blind-choice .game-mark { width:38px; height:38px; }.wt-blind-choice span { font-size:11px; }
+.wt-action .wt-private-trials { margin:18px 0; text-align:left; order:0; }.wt-action .wt-trials { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; }.wt-action .wt-trial { flex:1 1 74px; min-width:0; max-width:100px; }
+.wt-result { background:#131a17f5; backdrop-filter:none; }.wt-result-card { background:#e7d5b2; color:#342b23; border:8px double #927551; border-radius:0; box-shadow:none; animation:verdict-ink 1000ms ease-out both; }.wt-result-card h2,.wt-result-card p { color:#342b23; }.wt-result-card>.game-mark { width:84px; height:84px; }.wt-final-person { background:#d4c19c; border-radius:0; }.wt-final-person small { color:#554836; }
+dialog.wt-result { position:fixed; inset:0; box-sizing:border-box; width:100%; max-width:100%; height:100dvh; max-height:none; margin:0; padding:20px; border:0; overflow:auto; }
+dialog.wt-result:not([open]) { display:none; }
+dialog.wt-result::backdrop { background:#131a17; }
+.wt-result-card { width:min(620px,100%); min-width:0; max-height:none; margin:auto; box-sizing:border-box; background-image:none; overflow:visible; }
+.wt-result-card::before { content:""; display:block; height:68px; margin:-24px -24px 24px; background:#17201b url('/assets/salem-woodcut.svg') center 42% / cover no-repeat; }
+.wt-result-card .wt-final-roster { max-height:none; overflow:visible; }
+.wt-result-card>.game-mark,.wt-result-kicker { display:block; margin:12px auto; }
+.wt-result-kicker { letter-spacing:.16em; font-size:11px; }
+.wt-final-person { text-align:left; animation:verdict-ink 600ms ease-out var(--reveal-delay,0ms) both; }
+.wt-final-person b>.game-mark { width:22px; height:22px; }
+.wt-result-actions { display:grid; gap:12px; margin-top:20px; }.wt-result-actions button { min-height:44px; border-radius:2px; }
+.wt-result-review { position:fixed; bottom:12px; right:12px; z-index:20; min-height:44px; border:1px solid #927551; border-radius:2px; background:#e7d5b2; color:#342b23; padding:10px 16px; }
+@media(max-width:600px) { dialog.wt-result { padding:12px; }.wt-result-card { padding:22px 16px; }.wt-result-card::before { margin:-14px -8px 20px; height:52px; }.wt-final-person small { font-size:12px; line-height:1.65; } }
+.wt-scene.moment-fresh[data-phase="night-result"] .wt-action,.wt-scene.moment-fresh[data-event="trial-reveal"] .wt-event { animation:verdict-ink 850ms ease-out both; }
+.wt-scene.moment-fresh[data-phase="conspiracy-result"] .wt-trials { animation:deal-ticket 600ms var(--ease-game) both; }
+/* DUEL: stone tablets, with readable full-width drafting on small screens. */
+.duel-sky { display:none; }
+.duel-overlay { overflow:auto; padding:20px; box-sizing:border-box; backdrop-filter:none; background:#0b191bf2; }
+.duel-overlay>div { margin:auto; max-width:100%; border:4px double #a48d60; border-radius:3px; box-shadow:none; background:#243b37; }
+.wonder-card { border-radius:3px; background:#e5d7b5; box-shadow:0 3px 0 #8e7751; }
+.wonder-art { background:#314640; color:#d9c28c; }
+.wonder-art::before { display:none; }
+.monument-mark { width:90%; max-width:90px; height:auto; fill:none; stroke:currentColor; stroke-width:2; }
+.city-details>summary { min-height:44px; padding:12px 0; color:#d9c28c; cursor:pointer; font-size:12px; }
+.city-panel { border-radius:3px; box-shadow:none; background:#203530; }
+.city-panel.active-city { box-shadow:none; border-color:#d8bd78; }
+@media(min-width:761px) {
+  #duelBoard { width:100%; grid-template-columns:minmax(170px,1fr) minmax(540px,3fr) minmax(170px,1fr); }
+  .city-details>summary { font-size:11px; }
+}
+.wonder-card:not(:disabled):hover { transform:translateY(-2px); box-shadow:0 5px 0 #8e7751; }
+.wonder-card:not(:disabled):active { transform:translateY(1px); box-shadow:none; }
+.wonder-offers .wonder-card { grid-template-columns:72px minmax(0,1fr); min-height:180px; }
+@media(max-width:760px) {
+  .duel-scene { overflow:visible; }
+  .duel-head { position:relative; height:auto; min-height:68px; padding:12px; }
+  #duelBoard { width:100%; min-height:0; grid-template-columns:repeat(2,minmax(0,1fr)); padding:8px 8px 240px; gap:8px; }
+  #duelBoard>.duel-center { grid-column:1/-1; grid-row:1; display:flex; flex-direction:column; }
+  #opponentCity,#myCity { min-width:0; }
+  .city-panel { padding:8px; height:auto; }
+  .city-panel>header { flex-wrap:wrap; gap:5px; }
+  .city-panel .city-avatar { width:26px; height:26px; font-size:12px; }
+  .city-panel h3 { font-size:12px; overflow-wrap:anywhere; }
+  .city-panel header>strong { font-size:14px; }
+  .city-stats { gap:3px; }.city-stats span { padding:4px; }
+  .city-details .city-wonders .wonder-card { display:block; }
+  .city-details .wonder-art { height:54px; width:100%; }
+  .city-details .wonder-art svg { height:48px; }
+  .city-details .wonder-card p { max-height:none; overflow:visible; font-size:12px; }
+  #militaryTrack { order:0; }.military-board { padding:10px 0; }
+  #ageStructure { order:1; height:400px; width:100%; }
+  #progressCouncil { order:2; }
+  .age-stage { height:100%; }
+  .age-card-slot { left:calc((var(--col) - 1) * 8.333%); top:calc((var(--row) - 1) * 54px + 20px); width:16%; height:104px; }
+  .age-card-slot .card-art { height:30px; }
+  .age-card-slot .card-art i { font-size:15px; top:1px; right:1px; padding:1px; }
+  .age-card-slot .card-cost,.age-card-slot .card-effect,.age-card-slot .duel-card>header small { display:none; }
+  .age-card-slot .duel-card>header { padding:3px 2px; border-top-width:4px; }
+  .age-card-slot .duel-card>header b { font-size:10px; white-space:normal; line-height:1.2; }
+  .age-card-slot .duel-card mark { left:1px; right:1px; padding:2px 0; font-size:8px; }
+  .age-card-slot .duel-card { border-radius:3px; box-shadow:0 2px 4px #0005; }
+  .progress-board { padding:8px; gap:4px; flex-wrap:wrap; }
+  .progress-token { min-width:0; flex:1; }.progress-token b { font-size:20px; }
+  #duelActionPanel { width:calc(100% - 16px); max-width:none; bottom:8px; min-height:0; max-height:45dvh; overflow:auto; border-radius:3px; backdrop-filter:none; }
+  #duelActionPanel .action-hint,#duelActionPanel .waiting-action { padding:12px; width:100%; }
+  .selected-preview { flex:0 0 100px; width:100px; height:152px; }
+  .duel-actions { min-width:0; flex:1; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); overflow:visible; }
+  .duel-actions>button,.duel-actions label { min-width:0; min-height:44px; font-size:12px; border-radius:2px; }
+  .duel-actions label { grid-column:1/-1; }.duel-actions select { max-width:100%; width:100%; min-height:36px; border:1px solid #927f57; border-radius:2px; background:#182b27; color:#e5d7b5; }
+  .duel-overlay { inset:46px 0 0; padding:12px; }
+  .duel-overlay>div { width:100%; padding:16px; }
+  .duel-overlay h2 { font-size:24px; line-height:1.4; }
+  .duel-overlay>div>p { font-size:13px; line-height:1.6; }
+  .wonder-offers { grid-template-columns:1fr; gap:12px; margin-top:16px; }
+  .wonder-offers .wonder-card { grid-template-columns:62px minmax(0,1fr); min-height:142px; }
+  .wonder-offers .wonder-art span { font-size:32px; }
+  .wonder-offers .wonder-card p { font-size:13px; line-height:1.55; }
+}
+/* CAMEL: betting tickets, compressed board/action distance. */
+body[data-game-id="camel-race"] { background:#e8ce99; }
+body[data-game-id="camel-race"] .track { max-height:440px; min-height:0; height:38vw; }
+body[data-game-id="camel-race"] #actions { border-radius:4px; box-shadow:0 3px 0 #b39762; background:#f5e7c6; }
+body[data-game-id="camel-race"] #actions .action-hint { display:block; padding:0; min-height:0; margin:0 0 8px; background:none; box-shadow:none; border:0; color:#7a603b; font-size:12px; text-align:left; }
+body[data-game-id="camel-race"] .board-wrap>#actions { grid-template-columns:180px minmax(0,1.5fr) minmax(0,1fr) minmax(0,1fr); grid-template-rows:auto; }
+body[data-game-id="camel-race"] .board-wrap>#actions .roll-button { min-height:112px; border-radius:3px; background:#a64729; }
+body[data-game-id="camel-race"] .bet-stack { border-radius:2px; border-bottom:2px dashed #ac956d; box-shadow:none; }
+body[data-game-id="camel-race"] .panel { background:#f4e5c3; border-radius:3px; box-shadow:none; }
+body[data-game-id="camel-race"] .sun-disc>i,body[data-game-id="camel-race"] .camel.race-leader { animation:none; }
+@media(min-width:1000px) {
+  body[data-game-id="camel-race"] .game { padding:18px; }
+  body[data-game-id="camel-race"] .game-head { margin-bottom:10px; }
+  body[data-game-id="camel-race"] .game-layout { grid-template-columns:174px minmax(0,1fr); grid-template-rows:auto 1fr; grid-template-areas:"players board" "log board"; gap:12px; }
+  body[data-game-id="camel-race"] .board-wrap { grid-area:board; min-width:0; }
+  body[data-game-id="camel-race"] .players-panel { grid-area:players; padding:12px; }
+  body[data-game-id="camel-race"] .players-panel #playerList { display:block; }
+  body[data-game-id="camel-race"] .player-card { min-width:0; font-size:12px; }
+  body[data-game-id="camel-race"] .player-line { flex-wrap:wrap; gap:5px; }
+  body[data-game-id="camel-race"] .log-panel { grid-area:log; max-height:350px; padding:12px; }
+  body[data-game-id="camel-race"] #track.track { width:100%; min-width:0; height:330px; max-height:330px; }
+  body[data-game-id="camel-race"] #track .space { width:63px; height:60px; min-height:0; border-radius:5px; background:#eed49b; box-shadow:0 3px 0 #865c37; }
+  body[data-game-id="camel-race"] #track .space.finish { background:repeating-conic-gradient(#f7f0dc 0 25%,#31504c 0 50%) 0/14px 14px; }
+  body[data-game-id="camel-race"] #track.track::before { inset:9% 7%; border-width:48px; box-shadow:inset 0 0 0 3px #a56c3d,0 0 0 3px #946134; }
+  body[data-game-id="camel-race"] #track.track::after { inset:17% 13%; }
+  body[data-game-id="camel-race"] .board-wrap>#actions { grid-template-columns:145px minmax(0,1.4fr) minmax(0,1fr); gap:8px; padding:10px; }
+  body[data-game-id="camel-race"] .board-wrap>#actions .prediction { grid-column:1/-1; border-top:1px dashed #aa8b59; padding-top:8px; }
+  body[data-game-id="camel-race"] .board-wrap>#actions .prediction>strong,body[data-game-id="camel-race"] .board-wrap>#actions .prediction>.action-hint { display:inline-block; margin-right:10px; }
+  body[data-game-id="camel-race"] .board-wrap>#actions .prediction>div { display:inline-flex; }
+  body[data-game-id="camel-race"] .board-wrap>#actions .action-block { padding:4px 8px; }
+  body[data-game-id="camel-race"] #betButtons { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+}
+/* VEGAS: restrained deco, ivory and felt. Preserve the physical board geometry. */
+.vegas-shell { background:#0d2421; }.vegas-head h2 { font-family:Georgia,'Noto Serif SC',serif; letter-spacing:.03em; }.vegas-shell::before { display:none; }
+.vegas-player { border-radius:3px; background:#18352f; box-shadow:none; }.vegas-player.active { box-shadow:none; outline:1px solid #c1a56b; }
+.vegas-panel { border-radius:2px; background:#142c27; box-shadow:none; }
+.dice-arena { background:#12352d url('/assets/casino-deco.svg') center/100% 100%; box-shadow:none; }
+.vegas-action { font-size:14px; min-height:44px; }.vegas-action.roll-main { background:#ddc48b; color:#24342b; animation:none; }
+/* Six felt betting bays, with an unscaled dealer rail for all player decisions. */
+.arena-placeholder .game-mark { width:54px; height:54px; color:#d6c393; }
+.royale-tile .game-mark { width:24px; height:24px; }.player-assets .game-mark { width:16px; height:16px; vertical-align:middle; }
+.vegas-shell .event-tile-trigger { background:#153c30; border-radius:2px; border:2px solid #ab9865; box-shadow:none; }.vegas-shell .event-tile-trigger>span { background:none; }.event-tile-trigger .game-mark { width:44px; height:44px; }
+.vegas-player>div>b { font-size:14px; }.vegas-player>div>small,.vegas-player .player-assets { font-size:12px; }
+.vegas-shell .casino-dice .empty-table { color:#b1c4b3; text-shadow:none; }.vegas-shell .player-assets span { display:inline-flex; align-items:center; gap:3px; white-space:nowrap; }
+dialog.vegas-event-stage { width:100%; height:100dvh; max-width:100%; max-height:none; margin:0; border:0; color:#f3e9ce; overflow-x:hidden; }
+dialog.vegas-event-stage:not([open]) { display:none; }
+dialog.vegas-event-stage::backdrop { background:#071e19; }
+.vegas-shell .vegas-event-stage .event-visual { width:100%; min-width:0; flex-wrap:wrap; box-sizing:border-box; }
+.vegas-shell .vegas-event-stage.dice-roll .event-visual { display:flex; flex-wrap:wrap; gap:18px; padding:20px 12px; border-radius:6px; background:#09251f; box-shadow:inset 0 0 0 2px #72886a; }
+.vegas-shell .vegas-event-stage.dice-roll .event-cube { --die-size:58px; margin:12px 14px; }.vegas-shell .vegas-event-stage.dice-roll .event-cube.biggy { --die-size:74px; }
+.vegas-shell .vegas-event-card { width:min(610px,100%); min-width:0; max-height:94dvh; overflow:auto; }
+.vegas-shell #vegasFinish { position:static; padding:0; border:0; background:none; box-shadow:none; }
+.vegas-shell dialog.vegas-payout { inset:0; margin:auto; width:min(520px,calc(100% - 32px)); height:max-content; max-height:90dvh; transform:none; background:#e3dab7; color:#284235; border:6px double #788568; border-radius:2px; box-shadow:none; animation:none; }
+.vegas-payout::backdrop { background:#071e19df; }.vegas-shell .vegas-payout p { font-size:13px; border-color:#627f6533; }.vegas-shell .vegas-payout p span,.vegas-shell .vegas-payout p strong,.vegas-shell .vegas-payout>small,.vegas-shell .payout-kicker { color:#365541; }.vegas-shell .vegas-payout>button { color:#274834; border-color:#718469; width:44px; height:44px; border-radius:2px; }.vegas-shell .vegas-payout>small { font-size:12px; line-height:1.6; }
+.payout-breakdowns { margin-top:14px; border-top:1px solid #627f65; text-align:left; }.payout-breakdowns summary { min-height:44px; padding-block:12px; cursor:pointer; font-size:14px; }.vegas-shell .payout-breakdowns p { grid-template-columns:72px 1fr; line-height:1.7; }
+#vegasReviewFinal { position:fixed; bottom:16px; right:16px; z-index:45; padding:12px; background:#d8c08a; color:#16362b; }
+.casino-finale { width:100%; height:100dvh; max-width:100%; max-height:none; margin:0; border:0; padding:20px; background:#0a221deb; color:#203b2b; }
+.casino-finale[open] { display:grid; place-items:center; }.casino-finale::backdrop { background:#0a221d; }
+.casino-final-slip { width:min(570px,100%); padding:28px; max-height:94dvh; overflow:auto; background:#e5debd url('/assets/casino-deco.svg') center/cover; border:7px double #788264; text-align:center; animation:payout-receipt 900ms var(--ease-game) both; }
+.casino-final-slip>small { letter-spacing:.16em; font-size:11px; }.casino-final-mark .game-mark { width:76px; height:76px; margin:20px auto 6px; }.casino-final-slip h3 { font:600 27px Georgia,'Noto Serif SC',serif; margin:8px 0; }.casino-jackpot { display:block; font:700 64px Georgia,serif; letter-spacing:-.04em; }.casino-jackpot small { font-size:27px; margin-left:3px; }.casino-final-slip p { font-size:14px; line-height:1.6; }.casino-final-slip ol { padding:0; list-style:none; border-block:2px solid #6c7e60; margin:20px 0; }.casino-final-slip li { display:flex; justify-content:space-between; gap:15px; padding:14px 8px; border-bottom:1px solid #6c7e603d; }.casino-final-slip button { min-height:44px; margin:4px; padding:10px 16px; border:1px solid #466348; background:#173f32; color:#f3e7c3; border-radius:2px; }
+@keyframes payout-receipt { from { opacity:0; transform:translateY(-36px); clip-path:inset(0 0 75%); } to { opacity:1; transform:none; clip-path:inset(0); } }
+@media(max-width:760px) { .vegas-shell .vegas-event-stage.dice-roll .event-cube { --die-size:40px; margin:8px 5px; }.vegas-shell .vegas-event-stage.dice-roll .event-cube.biggy { --die-size:54px; }.vegas-shell .vegas-event-stage.dice-roll .event-visual { gap:10px; padding:16px 4px; } }
+.vegas-shell .vegas-table { display:grid; grid-template-columns:minmax(0,1fr) 280px; gap:16px; min-height:0!important; padding:20px; background:#123d34; border:5px double #9f895b; border-radius:18px; box-shadow:inset 0 0 0 5px #092920; overflow:visible; }
+.vegas-shell .vegas-table::after { display:none; }
+.vegas-shell .casino-grid,.vegas-shell .vegas-table.choosing-casino .casino-grid { position:relative; inset:auto!important; width:100%; height:auto; margin:0; padding:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); grid-template-rows:repeat(2,minmax(224px,auto)); gap:12px; transform:none; clip-path:none; background:none; box-shadow:none; border:0; overflow:visible; }
+.vegas-shell .vegas-table .casino-card { position:relative; inset:auto; width:auto; height:auto!important; min-height:224px!important; padding:10px!important; transform:none!important; clip-path:none; border:1px solid #bca66b; border-radius:3px; background:#173e35; box-shadow:none; overflow:visible; }
+.vegas-shell .vegas-table .casino-card::before { inset:3px; clip-path:none; background:none; box-shadow:none; border:1px solid #c6b1783d; border-radius:1px; }
+.vegas-shell .vegas-table .casino-card::after { display:none; }
+.vegas-shell .vegas-table .casino-sector-content { position:relative; inset:auto; width:100%; height:100%; padding:0; transform:none; display:flex; flex-direction:column; gap:6px; justify-content:flex-start; text-shadow:none; }
+.vegas-shell .casino-sign { order:0; }.vegas-shell .casino-sign b { font-size:15px; }.vegas-shell .casino-sign small { font-size:9px; }.vegas-shell .casino-sign>span { flex-basis:34px; width:34px; height:34px; font-size:23px; background:#0c2924; border:2px solid #b5a16b; box-shadow:none; }
+.vegas-shell .money-cards { order:1; position:static; margin:0; gap:6px; align-self:stretch; }.vegas-shell .money-cards span { flex:1; padding:5px 3px; transform:none; box-shadow:0 2px 0 #08221b; background:#e0d6af; color:#243c32; border:3px double #8b9371; border-radius:1px; }.vegas-shell .money-cards b { font-size:17px; }.vegas-shell .money-cards small,.vegas-shell .money-cards i { font-size:6px; }
+.vegas-shell .royale-tile { order:2; min-height:44px; padding:5px; border-radius:2px; background:#0b2922; margin:0; }.vegas-shell .royale-tile b { font-size:11px; }.vegas-shell .royale-tile small { font-size:8px; }.vegas-shell .royale-tile i { display:none; }
+.vegas-shell .casino-dice { order:3; margin-top:auto; transform:none!important; width:100%!important; max-width:none!important; min-height:62px!important; flex-basis:62px!important; background:#0b2821; border-radius:2px; box-shadow:none; }.vegas-shell .empty-table { font-size:11px; }.vegas-shell .casino-dice-group small,.vegas-shell .casino-dice-group>b { font-size:11px; }
+.vegas-shell .casino-select-callout { position:static; transform:none; order:4; background:#cdb477; color:#17352b; border:0; box-shadow:none; text-align:center; font-size:12px; padding:4px; }
+.vegas-shell .vegas-table.choosing-casino .casino-card:not(.selectable) { opacity:.72; filter:none; }.vegas-shell .vegas-table.choosing-casino .casino-card.selectable { filter:none; outline:2px solid #ebd49c; outline-offset:2px; }
+.vegas-shell .dice-arena { position:sticky; align-self:start; top:12px; left:auto; right:auto; width:100%; height:auto; min-height:290px; padding:24px 12px; transform:none; clip-path:none; border:5px double #bda56c; border-radius:8px; background:#102d26 url('/assets/casino-deco.svg') center/cover; box-shadow:inset 0 0 0 4px #061e18; }
+.vegas-shell .dice-arena::before,.vegas-shell .dice-arena::after,.vegas-shell .arena-lights { display:none; }
+.vegas-shell .turn-prompt strong { font-size:17px; line-height:1.5; }.vegas-shell .turn-prompt span { font-size:12px; }.vegas-shell .rolled-dice { min-height:110px; }.vegas-shell .dice-arena .vegas-action { font-size:14px; padding:10px; min-height:44px; }.vegas-shell .dice-arena .roll-actions.face-choice { width:100%; max-width:none; grid-template-columns:repeat(2,minmax(0,1fr)); }.vegas-shell .dice-arena .roll-actions.face-choice .vegas-action { font-size:13px; white-space:normal; }
+.vegas-shell .vegas-event-stage { background:#071e19f5; backdrop-filter:none; }.vegas-shell .vegas-event-card { border-radius:3px; border:6px double #b49b61; background:#15362e url('/assets/casino-deco.svg') center/cover; box-shadow:none; }.vegas-shell .vegas-event-card>p { color:#e0e5d8; }.vegas-shell .event-controls .event-confirm { border-radius:3px; box-shadow:none; background:#c6b07b; color:#193d2e; }
+@media(max-width:1050px) and (min-width:761px) { .vegas-shell .casino-grid,.vegas-shell .vegas-table.choosing-casino .casino-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:760px) {
+  .vegas-shell .vegas-table { display:flex; flex-direction:column; padding:9px; gap:12px; }
+  .vegas-shell .vegas-head { display:grid; grid-template-columns:1fr auto; }
+  .vegas-shell .vegas-head .game-head-actions { display:flex; grid-column:1/-1; gap:8px; }.vegas-shell .vegas-head .game-head-actions button { display:inline-flex; min-height:36px; font-size:12px; }
+  .vegas-shell .dice-arena { order:0; position:relative; top:auto; min-height:0; padding:16px 10px; }
+  .vegas-shell .casino-grid,.vegas-shell .vegas-table.choosing-casino .casino-grid { order:1; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .vegas-shell .vegas-table .casino-card { min-height:230px!important; padding:8px!important; }
+  .vegas-shell .casino-sign { gap:5px; }.vegas-shell .casino-sign b { font-size:12px; }.vegas-shell .money-cards b { font-size:13px; }.vegas-shell .money-cards { gap:3px; }.vegas-shell .money-cards small,.vegas-shell .money-cards i { display:none; }
+  .vegas-shell .royale-tile>span { display:none; }.vegas-shell .royale-tile b { white-space:normal; }
+  .vegas-shell .rolled-dice { min-height:60px; }
+  .vegas-shell .vegas-players { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); overflow:visible; gap:6px; }
+  .vegas-shell .vegas-player { min-width:0; grid-template-columns:5px minmax(0,1fr); gap:5px 8px; padding:9px; }
+  .vegas-shell .vegas-player .player-color { grid-row:1 / 3; width:5px; height:100%; border-radius:1px; }
+  .vegas-shell .vegas-player .player-assets { grid-column:2; display:flex; flex-wrap:wrap; gap:5px 8px; text-align:left; }
+  .vegas-shell .vegas-player .player-assets strong { margin-left:auto; }
+}
+.casino-card.selectable { filter:none!important; }.casino-card.selectable:hover { filter:none!important; }
+@keyframes deal-ticket { from { opacity:0; transform:translateY(16px) rotate(-3deg); } to { opacity:1; transform:none; } }
+@keyframes seal-open { from { opacity:0; transform:translateY(12px) rotateX(-16deg); } to { opacity:1; transform:none; } }
+@keyframes quest-turn { 0%,25% { transform:rotateY(90deg); opacity:0; } 100% { transform:rotateY(0); opacity:1; } }
+@keyframes verdict-ink { from { clip-path:inset(0 0 100% 0); opacity:.3; } to { clip-path:inset(0); opacity:1; } }
+@keyframes wanted-print { from { opacity:0; transform:translateY(-25px) rotate(-3deg); } to { opacity:1; transform:none; } }
+.signature-stage { position:fixed; inset:0; width:100vw; max-width:none; height:100dvh; max-height:none; margin:0; padding:24px; border:0; border-radius:0; color:#e9d9b5; background:#111b19 url('/assets/salem-woodcut.svg') center/cover; }
+.signature-stage::backdrop { background:#09100e; backdrop-filter:none; }
+.signature-scene { display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:100%; max-width:640px; margin:auto; text-align:center; }
+.signature-scene>small { font-size:14px; letter-spacing:.18em; color:#c5b28d; }
+.signature-mark .game-mark { width:120px; height:120px; margin:30px; animation:seal-open 700ms var(--ease-game) both; }
+.signature-scene h2 { margin:0 0 20px; font:600 clamp(26px,4vw,44px)/1.4 Georgia,'Noto Serif SC',serif; animation:verdict-ink 1000ms ease both; }
+.signature-scene p { max-width:540px; font-size:17px; line-height:1.8; padding:20px; background:#14221de8; border-block:1px solid #8f826059; }
+.signature-scene button { min-height:44px; margin:20px; padding:10px 22px; border:1px solid #aa9670; border-radius:2px; background:#dbc79d; color:#273229; }
+.signature-dwell { font-size:12px; color:#b4b5a4; }
+.ce-bandit.targetable { outline:3px solid #efcc7c; outline-offset:4px; }
+.ce-bandit.targetable::after { content:'可选目标'; position:absolute; top:-24px; left:50%; transform:translateX(-50%); white-space:nowrap; color:#352413; background:#efcc7c; padding:2px 5px; font-size:10px; }
+.ce-targets { display:flex; flex-wrap:wrap; gap:8px; }
+.av-final-choice { display:grid; gap:10px; padding:16px; border-block:1px solid #a88754; background:#19252c; }
+.av-targets button[aria-pressed="true"] { outline:2px solid #d5b16c; outline-offset:2px; }
+.ce-target-choice { min-height:44px; background:#e3d2ad!important; color:#3b2c1a!important; border:1px solid #a98b57!important; }
+.ce-target-choice[aria-pressed="true"] { outline:2px solid #efcc7c; outline-offset:2px; background:#f6e7bb!important; }
+/* Mobile information architecture: task -> board -> hand -> reference. */
+@media(max-width:720px) {
+  .topbar { gap:8px; }.sound-controls button { padding:4px 7px; min-height:34px; font-size:11px; }
+  .hero-copy { padding-bottom:128px; }.hero-copy::after { height:105px; }.hero-copy p { font-size:15px; }
+  #coltExpress { display:flex; flex-direction:column; padding-bottom:72px; overflow:visible; background-attachment:scroll; }
+  .ce-head { order:0; position:relative; top:auto; grid-template-columns:1fr auto; gap:8px; padding:8px; }
+  .ce-brand>.game-mark { width:34px; height:34px; }.ce-head nav { position:static; grid-column:1/-1; justify-content:flex-end; }.ce-head nav button { min-height:36px; }
+  .ce-event { order:1; min-height:0!important; padding:10px; }.ce-event.forecast>i { padding-top:0; }.ce-event.forecast span { font-size:12px; }.ce-event.forecast b { font-size:14px; }
+  .ce-action { order:2; position:sticky; top:0; z-index:30; min-height:0; padding:12px; text-align:left; border-block:1px solid #bd9c6570; }
+  .ce-action-copy b { font-size:17px; }.ce-action-copy span { font-size:13px; }.ce-action-buttons { justify-content:flex-start; }.ce-playback { margin-top:8px; }.ce-action-choice { justify-content:flex-start; }
+  .ce-mini { order:3; position:relative; top:auto; padding:7px 8px; flex-wrap:wrap; gap:7px; }.ce-mini>small { position:static; }.ce-mini button { min-height:36px; }
+  .ce-layout { order:4; }.ce-board-wrap { height:306px; padding:16px 4vw 24px; }.ce-car { flex:0 0 74vw; min-width:74vw; max-width:74vw; height:266px; }.ce-roof { height:84px; }.ce-inside { top:82px; height:148px; }.ce-windows i { height:43px; }.ce-bandit { width:48px; height:49px; }.ce-bandit b { font-size:9px; }
+  .ce-hand-dock { order:5; }.ce-hand-dock.open { height:230px; }.ce-hand { height:174px; }.ce-card { flex-basis:104px; height:152px; }.ce-card .game-mark { width:44px; height:44px; }
+  #coltExpress[data-phase="planning"] .ce-hand-dock.open { position:relative; bottom:auto; height:224px; }
+  #coltExpress[data-phase="planning"] .ce-hand-dock { order:3; }
+  #coltExpress[data-phase="planning"] .ce-mini { order:4; }
+  #coltExpress[data-phase="planning"] .ce-layout { order:5; }
+  #avalonGame { height:auto; min-height:calc(100dvh - 42px); padding-bottom:0; overflow:visible; }
+  .av-head { height:auto; position:relative; grid-template-columns:1fr; }.av-head nav { position:static; justify-content:flex-end; grid-column:auto; }.av-phase { grid-column:auto; }
+  .av-board { padding:8px; padding-bottom:0; height:auto; overflow:visible; }.av-table { display:flex; flex-direction:column; height:auto; min-height:0; overflow:visible; }.av-table-core { order:0; position:static; width:100%; height:auto; min-height:0; transform:none; padding:0; margin:8px 0; }
+  .av-seats { order:1; position:static; display:grid; grid-template-columns:1fr 1fr; height:auto; min-height:0; overflow:visible; }.av-seat { position:static; width:auto; height:auto; min-height:75px; transform:none; }.av-action { padding:16px 12px; min-height:0; }.av-action h3 { font-size:23px; }.av-action p { font-size:13px; }.av-action-icon { margin:0; }.av-action-icon .game-mark { width:36px; height:36px; }
+  .av-private { position:relative!important; bottom:auto; left:auto; right:auto; height:auto!important; max-height:none; padding:12px 8px; grid-template-columns:1fr; overflow:visible; }.av-role-card { min-height:90px; grid-template-columns:64px minmax(0,1fr); }.av-role-art .game-mark { width:48px; height:48px; }.av-role-card p { font-size:13px; max-height:none; overflow:visible; }.av-knowledge { min-height:0; }.av-history { display:block; order:2; max-height:180px; margin-top:8px; }
+  .av-seat { padding-bottom:22px; }.av-seat.mine:after { font-size:10px; }
+  .av-event span { font-size:12px; }.av-phase small,.av-phase b { font-size:11px; }
+  #witchTown { display:flex; flex-direction:column; height:auto; background-attachment:scroll; }.wt-board { display:contents; }.wt-table { display:contents; }.wt-head { order:0; }.wt-event { order:1; }.wt-action { order:2; margin:8px; min-height:0; padding:16px 12px; }.wt-action h3 { margin:6px 0; font-size:22px; }.wt-action>p { font-size:13px; }.wt-action-icon { margin:0; }.wt-action-icon .game-mark { width:34px; height:34px; }.wt-seats { order:3; margin:0 8px; max-height:none; }.wt-private { order:4; }.wt-log { order:5; margin:8px; }.wt-private .wt-hand-zone { order:0; }.wt-private .wt-role-card { order:1; }.wt-private .wt-private-trials { order:2; }.wt-card { flex-basis:120px; height:159px; }.wt-card p { font-size:10px; }.wt-card-art { height:56px; }.wt-card-art .game-mark { width:42px; height:42px; }
+  body[data-game-id="camel-race"] .track { height:260px; min-height:0; max-height:none; }
+  body[data-game-id="camel-race"] #track .used-dice-tray { top:50%; transform:translate(-50%,-50%) scale(.82); border-radius:3px; }
+  body[data-game-id="camel-race"] #track .palm-b { display:none; }
+  body[data-game-id="camel-race"] #track .palm-a { scale:.6; opacity:.55; }
+  body[data-game-id="camel-race"] #track .roll-feedback { left:8px; right:8px; top:50%; width:auto; transform:translateY(-50%); gap:9px; padding:10px; border-radius:4px; backdrop-filter:none; }
+  body[data-game-id="camel-race"] #track .roll-feedback .roll-copy { min-width:0; flex:1; }
+  body[data-game-id="camel-race"] #track .roll-feedback.showing { animation-name:race-feedback-mobile; }
+  body[data-game-id="camel-race"] #track .roll-feedback strong { font-size:14px; }
+  body[data-game-id="camel-race"] #track .roll-die { flex:0 0 44px; width:44px; height:44px; }
+  body[data-game-id="camel-race"] #track .wealth-announcement { gap:6px; flex-wrap:wrap; }
+  @keyframes race-feedback-mobile { 0% {opacity:0;transform:translateY(-35%);} 12%,90% {opacity:1;transform:translateY(-50%);} 100% {opacity:0;transform:translateY(-55%);} }
+  body[data-game-id="camel-race"] .board-wrap>#actions { display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:none; gap:8px; padding:10px; }
+  body[data-game-id="camel-race"] .board-wrap>#actions>* { grid-column:1!important; grid-row:auto!important; min-width:0; width:100%; }
+  body[data-game-id="camel-race"] .board-wrap>#actions .roll-button { min-height:62px; }.tile-controls { flex-wrap:wrap; }
+  body[data-game-id="camel-race"] #actions .color-buttons { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .vegas-player { min-width:160px; }.vegas-shell { padding-inline:6px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  *,*::before,*::after { animation-duration:1ms!important; animation-delay:0ms!important; transition-duration:1ms!important; scroll-behavior:auto!important; }
+  .ce-playback-track i { animation:none!important; transform:none; }
+}
+/* A phone is a focused flight station, not a cropped desktop cockpit. */
+@media(max-width:760px) {
+  body[data-game-id="sky-landing"] #skyLandingScene { display:flex; flex-direction:column; width:100%; max-width:100%; overflow:visible; }
+  #skyLandingScene::before { display:none; }
+  #skyLandingScene .sky-head { order:0; position:relative; height:auto; min-height:76px; padding:10px; grid-template-columns:1fr 140px; }
+  #skyLandingScene .sky-head .eyebrow { font-size:9px; letter-spacing:.06em; line-height:1.5; }
+  #skyLandingScene .sky-head h2 { font-size:18px; } #skyLandingScene .sky-head h2 em { display:none; }
+  body[data-game-id="sky-landing"] #skyMobileNav { order:2; top:0; width:100%; padding:4px; box-shadow:none; backdrop-filter:none; }
+  body[data-game-id="sky-landing"] #skyMobileNav button { min-height:44px; font-size:12px; letter-spacing:0; }
+  #skyLandingScene #windshield { display:none; }
+  body[data-game-id="sky-landing"] #myDiceDock { order:1; position:relative; left:auto; bottom:auto; width:100%; max-width:100%; min-height:0; padding:8px; }
+  #skyLandingScene .dice-dock { display:grid; grid-template-columns:1fr auto; width:100%; gap:9px; overflow:visible; padding:10px; border-radius:4px; backdrop-filter:none; box-shadow:none; background:#0d202a; }
+  #skyLandingScene .role-plaque { display:none; }
+  #skyLandingScene .mandatory-checks { grid-column:1/-1; flex-direction:row; justify-content:space-between; }
+  #skyLandingScene .mandatory-checks span { flex:1; font-size:11px; text-align:center; border-radius:2px; }
+  body[data-game-id="sky-landing"] #skyLandingScene .my-dice { grid-column:1/-1; min-width:0; width:100%; gap:8px; justify-content:center; }
+  #skyLandingScene .my-dice>small { font-size:10px; width:40px; flex-shrink:0; }
+  #skyLandingScene .flight-die { width:52px; min-width:44px; height:52px; flex-shrink:1; padding:0; }
+  #skyLandingScene .dock-status { min-width:0; text-align:left; font-size:12px; animation:none; }
+  #skyLandingScene .dice-dock>button { min-height:44px; padding:8px; font-size:11px; }
+  #skyLandingScene .coffee-adjust { grid-column:1/-1; justify-content:center; }
+  #skyLandingScene .coffee-adjust button { min-height:44px; min-width:44px; }
+  body[data-game-id="sky-landing"] #skyLandingScene .cockpit-wrap { order:3; width:100%; min-height:0; display:block; padding:8px 8px 24px; background:#0b171e; }
+  #skyLandingScene #approachPanel,#skyLandingScene #altitudePanel { display:none; }
+  #skyLandingScene[data-view="approach"] #approachPanel,#skyLandingScene[data-view="altitude"] #altitudePanel { display:block; }
+  #skyLandingScene:is([data-view="approach"],[data-view="altitude"]) #controlPanel { display:none; }
+  #skyLandingScene .flight-console { min-height:0; padding:8px; border-radius:6px; box-shadow:none; background:#182931; }
+  #skyLandingScene .console-top { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; }
+  #skyLandingScene .console-top section { min-width:0; padding:6px; }
+  #skyLandingScene .radio-stack { grid-column:1/-1; }
+  #skyLandingScene[data-view="flight"] :is(.radio-stack,.console-mid,.coffee-panel,.advanced-module-panel) { display:none!important; }
+  #skyLandingScene[data-view="systems"] :is(.attitude-wrap,.engine-wrap) { display:none; }
+  #skyLandingScene .console-mid { grid-template-columns:1fr; }
+  #skyLandingScene .coffee-panel { grid-template-columns:1fr 1fr; }
+  #skyLandingScene .coffee-slots { grid-column:1/-1; }
+  #skyLandingScene .attitude-indicator { width:128px; height:128px; border-width:5px; }
+  #skyLandingScene .speed-gauge { height:128px; } #skyLandingScene .speed-arc { width:120px; height:100px; }
+  #skyLandingScene .axis-slots,#skyLandingScene .engine-slots { grid-template-columns:1fr; }
+  #skyLandingScene .cockpit-slot { min-height:48px; border-radius:3px; }
+  #skyLandingScene .cockpit-slot>span:first-child { font-size:11px; }
+  #skyLandingScene .cockpit-slot.legal { animation:none; box-shadow:inset 0 0 0 1px #ffdb87; }
+  #skyLandingScene .flight-console h4 { font-size:10px; letter-spacing:.04em; }
+  #skyLandingScene .flight-console h4 small { float:none; display:block; font-size:11px; margin-top:3px; color:#b6d0d8; }
+  #skyLandingScene .active-flight-event { margin-bottom:8px; border-radius:3px; }
+  #skyLandingScene .glass-panel { height:auto; border-radius:4px; }
+  #skyLandingScene .sky-overlay { inset:0; padding:14px; overflow-y:auto; }
+  #skyLandingScene .sky-overlay>div { max-height:calc(100dvh - 28px); overflow-y:auto; border-radius:6px; padding:20px 15px; }
+  #skyLandingScene .sky-overlay p { font-size:14px; line-height:1.65; }
+  #skyLandingScene .sky-overlay.result .result-icon { animation:none; }
+}

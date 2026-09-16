@@ -222,7 +222,8 @@ test("客户端包含移动端列车导航、滑动视口、底部手牌抽屉�
   assert.match(client, /ceMini/);
   assert.match(client, /ceHandToggle/);
   assert.match(client, /ceConfirmAction/);
-  assert.match(client, /scrollIntoView/);
+  assert.match(client, /board\.scrollTo\(\{left:/);
+  assert.doesNotMatch(client, /scrollIntoView/); // Horizontal navigation must not move the player's task out of view.
   assert.match(client, /ceStackButton/);
   assert.match(client, /roundEventPreview/);
   assert.match(client, /本轮结束事件/);

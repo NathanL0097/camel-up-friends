@@ -14,6 +14,7 @@ const definition = {
   configure: rules.configure,
   createGame: (players, settings) => rules.createGame(players, settings),
   publicRoom: rules.publicRoom,
+  tick: rules.tick,
   actions: {
     "play-card": rules.playCard,
     "draw-cards": rules.drawCards,

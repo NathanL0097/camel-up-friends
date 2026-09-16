@@ -4,7 +4,7 @@ window.GameClientFactories["liars-tavern"]=({socket,$,show,escapeHtml,getMyId,co
   const act=(action,payload={})=>socket.emit("game:action",{action,payload});
   const rankName=rank=>rank==="A"?"A":rank==="K"?"K":rank==="Q"?"Q":rank==="JOKER"?"万能牌":"恶魔牌";
   const rankSymbol=rank=>rank==="JOKER"?"★":rank==="DEVIL"?"♆":rank;
-  const faces=["🦊","🐺","🦉","🐗","🐍","🦝"];
+  const initial=value=>escapeHtml((value||"客").slice(0,1));
   function rules(){
     $("rulesDialog").innerHTML=`<button id="closeRules" class="close-button">×</button><div class="liar-rules"><small>LIAR'S TAVERN</small><h2>😈 骗子酒馆</h2><ol><li>每轮随机指定A、K或Q作为桌面牌，每人获得5张私人手牌。</li><li>轮到你时盖着打出1–3张，并声称它们都是桌面牌；万能牌可以当作任何桌面牌。</li><li>最近一次盖牌后，除出牌者外的任意存活玩家都可以喊“骗子”。若出牌者说谎，出牌者开枪；若出牌者诚实，质疑者开枪。</li><li>如果不是当前行动位的玩家跨位质疑，质疑错误时要连续开两枪；质疑正确仍由说谎者开一枪。</li><li>恶魔牌只能单独打出。它被质疑时，除出牌者外仍有手牌的存活玩家都要依次接受左轮判定。</li><li>每人的六发弹仓中随机固定一颗实弹。空膛后危险越来越高，中弹即淘汰，最后存活者获胜。</li><li>如果有人出空手牌，当前行动位不能继续盖牌，但任意符合条件的玩家仍可发起质疑。</li></ol><p>每次行动限时30秒；超时会自动出一张牌，已有可质疑出牌时则由当前行动位自动质疑。</p></div>`;$("closeRules").onclick=()=>$("rulesDialog").close();
   }
@@ -42,7 +42,7 @@ window.GameClientFactories["liars-tavern"]=({socket,$,show,escapeHtml,getMyId,co
   }
   function renderSeats(room){
     const g=room.game,layout=seatLayout(g.seats,getMyId()),actor=g.seats[g.currentIndex]?.playerId;
-    $("liarSeats").innerHTML=layout.map(({seat,index,x,y})=>`<article class="liar-seat ${seat.playerId===getMyId()?"mine":""} ${seat.playerId===actor&&g.phase==="play"?"acting":""} ${seat.alive?"":"dead"}" style="--seat-x:${x}%;--seat-y:${y}%"><div class="liar-avatar">${seat.alive?faces[room.players.findIndex(player=>player.id===seat.playerId)%faces.length]:"☠"}</div><div><b>${escapeHtml(seat.playerName)}${seat.playerId===getMyId()?"（你）":""}</b><small>${seat.alive?`${seat.handCount}张手牌 · ${seat.lastAction}`:"已经出局"}</small><span class="shot-track">${Array.from({length:6},(_,i)=>`<i class="${i<seat.shots?"spent":""}">${i<seat.shots?"×":"•"}</i>`).join("")}<em>${seat.shots}/6</em></span></div></article>`).join("");
+    $("liarSeats").innerHTML=layout.map(({seat,x,y})=>`<article class="liar-seat ${seat.playerId===getMyId()?"mine":""} ${seat.playerId===actor&&g.phase==="play"?"acting":""} ${seat.alive?"":"dead"}" style="--seat-x:${x}%;--seat-y:${y}%"><div class="liar-avatar">${seat.alive?initial(seat.playerName):"×"}</div><div><b>${escapeHtml(seat.playerName)}${seat.playerId===getMyId()?"（你）":""}</b><small>${seat.alive?`${seat.handCount}张手牌 · ${seat.lastAction}`:"已经出局"}</small><span class="shot-track">${Array.from({length:6},(_,i)=>`<i class="${i<seat.shots?"spent":""}">${i<seat.shots?"×":"•"}</i>`).join("")}<em>${seat.shots}/6</em></span></div></article>`).join("");
   }
   function renderCenter(room){
     const g=room.game,previous=g.previousPlay,challenge=g.lastChallenge;
@@ -82,7 +82,7 @@ window.GameClientFactories["liars-tavern"]=({socket,$,show,escapeHtml,getMyId,co
     const target=g.seats.find(seat=>seat.playerId===current.playerId),key=`${g.roulette.id}-${current.playerId}-${current.shot}`;
     if(key!==lastShotKey){lastShotKey=key;shotSound(current.bullet);}
     const remaining=Math.max(1,7-current.shot);
-    $("rouletteOverlay").innerHTML=`<div class="roulette-scene ${current.bullet?"live":"blank"}"><div class="roulette-curtain"></div><div class="roulette-target"><i>${current.bullet?"☠":faces[room.players.findIndex(player=>player.id===current.playerId)%faces.length]}</i><small>正在开枪</small><b>${escapeHtml(target?.playerName||"玩家")}</b><span>第 ${current.shot} 次扣动扳机 · 命中概率 1/${remaining}</span></div><div class="revolver"><div class="barrel"></div><div class="cylinder">${Array.from({length:6},(_,i)=>`<i class="${i===current.shot-1?"current":""}"></i>`).join("")}</div><div class="hammer"></div><div class="trigger"></div><div class="grip"></div><div class="muzzle-flash">砰！</div></div><div class="roulette-result"><small>${escapeHtml(target?.playerName||"玩家")}的左轮结果</small><b>${current.bullet?"实弹！":"咔哒——空膛"}</b><em>${current.bullet?"这张椅子永远空下来了":"命运暂时放过了他"}</em></div></div>`;
+    $("rouletteOverlay").innerHTML=`<div class="roulette-scene ${current.bullet?"live":"blank"}"><div class="roulette-curtain"></div><div class="roulette-target"><i>${current.bullet?"×":initial(target?.playerName)}</i><small>正在开枪</small><b>${escapeHtml(target?.playerName||"玩家")}</b><span>第 ${current.shot} 次扣动扳机 · 命中概率 1/${remaining}</span></div><div class="revolver"><div class="barrel"></div><div class="cylinder">${Array.from({length:6},(_,i)=>`<i class="${i===current.shot-1?"current":""}"></i>`).join("")}</div><div class="hammer"></div><div class="trigger"></div><div class="grip"></div><div class="muzzle-flash">砰！</div></div><div class="roulette-result"><small>${escapeHtml(target?.playerName||"玩家")}的左轮结果</small><b>${current.bullet?"实弹！":"咔哒——空膛"}</b><em>${current.bullet?"这张椅子永远空下来了":"命运暂时放过了他"}</em></div></div>`;
   }
   function renderResult(room){
     const g=room.game,winner=g.seats.find(seat=>seat.playerId===g.winnerId);

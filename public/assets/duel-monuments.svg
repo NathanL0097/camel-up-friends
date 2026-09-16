@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Original architectural line drawings, not reproductions of board-game artwork. -->
+  <symbol id="appian-way" viewBox="0 0 64 64"><path d="M8 58 27 8h10l19 50M22 58l8-50m12 50L34 8M14 44h36M19 30h26M24 18h16M7 17v22m0-16h10M57 17v22m-10-16h10"/></symbol>
+  <symbol id="circus-maximus" viewBox="0 0 64 64"><ellipse cx="32" cy="24" rx="27" ry="11"/><path d="M5 24v22c4 15 50 15 54 0V24M11 30v17m8-13v18m9-16v18m9-18v18m9-20v18m8-22v17M14 23c7-7 29-7 36 0"/></symbol>
+  <symbol id="colossus" viewBox="0 0 64 64"><circle cx="33" cy="11" r="5"/><path d="m27 18-7 16-7-9m13-7h13l9-10m-2-5h7l-4 5m-10 12-4 14 11 21m-18-22-9 22m5-22h13M13 59h12m15 0h13M5 49q6 4 11 0m34 0q6 4 10 0"/></symbol>
+  <symbol id="great-library" viewBox="0 0 64 64"><path d="M5 24 32 8l27 16H5Zm5 4h44M9 54h46M5 59h54M13 29v23m10-23v23m18-23v23m10-23v23M28 35q4-3 8 0v15q-4-3-8 0V35Z"/></symbol>
+  <symbol id="great-lighthouse" viewBox="0 0 64 64"><path d="M16 58h32l-4-21H20l-4 21Zm7-21V20h18v17M27 20V9h10v11M24 9l8-6 8 6M32 26v6m0 12v7M10 14l10 3m24 0 10-3M8 60h48"/></symbol>
+  <symbol id="hanging-gardens" viewBox="0 0 64 64"><path d="M7 55h50M10 55V38h44v17M17 38V23h30v15M24 23V11h16v12M19 46v9m13-9v9m13-9v9M13 38v-7q9 2 9 10m18-18q12-5 10 10M29 11V5m-5 4 5 2 6-3M8 58h48"/></symbol>
+  <symbol id="mausoleum" viewBox="0 0 64 64"><path d="M5 58h54M10 53h44M14 48h36V27H14v21Zm-3-25 21-15 21 15H11Zm9 7v15m8-15v15m8-15v15m8-15v15M28 8V4h8v4"/></symbol>
+  <symbol id="piraeus" viewBox="0 0 64 64"><path d="M5 55q6-5 12 0t12 0 12 0 12 0M12 42h42l-8 8H20l-8-8Zm20-4V8l18 25H35m-7-19L15 35h13M7 12v27m0-22h10v22"/></symbol>
+  <symbol id="pyramids" viewBox="0 0 64 64"><path d="M5 54 28 11l24 43H5Zm23-43 8 43M38 29l6-12 17 37h-9M16 38h17M22 27h9M10 48h25M4 59h56"/></symbol>
+  <symbol id="sphinx" viewBox="0 0 64 64"><path d="M6 53h51M11 50l6-17h17l9 7h11v10H11Zm6-17-5-13 5-11h13l5 11-5 13M18 14h10l2 10-6 6-8-6 2-10Zm1 7h2m5 0h2M20 33v17m12-13v13M7 58h51"/></symbol>
+  <symbol id="statue-zeus" viewBox="0 0 64 64"><circle cx="30" cy="12" r="6"/><path d="M19 23h19l-2 18H22l-3-18Zm2 1-7 9h-6m29-9 9 9 5-9M48 5l-6 11h8l-7 12M22 41v11m14-11v11M15 57h29M13 19v29m31-13v13M9 48h39"/></symbol>
+  <symbol id="temple-artemis" viewBox="0 0 64 64"><path d="M5 24 32 9l27 15H5Zm3 5h48M12 32v20m10-20v20m20-20v20m10-20v20M28 52V35h8v17M7 55h50M3 60h58M46 4q-6 7 4 9-13 3-11-9"/></symbol>
+</svg>

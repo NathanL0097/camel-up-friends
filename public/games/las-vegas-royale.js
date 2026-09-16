@@ -2,6 +2,8 @@ window.GameClientFactories ||= {};
 
 window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml, getMyId, copyInvite }) => {
   const emit = (action, payload = {}) => socket.emit("game:action", { action, payload });
+  const art=name=>window.GameArt.icon(name);
+  const tileArt=id=>art(({A1:"coin",A2:"chip",B1:"star",B2:"dice",C1:"bag",C2:"scales",D1:"sword",D2:"crown",E1:"seal",E2:"moon",F1:"dice",F2:"star",G1:"card",G2:"coin",H1:"dice",H2:"chip"})[id]||"seal");
   const COLOR_NAMES = { ruby: "红宝石", cyan: "霓虹蓝", gold: "金色", violet: "紫晶", emerald: "翡翠", orange: "琥珀橙" };
   let previous = null;
   let latestRoom = null;
@@ -9,19 +11,9 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
   const eventQueue = [];
   let eventPlaying = false;
   let tileDemoTimer = null;
-  let audioContext = null;
   let boardResizeFrame = null;
-  function sound(kind) {
-    audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
-    if (audioContext.state === "suspended") audioContext.resume();
-    const notes = kind === "cash" ? [523, 659, 784, 1047] : kind === "place" ? [240, 180] : [190, 260, 220, 330];
-    notes.forEach((frequency, index) => {
-      const oscillator = audioContext.createOscillator(), gain = audioContext.createGain(), start = audioContext.currentTime + index * .055;
-      oscillator.type = kind === "roll" ? "square" : "sine"; oscillator.frequency.value = frequency;
-      gain.gain.setValueAtTime(.0001, start); gain.gain.exponentialRampToValueAtTime(kind === "roll" ? .045 : .08, start + .012); gain.gain.exponentialRampToValueAtTime(.0001, start + .12);
-      oscillator.connect(gain).connect(audioContext.destination); oscillator.start(start); oscillator.stop(start + .13);
-    });
-  }
+  let pendingPayout = null;
+  function sound(kind) { window.TableAudio?.play(({roll:"dice",place:"token",cash:"money",reveal:"reveal"})[kind]||"selection",{cooldown:350}); }
 
   function renderLobby(room) {
     previous = room;
@@ -48,8 +40,8 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
         <div class="game-head-actions"><button id="vegasRules" class="ghost-button">📖 规则速查</button><button id="vegasInvite" class="ghost-button">邀请好友</button></div>
       </header>
       <div id="vegasFinish" class="vegas-finish hidden"></div>
-      <div id="vegasPayout" class="vegas-payout hidden"></div>
-      <div id="vegasEventStage" class="vegas-event-stage hidden"><div class="vegas-event-card"><div id="vegasEventKicker" class="event-kicker"></div><h3 id="vegasEventTitle"></h3><div id="vegasEventVisual" class="event-visual"></div><p id="vegasEventDetail"></p><div id="vegasEventControls" class="event-controls"></div></div></div>
+      <dialog id="vegasPayout" class="vegas-payout hidden" aria-label="本轮完整派彩账单"></dialog>
+      <dialog id="vegasEventStage" class="vegas-event-stage hidden" aria-labelledby="vegasEventTitle"><div class="vegas-event-card"><div id="vegasEventKicker" class="event-kicker"></div><h3 id="vegasEventTitle"></h3><div id="vegasEventVisual" class="event-visual"></div><p id="vegasEventDetail"></p><div id="vegasEventControls" class="event-controls"></div></div></dialog>
       <dialog id="vegasTileDialog" class="vegas-tile-dialog"><button id="closeVegasTile" class="tile-dialog-close" aria-label="关闭豪华板块说明">×</button><div id="vegasTileRule"></div></dialog>
       <section id="vegasPlayers" class="vegas-players"></section>
       <main class="vegas-table">
@@ -92,11 +84,11 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
   function renderPlayers(room) {
     const game = room.game;
     $("vegasPlayers").innerHTML = room.players.map((player) => {
-      const active = player.id === game.currentTurnId;
+      const active = player.id === (game.pending?.actorId || game.currentTurnId);
       const waiting = game.pending?.actorId === player.id;
       return `<article class="vegas-player ${player.color} ${active ? "active" : ""} ${waiting ? "deciding" : ""}">
-        <span class="player-color"></span><div><b>${escapeHtml(player.name)}${player.id === getMyId() ? "（你）" : ""}</b><small>${active ? "正在行动" : waiting ? "正在作出选择" : player.connected ? "已入座" : "暂时离线"}</small></div>
-        <div class="player-assets"><span>🎲 ${player.diceLeft}</span><span>🔴 ${player.chips}</span><strong>${player.cash == null ? "资产保密" : `$${player.cash}K`}</strong></div>
+        <span class="player-color"></span><div><b>${escapeHtml(player.name)}${player.id === getMyId() ? "（你）" : ""}</b><small>${!player.connected ? "暂时离线" : waiting ? "正在作出选择" : active ? "正在行动" : "已入座"}</small></div>
+        <div class="player-assets"><span title="剩余骰子">${art("dice")} ${player.diceLeft}</span><span title="筹码">${art("chip")} ${player.chips}</span><strong>${player.cash == null ? "资产保密" : `$${player.cash}K`}</strong></div>
       </article>`;
     }).join("");
   }
@@ -114,7 +106,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     return `<article class="casino-card casino-${casino.number} ${game.closedCasino === casino.number ? "closed" : ""} ${selectable ? "selectable" : ""}" data-casino="${casino.number}" ${selectable ? 'role="button" tabindex="0"' : ""}><div class="casino-sector-content">
       <div class="casino-sign"><span>${casino.number}</span><div><b>${["奇迹", "帝王", "月光", "巴黎", "埃及艳后", "日落"][casino.number - 1]}</b><small>${["MIRACLE", "KINGS", "MOON", "PARIS", "CLEOPATRA", "SUNSET"][casino.number - 1]}</small></div></div>
       <div class="money-cards">${casino.money.map((value) => `<span class="casino-banknote"><small>LAS VEGAS</small><b>${value},000</b><i>CASINO DOLLARS</i></span>`).join("")}</div>
-      ${tile ? `<button type="button" class="royale-tile" data-tile="${tile.id}" aria-label="查看${escapeHtml(tile.name)}玩法"><span>${tile.icon}</span><div><small>豪华板块 ${tile.id}</small><b>${escapeHtml(tile.name)}</b></div>${tileState}<i>查看玩法</i></button>` : ""}
+      ${tile ? `<button type="button" class="royale-tile" data-tile="${tile.id}" aria-label="查看${escapeHtml(tile.name)}玩法"><span>${tileArt(tile.id)}</span><div><small>豪华板块 ${tile.id}</small><b>${escapeHtml(tile.name)}</b></div>${tileState}<i>查看玩法</i></button>` : ""}
       <div class="casino-dice">${dice || "<span class=\"empty-table\">等待骰子入场</span>"}${casino.blankDice ? `<div class="blank-dice"><span>${Array.from({ length: casino.blankDice }, () => '<i class="blank-die-cube"></i>').join("")}</span><b>灰骰 ${casino.blankDice}票</b></div>` : ""}${sideDice.length ? `<div class="double-down-table"><small>×2 副桌</small><div>${sideDice.map((d) => dieHtml({ ...d, face: casino.number }, "side-die", room.players.find((p) => p.id === d.playerId)?.color || "")).join("")}</div><b>${sideDice.reduce((sum, d) => sum + (d.big ? 2 : 1), 0)}票</b></div>` : ""}</div>
       ${game.closedCasino === casino.number ? "<div class=\"closed-stamp\">禁止入场</div>" : ""}
       ${selectable ? `<div class="casino-select-callout">选择 ${casino.number} 点</div>` : ""}</div>
@@ -302,13 +294,15 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     const game = room.game; const mine = game.currentTurnId === getMyId(); const pendingMine = game.pending?.actorId === getMyId();
     $("turnPrompt").innerHTML = game.pending ? `<span>豪华板块</span><strong>${pendingLabel(game.pending.type)}</strong>` : mine ? `<span>轮到你</span><strong>${game.currentRoll ? "选择一个点数，全部放入对应赌场" : "掷出你剩余的全部骰子"}</strong>` : `<span>等待行动</span><strong>${escapeHtml(playerName(room, game.currentTurnId))} 的回合</strong>`;
     const activeColor = room.players.find((player) => player.id === game.currentTurnId)?.color || "";
-    $("rolledDice").innerHTML = game.currentRoll?.length ? game.currentRoll.map((item) => dieHtml(item, "rolling", activeColor)).join("") : "<span class=\"arena-placeholder\">🎲</span>";
+    const diceMarkup=game.currentRoll?.length ? game.currentRoll.map((item) => dieHtml(item, "rolling", activeColor)).join("") : `<span class="arena-placeholder">${art("dice")}</span>`;
+    const rollKey=`${activeColor}:${JSON.stringify(game.currentRoll)}`;
+    if($("rolledDice").dataset.rollKey!==rollKey){$("rolledDice").innerHTML=diceMarkup;$("rolledDice").dataset.rollKey=rollKey;}
     const area = $("rollActions"); area.innerHTML = ""; area.classList.remove("face-choice");
     if (game.pending) return renderPending(room, game.pending, pendingMine);
     if (!mine) { area.innerHTML = "<div class=\"waiting-choice\">赌场正在等待下一次掷骰…</div>"; return; }
     const me = room.players.find((p) => p.id === getMyId());
     if (!game.currentRoll) {
-      area.append(actionButton(`掷全部 ${me.diceLeft} 颗骰子`, () => { sound("roll"); emit("roll"); }, "roll-main"));
+      area.append(actionButton(`掷全部 ${me.diceLeft} 颗骰子`, () => emit("roll"), "roll-main"));
       if (game.powerToken === getMyId()) {
         area.insertAdjacentHTML("beforeend", optionSelect([[1,"1点"],[2,"2点"],[3,"3点"],[4,"4点"],[5,"5点"],[6,"6点"]], "powerFace"));
         area.insertAdjacentHTML("beforeend", remainingDieSelect(room, "powerDie"));
@@ -320,7 +314,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     [...new Set(game.currentRoll.map((d) => d.face))].sort().forEach((face) => {
       const count = game.currentRoll.filter((d) => d.face === face).length;
       const closed = game.closedCasino === face;
-      const button = actionButton(`${face} 点 × ${count}${closed ? "（封锁）" : ""}`, () => { sound("place"); emit("place", { face }); }); button.disabled = closed; area.append(button);
+      const button = actionButton(`${face} 点 × ${count}${closed ? "（封锁）" : ""}`, () => emit("place", { face })); button.disabled = closed; area.append(button);
     });
     const hasLegalFace = game.currentRoll.some((d) => d.face !== game.closedCasino);
     const passButton = actionButton(hasLegalFace ? "花 1 筹码跳过" : "无合法赌场 · 免费跳过", () => emit("pass"), "muted"); passButton.disabled = hasLegalFace && me.chips < 1; area.append(passButton);
@@ -328,19 +322,29 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
 
   function renderFinish(room) {
     const game = room.game; const box = $("vegasFinish");
-    if (game.status !== "finished") { box.classList.add("hidden"); return; }
+    if (game.status !== "finished") { box.classList.add("hidden"); box.replaceChildren(); return; }
+    if(eventPlaying||eventQueue.length||$("vegasFinalDialog"))return;
     box.classList.remove("hidden");
-    box.innerHTML = `<h3>🎉 赌城之夜结束</h3><div>${game.finalRanking.map((item, index) => { const player = room.players.find((p) => p.id === item.id); return `<p><b>${index + 1}</b><span>${escapeHtml(player.name)}</span><strong>$${player.total}K</strong></p>`; }).join("")}</div>${room.hostId === getMyId() ? "<button id=\"vegasRestart\" class=\"primary-button\">再来一局</button>" : "<small>等待房主开启下一局…</small>"}`;
+    const champion=room.players.find(p=>p.id===game.finalRanking[0].id);
+    box.innerHTML = `<button id="vegasReviewFinal">重看终局账单</button><dialog id="vegasFinalDialog" class="casino-finale" aria-labelledby="vegasFinalTitle"><div class="casino-final-slip"><small>THE HOUSE PAYS · 赌城之夜</small><div class="casino-final-mark">${art("chip")}</div><h3 id="vegasFinalTitle">${escapeHtml(champion.name)} 今夜领衔</h3><strong class="casino-jackpot">$${champion.total}<small>K</small></strong><p>三轮奖金与剩余筹码已全部入账</p><ol>${game.finalRanking.map(item=>{const player=room.players.find(p=>p.id===item.id);return `<li><span>${escapeHtml(player.name)}</span><strong>$${player.total}K</strong></li>`;}).join("")}</ol>${room.hostId===getMyId()?'<button id="vegasRestart">再开一桌</button>':'<p>等待房主开启下一局</p>'}<button id="vegasReturnTable">回看赌场</button></div></dialog>`;
+    $("vegasFinalDialog").showModal();
+    window.TableAudio?.play(champion.id===getMyId()?"victory":"defeat",{key:`vegas-final:${room.code}:${game.animationEvents.at(-1)?.at}`});
+    $("vegasReviewFinal").onclick=()=>$("vegasFinalDialog").showModal();
+    $("vegasReturnTable").onclick=()=>$("vegasFinalDialog").close();
     $("vegasRestart")?.addEventListener("click", () => socket.emit("game:restart"));
   }
 
   function renderPayout(room) {
-    const report = room.game.lastSettlement, box = $("vegasPayout");
-    const isNew = report && report.id !== previous?.game?.lastSettlement?.id;
-    if (!isNew || room.game.status === "finished") return;
-    sound("cash"); box.classList.remove("hidden");
+    const nextReport = room.game.lastSettlement, box = $("vegasPayout");
+    if(nextReport&&nextReport.id!==previous?.game?.lastSettlement?.id)pendingPayout={...nextReport,breakdowns:room.game.animationEvents.filter(e=>e.type==="casino-payout").slice(-6)};
+    if(!nextReport){pendingPayout=null;return;}
+    if(!pendingPayout||eventPlaying||room.game.status==="finished")return;
+    const report=pendingPayout;pendingPayout=null;box.classList.remove("hidden");
     box.innerHTML = `<button id="closeVegasPayout">×</button><div class="payout-kicker">ROUND ${report.round} · PAYOUT</div><h3>赌场派彩</h3><div>${report.awards.length ? report.awards.map((award) => `<p><span>${award.casino}号赌场</span><b>${escapeHtml(playerName(room, award.playerId))}</b><strong>${award.playerId.startsWith("__") ? "奖金退回银行" : `+$${award.value}K`}</strong></p>`).join("") : "<p>本轮所有赌场均因平票无人获奖</p>"}</div><small>下一轮已经就位，可随时关闭本报告继续观察。</small>`;
-    $("closeVegasPayout").onclick = () => box.classList.add("hidden");
+    box.insertAdjacentHTML("beforeend",`<details class="payout-breakdowns"><summary>查看六座赌场的判定</summary>${report.breakdowns.map(e=>`<p><span>${e.casino}号赌场</span><span>${e.standings.length?e.standings.map(s=>`${escapeHtml(playerName(room,s.playerId))} ${s.votes}票${s.tied?" · 同票取消":""}`).join("；"):"无人入场 · 奖金退回银行"}</span></p>`).join("")}</details>`);
+    $("closeVegasPayout").setAttribute("aria-label","关闭派彩账单");
+    $("closeVegasPayout").onclick = () => box.close();
+    box.onclose=()=>box.classList.add("hidden");box.showModal();
   }
 
   const pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -360,16 +364,31 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
   }
 
   async function presentEvent(room, event) {
+    // Deferred modules have no immediate result on placement. Their real settlement
+    // event carries a different trigger and is still staged in full below.
+    if(event.type==="tile-activate"&&["B1","C2","G1"].includes(event.tileId)&&event.trigger?.startsWith("不是放骰时触发"))return;
+    if(event.type==="tile-activate"&&event.tileId==="D2")return; // Persistent control is already labelled on the bay and dealer rail.
+    // Ordinary placement belongs on the felt, not in a full-screen intermission.
+    if(event.type==="dice-place"){
+      const bay=document.querySelector(`[data-casino="${Number(event.casino)}"] .casino-dice`);
+      if(bay&&!matchMedia("(prefers-reduced-motion: reduce)").matches)bay.animate([
+        {transform:"translateY(-10px)",opacity:.45},{transform:"translateY(2px)",opacity:1,offset:.72},{transform:"none",opacity:1}
+      ],{duration:650,easing:"cubic-bezier(.2,.75,.25,1)"});
+      window.TableAudio?.play("token",{key:`vegas-place:${room.code}:${event.at}:${event.id}`});
+      await pause(900);return;
+    }
     // 普通行动掷骰只由行动玩家进入放大确认层；其他玩家直接看中央骰盅中的同步结果。
     if (event.type === "dice-roll" && event.reason === "行动掷骰" && event.playerId !== getMyId()) return;
     const stage = $("vegasEventStage"), visual = $("vegasEventVisual"), title = $("vegasEventTitle"), detail = $("vegasEventDetail"), kicker = $("vegasEventKicker"), controls = $("vegasEventControls");
     if (!stage) return;
     const manualForMe = event.playerId === getMyId() || room.game.pending?.actorId === getMyId();
     stage.className = `vegas-event-stage ${event.type}`; visual.className = "event-visual";
+    stage.oncancel=e=>e.preventDefault(); // The visible reading control resolves this presentation only.
+    if(!stage.open)stage.showModal();
     kicker.textContent = event.reason || "赌场播报"; detail.textContent = ""; controls.innerHTML = "";
     if (event.type === "tile-activate") {
       title.textContent = `${event.casino}号赌场触发「${event.tileName}」`;
-      visual.innerHTML = `<div class="event-tile-trigger"><span>${event.tileIcon || "◆"}</span><div><small>豪华板块 ${escapeHtml(event.tileId || "")}</small><b>${escapeHtml(event.tileName || "特殊效果")}</b></div></div>`;
+      visual.innerHTML = `<div class="event-tile-trigger"><span>${tileArt(event.tileId)}</span><div><small>豪华板块 ${escapeHtml(event.tileId || "")}</small><b>${escapeHtml(event.tileName || "特殊效果")}</b></div></div>`;
       detail.innerHTML = `<b>为什么发生：</b>${escapeHtml(event.trigger || `${eventPlayer(room, event.playerId)} 的骰子进入了这座赌场。`)}<br><b>接下来：</b>${escapeHtml(event.action || "按中央提示完成板块效果。")}`;
       await waitForEventContinue(controls, "我明白为什么触发 · 查看效果", 5200, manualForMe);
     } else if (event.type === "dice-roll") {
@@ -377,7 +396,7 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
       title.textContent = normalRoll ? `${eventPlayer(room, event.playerId)} 准备掷出剩余骰子` : event.reason;
       const color = room.players.find((player) => player.id === event.playerId)?.color || "";
       detail.textContent = normalRoll ? "这些骰子决定本回合可以选择哪些赌场。先看掷骰过程，落定后再判断。" : (event.explanation || "这是豪华板块要求进行的特殊掷骰，结果将决定接下来的效果。");
-      visual.innerHTML = `<div class="event-roll-brief"><span>${normalRoll ? "🎲" : "⚫"}</span><b>${normalRoll ? `准备掷出 ${(event.dice || []).length} 颗骰子` : "先理解为什么要掷这2颗黑骰"}</b></div>`;
+      visual.innerHTML = `<div class="event-roll-brief"><span>${art("dice")}</span><b>${normalRoll ? `准备掷出 ${(event.dice || []).length} 颗骰子` : "先理解为什么要掷这2颗黑骰"}</b></div>`;
       await pause(normalRoll ? 1800 : 3200);
       visual.innerHTML = eventDiceMarkup(event.dice || [], true, color); sound("roll");
       await pause(1800);
@@ -411,12 +430,12 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
       visual.innerHTML = `<span class="event-banknote face-down">BANK</span>`; await pause(1500);
       visual.innerHTML = `<span class="event-banknote ${gain ? "gain" : "loss"}">${gain ? "+" : "−"}$${Math.abs(event.amount)}K</span>`;
       detail.innerHTML = `<b>${escapeHtml(eventPlayer(room, event.playerId))}</b> 因为「${escapeHtml(event.reason)}」${gain ? "获得" : "支付"} <b>$${Math.abs(event.amount)}K</b>。金额已计入资产。`;
-      sound("cash"); await waitForEventContinue(controls, "我已看清派彩 · 继续", 4800, manualForMe);
+      sound("cash"); await waitForEventContinue(controls, gain ? "我已看清派彩 · 继续" : "我已看清罚款 · 继续", 4800, manualForMe);
     } else if (event.type === "casino-payout") {
       title.textContent = `${event.casino}号赌场 · 排名核对`;
       const rows = event.standings || [];
       visual.innerHTML = `<div class="event-payout-board">${rows.length ? rows.sort((a, b) => b.votes - a.votes).map((row) => `<p class="${row.tied ? "tied" : ""}"><span>${escapeHtml(eventPlayer(room, row.playerId))}</span><b>${row.votes}票</b><em>${row.tied ? "同票淘汰" : "保留排名"}</em></p>`).join("") : '<p class="empty"><span>无人下注</span><em>两张奖金退回银行</em></p>'}</div>`;
-      detail.textContent = rows.some((row) => row.tied) ? "先找出相同票数：所有同票者一起退出本赌场排名，再给剩余玩家派彩。" : "本赌场没有同票冲突，按票数从高到低领取两张奖金。";
+      detail.textContent = !rows.length ? "本赌场无人下注，两张奖金退回银行。" : rows.some((row) => row.tied) ? "先找出相同票数：所有同票者一起退出本赌场排名，再给剩余玩家派彩。" : "本赌场没有同票冲突，按票数从高到低领取两张奖金。";
       await pause(3600);
       title.textContent = `${event.casino}号赌场 · 奖金揭晓`;
       visual.innerHTML = `<div class="event-payout-cards">${(event.payouts || []).map((payout, index) => `<article class="${payout.returnedToBank ? "returned" : "winner"}" style="--card-delay:${index * 350}ms"><small>${index === 0 ? "高额奖金" : "第二奖金"}</small><strong>$${payout.value}K</strong><span>${payout.returnedToBank ? "无人取得 · 退回银行" : `${escapeHtml(eventPlayer(room, payout.playerId))} 获得`}</span></article>`).join("")}</div>`;
@@ -429,15 +448,19 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
       detail.textContent = `${eventPlayer(room, event.playerId)} 因为「${event.reason}」${gain ? "获得" : "支付"}${Math.abs(event.amount)}枚筹码。`;
       sound(gain ? "cash" : "place"); await pause(4300);
     } else if (event.type === "reveal") {
-      title.textContent = "结果即将揭晓"; visual.innerHTML = '<span class="event-reveal-card">?</span>'; detail.textContent = "先确认参与者的选择，再翻开最终结果。"; await pause(1800);
-      visual.classList.add("revealed"); visual.innerHTML = '<span class="event-reveal-card open">✓</span>'; detail.textContent = event.reason; await pause(3600);
+      kicker.textContent = "THE REVEAL · 揭晓时刻";
+      title.textContent = "选择已封存"; visual.innerHTML = `<span class="event-reveal-card">${art("seal")}</span>`;
+      detail.textContent = "双方已作出选择。现在，打开封签。"; await pause(1800);
+      title.textContent = "结果揭晓";
+      visual.classList.add("revealed"); visual.innerHTML = `<span class="event-reveal-card open">${art("chip")}</span>`;
+      detail.textContent = event.reason; sound("reveal"); await pause(3600);
     } else if (event.type === "round-start") {
       title.textContent = `第 ${event.round} 轮开场`;
       visual.innerHTML = `<div class="round-chip-deal">${room.players.map((player) => `<span><i>+2</i><b>${escapeHtml(player.name)}</b></span>`).join("")}</div>`;
       detail.textContent = "六座赌场的新奖金与豪华板块已经就位；每位玩家的2枚筹码也已一次派发完毕。看清桌面后，从起始玩家开始行动。";
       sound("cash"); await pause(5600);
     }
-    stage.classList.add("leaving"); await pause(230); stage.classList.add("hidden"); stage.classList.remove("leaving");
+    stage.classList.add("leaving"); await pause(230); stage.close(); stage.classList.add("hidden"); stage.classList.remove("leaving");
   }
 
   async function playEventQueue(room) {
@@ -445,6 +468,8 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     eventPlaying = true;
     while (eventQueue.length) await presentEvent(latestRoom || room, eventQueue.shift());
     eventPlaying = false;
+    renderPayout(latestRoom || room);
+    renderFinish(latestRoom || room);
   }
 
   function queuePresentation(room) {
@@ -461,11 +486,11 @@ window.GameClientFactories["las-vegas-royale"] = ({ socket, $, show, escapeHtml,
     show("game"); const game = room.game;
     $("rulesContent").innerHTML = rulesMarkup();
     $("vegasCode").textContent = room.code; $("vegasRound").innerHTML = `<span>ROUND</span><b>${game.round} / 3</b>`;
-    renderPlayers(room); $("casinoGrid").innerHTML = game.casinos.map((casino) => renderCasino(room, casino)).join(""); renderArena(room); fitBoardToViewport(); scheduleBoardFit(); renderPayout(room); queuePresentation(room);
+    renderPlayers(room); $("casinoGrid").innerHTML = game.casinos.map((casino) => renderCasino(room, casino)).join(""); renderArena(room); fitBoardToViewport(); scheduleBoardFit(); queuePresentation(room); renderPayout(room);
     const choosing = game.currentTurnId === getMyId() && game.currentRoll?.length && !game.pending;
     document.querySelector(".vegas-table")?.classList.toggle("choosing-casino", Boolean(choosing));
     document.querySelectorAll(".casino-card.selectable").forEach((card) => {
-      const choose = () => { sound("place"); emit("place", { face: Number(card.dataset.casino) }); };
+      const choose = () => emit("place", { face: Number(card.dataset.casino) });
       card.onclick = choose;
       card.onkeydown = (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); choose(); } };
     });

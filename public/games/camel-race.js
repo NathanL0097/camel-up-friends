@@ -8,9 +8,23 @@
   window.GameClientFactories["camel-race"] = ({ socket, $, show, escapeHtml, getMyId, copyInvite }) => {
     let feedbackTimer = null;
     let resultTimer = null;
-    const emitAction = (action, payload = {}) => socket.emit("game:action", { action, payload });
+    let interactionLockedUntil = 0;
+    let unlockTimer = null;
+    let finishKey=null,finishRevealAt=0,finishTimer=null,raceSerial=Date.now();
+    function lockInteractions(duration) {
+      interactionLockedUntil = Math.max(interactionLockedUntil, Date.now() + duration);
+      $("actions")?.classList.add("interaction-locked");
+      clearTimeout(unlockTimer);
+      unlockTimer = setTimeout(() => $("actions")?.classList.remove("interaction-locked"), Math.max(0, interactionLockedUntil - Date.now()));
+    }
+    const emitAction = (action, payload = {}) => {
+      if (Date.now() < interactionLockedUntil) return;
+      lockInteractions(action === "roll" ? 2300 : 420);
+      if(action!=="roll")window.TableAudio?.play(action==="tile"?"token":"card");
+      socket.emit("game:action", { action, payload });
+    };
 
-    $("gameMount").innerHTML = `<div class="game-head"><div><div class="eyebrow"><span id="gameTitleBadge">好友桌游</span> · 房间 <span id="gameCode"></span></div><h2 id="legTitle">第 1 赛段</h2></div><div id="turnBadge" class="turn-badge"></div><div class="game-head-actions"><button id="gameRulesButton" class="ghost-button rules-shortcut">📖 规则速查</button><button id="gameCopyButton" class="ghost-button">邀请好友</button></div></div><div class="game-layout"><aside class="panel players-panel"><h3>探险队</h3><div id="playerList"></div></aside><section class="board-wrap"><div id="finishBanner" class="finish-banner hidden"></div><div id="track" class="track"></div><div id="diceZone" class="dice-zone"><span>金字塔内剩余</span><div id="diceLeft"></div></div><div id="actions" class="actions paper"><button id="rollButton" class="roll-button"><span class="die">◆</span><span><strong>掷金字塔骰子</strong><small>获得 1 金币并结束回合</small></span></button><div class="action-block bet-action"><strong>赛段投注牌</strong><small class="action-hint">越早下注 · 奖励越高</small><div id="betButtons" class="color-buttons"></div></div><div class="action-block tile-action"><strong>赛道板块</strong><small class="action-hint">选择格数与正反面</small><div class="tile-controls"><input id="tileSpace" type="number" min="2" max="15" value="8"><button data-tile="oasis">🌴 绿洲 +1</button><button data-tile="mirage">🌀 幻境 −1</button></div></div><div class="action-block prediction"><strong>秘密终局预测</strong><small class="action-hint">仅你可见 · 消耗行动</small><div><select id="predictionColor"></select><button data-predict="winner">冠军</button><button data-predict="loser">末名</button></div><div id="predictionCards" class="prediction-cards"></div></div></div><div id="partnershipAction" class="partnership-dock hidden"><div><strong>🤝 本赛段结盟</strong><small id="partnershipStatus">仅限6人以上游戏</small></div><div class="partnership-controls"><select id="partnershipPlayer"></select><button id="partnershipButton">结盟并结束回合</button></div></div></section><aside class="panel log-panel"><h3>赛况播报</h3><div id="gameLog"></div></aside></div>`;
+    $("gameMount").innerHTML = `<div class="game-head"><div><div class="eyebrow"><span id="gameTitleBadge">好友桌游</span> · 房间 <span id="gameCode"></span></div><h2 id="legTitle">第 1 赛段</h2></div><div id="turnBadge" class="turn-badge"></div><div class="game-head-actions"><button id="gameRulesButton" class="ghost-button rules-shortcut">📖 规则速查</button><button id="gameCopyButton" class="ghost-button">邀请好友</button></div></div><div class="game-layout"><aside class="panel players-panel"><h3>探险队</h3><div id="playerList"></div></aside><section class="board-wrap"><div id="finishBanner" class="finish-banner hidden" role="status" aria-live="assertive"></div><div id="track" class="track"></div><div id="diceZone" class="dice-zone"><span>金字塔内剩余</span><div id="diceLeft"></div></div><div id="actions" class="actions paper"><button id="rollButton" class="roll-button"><span class="die">◆</span><span><strong>掷金字塔骰子</strong><small>获得 1 金币并结束回合</small></span></button><div class="action-block bet-action"><strong>赛段投注牌</strong><small class="action-hint">越早下注 · 奖励越高</small><div id="betButtons" class="color-buttons"></div></div><div class="action-block tile-action"><strong>赛道板块</strong><small class="action-hint">选择格数与正反面</small><div class="tile-controls"><input id="tileSpace" type="number" min="2" max="15" value="8"><button data-tile="oasis">🌴 绿洲 +1</button><button data-tile="mirage">🌀 幻境 −1</button></div></div><div class="action-block prediction"><strong>秘密终局预测</strong><small class="action-hint">仅你可见 · 消耗行动</small><div><select id="predictionColor"></select><button data-predict="winner">冠军</button><button data-predict="loser">末名</button></div><div id="predictionCards" class="prediction-cards"></div></div></div><div id="partnershipAction" class="partnership-dock hidden"><div><strong>🤝 本赛段结盟</strong><small id="partnershipStatus">仅限6人以上游戏</small></div><div class="partnership-controls"><select id="partnershipPlayer"></select><button id="partnershipButton">结盟并结束回合</button></div></div></section><aside class="panel log-panel"><h3>赛况播报</h3><div id="gameLog"></div></aside></div>`;
     $("rulesContent").innerHTML = `<div class="eyebrow">比赛中随时查看</div><h2>沙漠驼队竞速 · 规则速查</h2><ol><li><strong>轮到你时选一个行动：</strong>掷骰子、拿一张赛段投注牌、放置自己的赛道板块、提交一次秘密终局预测；6人以上还可选择结盟。每项都会结束你的回合。</li><li><strong>骆驼会叠在一起：</strong>下方骆驼移动时，会带走它上面的所有骆驼；同格最上面的骆驼领先。</li><li><strong>骰子与疯狂骆驼：</strong>每赛段从5颗彩色骰和1颗灰骰中抽5颗。跑道中央五格骰盘会显示已使用骰子，第5颗放入后赛段立刻结束。灰骰让黑/白骆驼逆向移动，它们可能驮着彩色骆驼后退，但不参与名次。</li><li><strong>赛段投注：</strong>每匹骆驼有5、3、3、2、1金币牌，越早拿收益越高。赛段结束时猜中第一获得牌面金币，猜中第二获得1金币，其余扣1。</li><li><strong>财富保密：</strong>你可以看到自己的金币，但其他玩家的金币不公开。每赛段结束只匿名公布当前最高和最低财富；比赛结束后才公开所有人的金币与排名。</li><li><strong>赛道板块：</strong>放在第2–15格的空位，不能与其他板块相邻。绿洲使驼队前进1格，幻境使其后退1格；触发时板块主人获得1金币。</li><li><strong>秘密终局预测：</strong>只能在自己的回合提交且算作一次行动。每位玩家的每种颜色卡只能使用一次，可放入冠军或末名。正确预测按提交先后奖励8、5、3、2、1金币，错误扣1。</li><li><strong>结盟（6–8人）：</strong>结盟会消耗一次行动，双方本赛段内不能再与别人结盟且对方不能拒绝。赛段结算时，双方各自复制伙伴一张收益最高的赛段投注牌或金字塔牌；没有正收益可以不复制，结算后自动解除。</li><li><strong>比赛结束：</strong>任一骆驼越过第16格立刻结算，总金币最多的玩家获胜。</li></ol><p class="rules-note">这是采用原创界面与简化好友房规则的私人技术演示，不作为正式商业发行版本。</p>`;
 
     $("rollButton").onclick = () => emitAction("roll");
@@ -23,15 +37,16 @@
       const track = $("track");
       const board = track?.parentElement;
       if (!track || !board) return;
-      const destination = window.matchMedia?.("(max-width: 720px)").matches ? board : track;
+      const destination = board;
       [$("diceZone"), $("actions")].filter(Boolean).forEach((control) => destination.appendChild(control));
     }
     window.addEventListener("resize", relocateFloatingControls, { passive: true });
 
-    function renderGame(room) {
+    function renderGame(room, deferFinish=false) {
       const myId = getMyId();
       show("game");
       const game = room.game;
+      $("actions")?.classList.toggle("interaction-locked", Date.now() < interactionLockedUntil);
       const current = room.players[game.turn % room.players.length];
       const myTurn = current?.id === myId && game.status === "playing";
       const revealWealth = game.status === "finished";
@@ -80,11 +95,17 @@
         $("partnershipStatus").textContent = myPartner ? `本赛段伙伴：${myPartner.name}` : availablePartners.length ? "结盟消耗本回合行动；对方不能拒绝" : "当前没有可结盟的玩家";
       }
       if (game.status === "finished") {
-        const best = room.players.slice().sort((a, b) => b.coins - a.coins)[0];
-        $("finishBanner").classList.remove("hidden");
-        $("finishBanner").innerHTML = `${COLOR_NAMES[game.winner]}率先冲线 · <strong>${escapeHtml(best.name)}</strong> 以 ${best.coins} 金币赢得本局！${room.hostId === myId ? `<button id="restartButton" class="restart-button">再来一局 ↻</button>` : `<small>等待房主开启下一局</small>`}`;
+        const key=`${room.code}:${raceSerial}:${game.lastEvent?.id}`;
+        if(finishKey===key)return;
+        finishKey=key;finishRevealAt=Date.now()+(deferFinish?2700:0);
+        const standings = room.players.slice().sort((a, b) => b.coins - a.coins);
+        const best = standings[0];
+        const winnerTitle = best.id === myId ? "你赢得了本场比赛" : `${escapeHtml(best.name)} 赢得了本场比赛`;
+        $("finishBanner").classList.toggle("hidden",deferFinish);
+        $("finishBanner").innerHTML = `<div class="camel-victory-stage"><div class="camel-victory-burst" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="camel-victory-mark" aria-hidden="true"><span>★</span></div><p class="camel-victory-kicker">RACE COMPLETE · ${COLOR_NAMES[game.winner]}率先冲线</p><h2>${winnerTitle}</h2><p class="camel-victory-score"><strong>${best.coins}</strong><span>最终金币</span></p><ol class="camel-standings" aria-label="最终排名">${standings.map((player, index) => `<li class="${player.id === myId ? "is-me" : ""}"><b>${index + 1}</b><span>${escapeHtml(player.name)}${player.id === myId ? " · 你" : ""}</span><strong>${player.coins} <small>金币</small></strong></li>`).join("")}</ol><div class="camel-victory-actions">${room.hostId === myId ? `<button id="restartButton" class="restart-button">再开一局 <span aria-hidden="true">↻</span></button>` : `<p class="camel-waiting-host"><i></i>等待房主开启下一局</p>`}</div><small class="camel-victory-note">所有玩家的财富已公开 · 房间与邀请链接将保留</small></div>`;
         $("restartButton")?.addEventListener("click", () => socket.emit("game:restart"));
-      } else $("finishBanner").classList.add("hidden");
+        clearTimeout(finishTimer);finishTimer=setTimeout(()=>{$("finishBanner")?.classList.remove("hidden");window.TableAudio?.play(best.coins===room.players.find(p=>p.id===myId)?.coins?"victory":"defeat",{key:`camel-finish:${key}`});},Math.max(0,finishRevealAt-Date.now()));
+      } else {$("finishBanner").classList.add("hidden");finishKey=null;clearTimeout(finishTimer);}
     }
 
     function renderTrack(game, room) {
@@ -104,8 +125,7 @@
         html += `<div class="space ${space === 16 ? "finish" : ""} ${tile ? `has-track-tile ${tile.type}` : ""}" data-space="${space}" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%"><span class="space-number">${space}${space === 16 ? " · 终点" : ""}</span>${tile ? `<span class="track-tile ${tile.type}" style="--owner-color:${playerMarkerColor(ownerIndex)}" title="${escapeHtml(owner?.name || "玩家")}的${tile.type === "oasis" ? "绿洲" : "幻境"}"><b>${tile.type === "oasis" ? "+1" : "−1"}</b><em>${escapeHtml((owner?.name || "玩").slice(0, 1))}</em></span>` : ""}<div class="camel-stack">${stack.map((color, stackIndex) => camelMarkup(color, color === leader, stackIndex)).join("")}</div></div>`;
       }
       track.innerHTML = html;
-      const mobile = window.matchMedia?.("(max-width: 720px)").matches;
-      floatingControls.forEach((control) => (mobile ? track.parentElement : track).appendChild(control));
+      floatingControls.forEach((control) => track.parentElement.appendChild(control));
     }
 
     function getLeader(game) {
@@ -208,6 +228,7 @@
       }, 1880);
     }
     function showRollFeedback(event) {
+      window.TableAudio?.play("dice",{key:`camel-roll:${$("gameCode").textContent}:${raceSerial}:${event.id}`});
       const feedback = $("rollFeedback");
       if (!feedback) return;
       clearTimeout(feedbackTimer); clearTimeout(resultTimer);
@@ -221,6 +242,7 @@
       if (event.legEnd?.usedDice) renderUsedDice(event.legEnd.usedDice);
       void feedback.offsetWidth;
       feedback.classList.add("showing");
+      lockInteractions(event.legEnd ? 6700 : 2300);
       feedbackTimer = setTimeout(() => feedback.classList.remove("showing"), event.legEnd ? 2050 : 2200);
       if (event.legEnd) resultTimer = setTimeout(() => showLegWinner(event.legEnd), 2150);
     }
@@ -241,6 +263,7 @@
       setTimeout(() => announcement.classList.remove("showing"), 2900);
     }
     function showLegWinner(result) {
+      window.TableAudio?.play("money",{key:`camel-leg:${$("gameCode").textContent}:${raceSerial}:${result.leg}`});
       const feedback = $("rollFeedback");
       const winner = document.querySelector(`[data-camel="${result.first}"]`);
       if (!feedback) return;
@@ -259,16 +282,18 @@
     return {
       prepare(previousRoom) {
         const hadGame = Boolean(previousRoom?.game);
-        return { hadGame, wasLobby: Boolean(previousRoom && !previousRoom.game), previousEventId: previousRoom?.game?.lastEvent?.id ?? null, previousRects: hadGame ? captureCamelRects() : {} };
+        return { hadGame, previousStatus:previousRoom?.game?.status, wasLobby: Boolean(previousRoom && !previousRoom.game), previousEventId: previousRoom?.game?.lastEvent?.id ?? null, previousRects: hadGame ? captureCamelRects() : {} };
       },
       render(room, transition) {
-        renderGame(room);
+        const restarted=transition.previousStatus==="finished"&&room.game?.status==="playing";
+        if(restarted){raceSerial=Date.now();clearTimeout(feedbackTimer);clearTimeout(resultTimer);interactionLockedUntil=0;}
+        renderGame(room,transition.hadGame&&room.game?.lastEvent?.id!==transition.previousEventId);
         const event = room.game?.lastEvent;
         if (transition.hadGame && event?.type === "roll" && event.id !== transition.previousEventId) requestAnimationFrame(() => {
           animateCamelMove(transition.previousRects, event);
           showRollFeedback(event);
         });
-        if (transition.wasLobby && room.game) requestAnimationFrame(animateStartingPositions);
+        if ((transition.wasLobby||restarted) && room.game) requestAnimationFrame(animateStartingPositions);
       }
     };
   };

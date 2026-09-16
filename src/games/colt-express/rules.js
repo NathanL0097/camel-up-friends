@@ -23,7 +23,14 @@ function seat(game, playerId) {
 function nameOf(game, playerId) { return seat(game, playerId).name; }
 function emit(game, type, title, detail, extra = {}, duration = 5200) {
   game.eventSeq += 1;
-  game.lastEvent = { seq: game.eventSeq, type, title, detail, duration, ...extra };
+  const at = Date.now();
+  game.lastEvent = { seq: game.eventSeq, type, title, detail, duration, ...extra, at };
+  // Presentation dwell is independent of the rules result. No client is a clock authority.
+  const waiting = ["round-briefing", "planning-result", "execution-result", "round-result"].includes(game.phase);
+  const major = game.phase === "round-briefing" || game.phase === "round-result";
+  const readingMs = 1800 + [...`${title}${detail}`].length * 75;
+  game.eventDwell = waiting ? Math.min(major ? 20000 : 10000, Math.max(major ? 9000 : 4000, duration, readingMs)) : 0;
+  game.eventDeadline = waiting ? at + game.eventDwell : null;
   game.log.unshift(`${title}：${detail}`);
   game.log = game.log.slice(0, 32);
 }
@@ -159,7 +166,7 @@ function playCard(room, playerId, payload = {}) {
   game.actionStack.push(stackCard);
   player.discardPile.push(card);
   player.planningDecisionCount += 1;
-  emit(game, "card-planned", `${player.name}放入行动牌`, stackCard.isHidden ? "牌背朝上，内容暂时保密。" : `公开行动：${ACTION_NAMES[card.cardType]}。`, { playerId, stackCard: { ...stackCard, cardType: stackCard.isHidden ? null : stackCard.cardType } }, 2600);
+  emit(game, "card-planned", `${player.name}放入行动牌`, stackCard.isHidden ? "牌背朝上，内容暂时保密。" : `公开行动：${ACTION_NAMES[card.cardType]}。`, { playerId, stackCard: { id: `program-${game.round}-${game.actionStack.length-1}`, ownerId: playerId, isHidden: stackCard.isHidden, cardType: stackCard.isHidden ? null : stackCard.cardType } }, 2600);
   advancePlanning(game);
 }
 function drawCards(room, playerId) {
@@ -360,6 +367,11 @@ function acknowledge(room, playerId) {
   if (!["round-briefing", "planning-result", "execution-result", "round-result"].includes(game.phase)) throw new Error("当前没有需要确认的结果");
   if (!game.eventAcks.includes(playerId)) game.eventAcks.push(playerId);
   if (!connectedPlayerIds(room).every((id) => game.eventAcks.includes(id))) return;
+  continuePresentation(game);
+}
+function continuePresentation(game) {
+  game.eventDeadline = null;
+  game.eventDwell = 0;
   if (game.phase === "round-briefing") {
     game.eventAcks = [];
     game.pendingAfterAck = null;
@@ -384,6 +396,19 @@ function acknowledge(room, playerId) {
     game.firstPlayerIndex = (game.firstPlayerIndex + 1) % game.players.length;
     dealRound(game);
   }
+}
+function tick(room, now = Date.now()) {
+  const game = room.game;
+  if (!game || game.status !== "playing" || !["round-briefing", "planning-result", "execution-result", "round-result"].includes(game.phase)) return false;
+  // Legacy/restored states acquire one bounded deadline, never a client-dependent wait.
+  if (!Number.isFinite(game.eventDeadline)) {
+    game.eventDwell = 10000;
+    game.eventDeadline = now + game.eventDwell;
+    return true;
+  }
+  if (now < game.eventDeadline) return false;
+  continuePresentation(game);
+  return true;
 }
 function eventTargetsBySpot(game, player) { return game.players.filter((other) => other.id !== player.id && sameSpot(player, other)); }
 function applyRoundEvent(game, eventId) {
@@ -456,7 +481,7 @@ function publicRoom(room, viewerId) {
     connected: room.players.find((item) => item.id === player.id)?.connected !== false
   }));
   const actionStack = game.actionStack.map((card, index) => ({
-    id: card.id, ownerId: card.ownerId, isHidden: card.isHidden && index >= game.executionIndex,
+    id: `program-${game.round}-${index}`, ownerId: card.ownerId, isHidden: card.isHidden && index >= game.executionIndex,
     cardType: card.isHidden && index >= game.executionIndex && card.ownerId !== viewerId ? null : card.cardType,
     resolved: index < game.executionIndex, current: index === game.executionIndex && game.phase.startsWith("execut")
   }));
@@ -465,13 +490,14 @@ function publicRoom(room, viewerId) {
     code: room.code, hostId: room.hostId, settings: room.settings,
     players: room.players.map(({ token, ...player }) => ({ ...player, ...(publicPlayers.find((item) => item.id === player.id) || {}) })),
     game: {
-      status: game.status, phase: game.phase, round: game.round, roundCard: clone(game.roundCard),
+      status: game.status, startedAt: game.startedAt, phase: game.phase, round: game.round, roundCard: clone(game.roundCard),
       roundEventPreview: roundEventInfo ? { id: game.roundCard.event, ...clone(roundEventInfo) } : { id: null, name: "本轮无特殊事件", icon: "✓", detail: "本轮全部行动执行完后不会追加特殊事件，可以专注于当前行动计划。" },
       trainCars: clone(game.trainCars), marshalCarIndex: game.marshalCarIndex,
       players: publicPlayers,
       firstPlayerId: game.players[game.firstPlayerIndex].id, actorId: game.actorId, actionStack, executionIndex: game.executionIndex,
       currentAction: game.currentAction ? { ...clone(game.currentAction), ownerName: nameOf(game, game.currentAction.ownerId), name: ACTION_NAMES[game.currentAction.cardType] } : null,
       executionOptions: game.actorId === viewerId ? clone(game.executionOptions || []) : [], eventAcks: [...game.eventAcks], lastEvent: clone(game.lastEvent), log: [...game.log],
+      eventDeadline: game.eventDeadline || null, eventDwell: game.eventDwell || 0,
       planning: game.phase === "planning" ? { index: game.planningIndex, total: game.planningSteps.length, step: clone(currentPlanningStep(game)) } : null,
       you: viewer ? { id: viewer.id, hand: clone(viewer.hand), character: clone(viewer.character), lootValue: viewer.loot.reduce((sum, loot) => sum + loot.value, 0) } : null,
       winner: game.winner ? clone(game.winner) : null
@@ -486,7 +512,7 @@ const ActionStackExecutor = Object.freeze({
 });
 
 module.exports = {
-  CHARACTERS, ACTION_NAMES, EVENT_INFO, defaults, configure, createGame, publicRoom, playCard, drawCards, executeAction, acknowledge,
+  CHARACTERS, ACTION_NAMES, EVENT_INFO, defaults, configure, createGame, publicRoom, playCard, drawCards, executeAction, acknowledge, tick,
   getMoveOptions, getShootTargets, ActionStackExecutor,
   __test: { applyBelle, getPunchTargets, executionOptions, resolveCurrentAction, applyRoundEvent, dealRound, finishGame, prepareNextExecution }
 };

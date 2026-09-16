@@ -47,6 +47,8 @@
       #eldritchFiles #investigatorRail { width: 800px; left: 5px; transform: none; }
     }
   </style>
+  <link rel="stylesheet" href="/game-ui-system.css?v=20260904-2" />
+  <link rel="stylesheet" href="/product-quality.css?v=20260906-1" />
 </head>
 <body>
   <div class="sun"></div>
@@ -55,6 +57,7 @@
     <button id="installAppButton" class="ghost-button install-app-button hidden" type="button">安装到手机</button>
     <button id="adminButton" class="ghost-button admin-button hidden" type="button">管理员后台</button>
     <button id="rulesButton" class="ghost-button">玩法说明</button>
+    <div id="soundControls" class="sound-controls"><button id="soundToggle" type="button" aria-pressed="false">音效：关</button><button id="soundSettings" type="button" aria-label="声音设置">调音</button></div>
   </header>
 
   <main>
@@ -62,19 +65,19 @@
       <div class="hero-copy">
         <div class="eyebrow">多款桌游 · 实时联机 · 免注册加入</div>
         <h1>今晚，开一桌。</h1>
-        <p>选择游戏、创建好友房，把链接发给朋友。平台统一处理房间与重连，每款游戏保留自己的规则和体验。</p>
-        <div class="feature-row"><span>⚡ 实时同步</span><span>🔗 链接即进房</span><span>📱 手机可玩</span></div>
+        <p>穿过沙漠、登上列车，或在圆桌前藏好你的秘密。选一场冒险，把今晚留给朋友。</p>
+        <div class="feature-row"><span>好友专属牌桌</span><span>分享链接即入座</span><span>手机与电脑同桌</span></div>
       </div>
       <div class="entry-card paper">
         <div id="gamePicker" class="game-picker">
           <button id="gamePickerToggle" class="game-picker-toggle" type="button" aria-expanded="false">
-            <span id="selectedGameIcon" class="selected-game-icon">🐪</span>
+            <span id="selectedGameIcon" class="selected-game-icon">骆</span>
             <span><small>当前选择</small><b id="selectedGameTitle">沙漠驼队竞速</b></span>
             <em id="gamePickerHint">展开游戏库</em><i>⌄</i>
           </button>
           <div id="gameDrawer" class="game-drawer" aria-hidden="true">
             <header><div><b>选择今晚的游戏</b><small>选择后自动收起</small></div><button id="closeGameDrawer" type="button" aria-label="收起游戏库">×</button></header>
-            <div id="gameCatalog" class="game-catalog"><button class="game-choice selected" data-game-id="camel-race"><span>🐪</span><b>沙漠驼队竞速</b><small>2–8人 · 技术演示</small></button></div>
+            <div id="gameCatalog" class="game-catalog"><button class="game-choice selected" data-game-id="camel-race"><span>骆</span><b>沙漠驼队竞速</b><small>2–8人 · 技术演示</small></button></div>
           </div>
         </div>
         <div id="activationPanel" class="activation-panel">
@@ -96,7 +99,7 @@
     <section id="lobby" class="lobby hidden">
       <div class="lobby-card paper">
         <div class="eyebrow"><span id="lobbyGameTitle">好友桌游</span> · 你的好友房</div>
-        <h2>等待探险队集合</h2>
+        <h2 id="lobbyHeadline">好友入席，好戏将至</h2>
         <p>复制链接发给朋友，他们不需要注册账号。</p>
         <div class="share-box"><span id="shareUrl"></span><button id="copyButton">复制链接</button></div>
         <div class="room-code">房间码 <strong id="roomCode"></strong></div>
@@ -115,9 +118,14 @@
     <div id="rulesContent"></div>
   </dialog>
   <div id="toast" class="toast"></div>
+  <dialog id="soundDialog" aria-labelledby="soundTitle"><button id="soundClose" class="dialog-close" aria-label="关闭声音设置">×</button><h2 id="soundTitle">牌桌的声音</h2><p>仅播放按钮、骰子、卡牌和事件音效，不提供语音播报。</p><label class="sound-option"><input id="soundMute" type="checkbox" checked>全局音效静音</label><label class="sound-option" for="soundVolume">音量<input id="soundVolume" type="range" min="0" max="100" value="40"></label><button id="soundPreview" type="button">试听揭示音效</button><p class="hint">初次使用默认静音。开启后记住设置；切到其他标签时停止播放。</p></dialog>
   <script src="/socket.io/socket.io.js"></script>
+  <script src="/platform-audio.js"></script>
+  <script src="/game-art.js"></script>
+  <script src="/game-moments.js"></script>
   <script src="/games/poker-gto-trainer.js"></script>
   <script src="/pwa.js"></script>
+  <script src="/room-identities.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Original linework for this project. No commercial game artwork. -->
+  <symbol id="crown" viewBox="0 0 64 64"><path d="m12 23 9 9 11-18 11 18 9-9-5 25H17Z"/><path d="M18 42h28M22 53h20"/><circle cx="12" cy="20" r="3"/><circle cx="32" cy="11" r="3"/><circle cx="52" cy="20" r="3"/><path d="m27 36 5-7 5 7-5 4Z"/></symbol>
+  <symbol id="chalice" viewBox="0 0 64 64"><path d="M19 10h26v13c0 18-26 18-26 0ZM19 14H9v8c0 7 7 10 14 10m22-18h10v8c0 7-7 10-14 10M32 36v15m-12 4h24l-5-5H25Z"/><path d="m32 15 5 7-5 7-5-7Z"/></symbol>
+  <symbol id="sword" viewBox="0 0 64 64"><path d="m32 6-6 13 3 26h6l3-26ZM19 41l13 5 13-5M32 46v11m-5 0h10"/><path d="M13 19 8 24m43-5 5 5M11 36H5m54 0h-6"/></symbol>
+  <symbol id="eye" viewBox="0 0 64 64"><path d="M5 32s11-16 27-16 27 16 27 16-11 16-27 16S5 32 5 32Z"/><circle cx="32" cy="32" r="10"/><circle cx="32" cy="32" r="3"/><path d="M32 6v5M12 10l4 6m36-6-4 6M32 53v5"/></symbol>
+  <symbol id="seal" viewBox="0 0 64 64"><path d="m32 6 7 5 8 1 2 9 5 7-4 8v9l-9 3-9 6-8-6-10-3v-9l-4-8 5-7 2-9 8-1Z"/><circle cx="32" cy="30" r="15"/><path d="m24 29 6 6 12-12"/></symbol>
+  <symbol id="dice" viewBox="0 0 64 64"><rect x="10" y="10" width="44" height="44" rx="7"/><g fill="currentColor" stroke="none"><circle cx="22" cy="22" r="3"/><circle cx="42" cy="22" r="3"/><circle cx="32" cy="32" r="3"/><circle cx="22" cy="42" r="3"/><circle cx="42" cy="42" r="3"/></g><path d="M16 5h32M59 16v32"/></symbol>
+  <symbol id="coin" viewBox="0 0 64 64"><circle cx="32" cy="30" r="22"/><circle cx="32" cy="30" r="17"/><path d="M37 22H27v8h10v9H26m6-22v26M14 50c10 9 27 8 36-2"/></symbol>
+  <symbol id="chip" viewBox="0 0 64 64"><circle cx="32" cy="32" r="25"/><circle cx="32" cy="32" r="17"/><path d="M28 7v8m8-8v8M28 49v8m8-8v8M7 28h8m-8 8h8m34-8h8m-8 8h8m-25-12 7 8-7 8-7-8Z"/></symbol>
+  <symbol id="train" viewBox="0 0 64 64"><path d="M8 40V21h17v19m0-11h25v11H5m36-11V17h8v12M38 16h14M12 25h8v9h-8M3 55h58M53 40l7 10H4V40Z"/><circle cx="15" cy="46" r="4"/><circle cx="35" cy="46" r="4"/><circle cx="46" cy="46" r="4"/><path d="M43 10c-8 2-6-6-14-3m8 6c-9 0-9-8-17-5"/></symbol>
+  <symbol id="move" viewBox="0 0 64 64"><path d="M6 47h52M10 40h42M10 32V20h28v12H10Zm5-8h6m6 0h6m13-9 10 10-10 10m-8-10h18"/><circle cx="17" cy="35" r="3"/><circle cx="32" cy="35" r="3"/><path d="m12 47-3 7m14-7-1 7m13-7 1 7m10-7 3 7"/></symbol>
+  <symbol id="floor" viewBox="0 0 64 64"><path d="M11 24h42M11 44h42M25 12v40m14-40v40M25 18h14M25 29h14M25 39h14M25 49h14m-7-43-7 6m7-6 7 6"/></symbol>
+  <symbol id="attack" viewBox="0 0 64 64"><path d="m11 12 17 11-2-15 11 16L52 9l-7 22 14 3-17 9 9 15-21-9-14 9 4-19-15-7 17-3Z"/><circle cx="33" cy="34" r="7"/></symbol>
+  <symbol id="bag" viewBox="0 0 64 64"><path d="m23 8 6 4 6-4 7 2-5 12c17 9 22 33 2 34H24C5 55 10 32 26 22Zm1 14h16M25 27h13"/><path d="M37 35h-9v6h8v7H26m6-17v20"/></symbol>
+  <symbol id="jewel" viewBox="0 0 64 64"><path d="m7 24 11-13h28l11 13-25 32Zm0 0h50M18 11l6 13 8 32 8-32 6-13M24 24l8-13 8 13"/></symbol>
+  <symbol id="star" viewBox="0 0 64 64"><path d="m32 9 6 14 15-2-8 12 8 13-16-2-5 14-6-14-15 2 8-13-8-12 15 2Z"/><circle cx="32" cy="33" r="7"/></symbol>
+  <symbol id="candle" viewBox="0 0 64 64"><path d="M24 28h16v24H24ZM17 56h30M20 52h24M32 28v-7c-12-3-4-12 0-17 4 8 11 15 0 17M24 34c5-4 6 7 9 2s5 3 7 0"/><path d="M16 16l-5-3m37 3 5-3M12 27H6m52 0h-6"/></symbol>
+  <symbol id="scales" viewBox="0 0 64 64"><path d="M32 8v45m-12 3h24M10 20h44M32 12l4 8h-8Zm-18 8L5 38h18Zm36 0-9 18h18ZM5 38c1 13 17 13 18 0m18 0c1 13 17 13 18 0"/></symbol>
+  <symbol id="moon" viewBox="0 0 64 64"><path d="M40 7a25 25 0 1 0 18 34A24 24 0 0 1 40 7Z"/><path d="m46 15 2 5 5 2-5 2-2 5-2-5-5-2 5-2Z"/></symbol>
+  <symbol id="cat" viewBox="0 0 64 64"><path d="M21 28 17 8l13 9 13-9-1 21c13 16 9 27-7 27H17c-14 0-14-20-3-20m6-8c0 12 23 12 23 0M25 26h1m10 0h1M27 33l4 3 4-3M24 48v8m14-8v8"/></symbol>
+  <symbol id="camel" viewBox="0 0 64 64"><path d="M8 37c-7-8 2-12 5-7 1-15 10-19 16-6 6-11 14-8 15 6l5-14 8 1 3 8h-8l-4 17H14ZM16 42l-3 13m9-13 1 13m17-13-2 13m8-13 3 13M15 55h-5m16 0h-6m21 0h-6m17 0h-6"/><path d="M23 29h14v9H23Z"/></symbol>
+  <symbol id="pyramid" viewBox="0 0 64 64"><path d="M4 52 31 9l29 43ZM31 9l8 43M4 52l23-7 12 7M17 32h7m15 3h6M22 23h5M10 43h10M44 44h9"/><circle cx="49" cy="11" r="5"/></symbol>
+</svg>
